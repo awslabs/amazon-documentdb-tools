@@ -13,4 +13,4 @@
   permissions and limitations under the License.
 """
 
-from documentdb_index_tool import DocumentdbIndexTool
+from documentdb_index_tool import DocumentDbIndexTool
