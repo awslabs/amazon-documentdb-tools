@@ -463,7 +463,7 @@ class DocumentDbIndexTool(IndexToolConstants):
 
                     for k in metadata[db_name][collection_name][
                             self.INDEXES][index_name]:
-                        if k != self.INDEX_KEY:
+                        if k != self.INDEX_KEY and k != self.INDEX_VERSION:
                             # this key is an additional index option
                             index_options[k] = metadata[db_name][
                                 collection_name][self.INDEXES][index_name][k]
@@ -580,10 +580,9 @@ def main():
         help='Perform processing, but do not actually restore indexes')
 
     parser.add_argument('--dir',
-                        required=False,
+                        required=True,
                         type=str,
-                        default='.',
-                        help='dump to or restore from DIR (default: .)')
+                        help='dump to or restore from DIR')
 
     parser.add_argument('--show-compatible',
                         required=False,
@@ -642,6 +641,7 @@ def main():
         required=False,
         type=str,
         dest='auth_db',
+        default='admin',
         help='authenticate using database AUTH_DB (default: admin)')
 
     parser.add_argument('--tls',
