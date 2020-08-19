@@ -78,8 +78,9 @@ sudo yum install -y python3-pip python3 python3-setuptools mongodb-org-shell mon
 # download the code, unzip, build, use python3/pip3
 mkdir cosmosdb-migrator
 cd cosmosdb-migrator
-export GIT_REPO_URL='https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/cosmos-db-migrator/bin/cosmosdb-migrator.tgz'
-curl -OL ${GIT_REPO_URL}
+export GIT_REPO_URL='https://github.com/awslabs/amazon-documentdb-tools/blob/master/cosmos-db-migration-utility/bin/cosmosdb-migrator.tgz?raw=true'
+
+curl -L ${GIT_REPO_URL} -o cosmosdb-migrator.tgz
 tar -xvzf cosmosdb-migrator.tgz
 rm -f cosmosdb-migrator.tgz
 export BASE_DIR=$(pwd)
