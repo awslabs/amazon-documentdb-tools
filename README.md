@@ -8,11 +8,11 @@ The `DocumentDB Index Tool` makes it easier to migrate only indexes (not data) b
 
 For more information about this tool, checkout the [Amazon DocumentDB Index Tool README](./index-tool/README.md) file.
 
-## Cosmos DB Migrator
+## Cosmos DB Migration Utility
 
-The `Cosmos DB Migrator` is an application created to help live migrate the Azure Cosmos DB for MongoDB API databases to Amazon DocumentDB with very little downtime. It keeps the target Amazon DocumentDB cluster in sync with the source Microsoft Azure Cosmos DB until the client applications are cut over to the DocumentDB cluster. 
+The `Cosmos DB Migration Utility` is an application created to help live migrate the Azure Cosmos DB for MongoDB API databases to Amazon DocumentDB with very little downtime. It keeps the target Amazon DocumentDB cluster in sync with the source Microsoft Azure Cosmos DB until the client applications are cut over to the DocumentDB cluster. 
 
-For more information about the Cosmos DB Migrator tool, checkout the [Cosmos DB Migrator README](./cosmos-db-migrator/README.md) file.
+For more information about the Cosmos DB Migrator tool, checkout the [Cosmos DB Migration Utility README](./cosmos-db-migration-utility/README.md) file.
 
 ## License
 

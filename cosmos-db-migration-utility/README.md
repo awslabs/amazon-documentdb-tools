@@ -20,7 +20,7 @@ This migration approach has following steps:
 
 ## Architecture diagram
 
-![Cosmos DB Migator Application Architecture](./docs/architecture/architecture-diagram.png)
+![Cosmos DB Migration Utility Application Architecture](./docs/architecture/architecture-diagram.png)
 
 The architecture diagram in [drawio](https://drawio-app.com/) and [png](https://en.wikipedia.org/wiki/Portable_Network_Graphics) format are available in the [docs/architecture](./docs/architecture/) folder.
 
@@ -78,7 +78,7 @@ sudo yum install -y python3-pip python3 python3-setuptools mongodb-org-shell mon
 # download the code, unzip, build, use python3/pip3
 mkdir cosmosdb-migrator
 cd cosmosdb-migrator
-export GIT_REPO_URL='https://ravisawssamplecode.s3.amazonaws.com/version2/cosmosdb-migrator.tgz'
+export GIT_REPO_URL='https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/cosmos-db-migrator/bin/cosmosdb-migrator.tgz'
 curl -OL ${GIT_REPO_URL}
 tar -xvzf cosmosdb-migrator.tgz
 rm -f cosmosdb-migrator.tgz
