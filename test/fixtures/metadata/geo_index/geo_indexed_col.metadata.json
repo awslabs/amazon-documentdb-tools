@@ -1,1 +1,0 @@
-{"options":{},"indexes":[{"v":2,"key":{"_id":1},"name":"_id_","ns":"foo_db.foo_col"},{"v":2,"key":{"myloc":"2dsphere","category":-1.0,"name":1.0},"name":"myloc_2dsphere_category_-1_name_1","ns":"foo_db.foo_col","2dsphereIndexVersion":3},{"v":2,"key":{"loc2":"2d"},"name":"loc2_2d","ns":"foo_db.foo_col"}]}
