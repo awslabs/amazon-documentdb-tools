@@ -1,0 +1,152 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:  "AWS CloudFormation template for creating Amazon DocumentDB resources."
+
+Parameters:
+  vpcID:
+    Type: AWS::EC2::VPC::Id
+    Description: Select an existing Virtual Private Cloud (VPC).
+
+  subnetIDs:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Select at least two private subnets from the above VPC.
+  
+  securityGroupIDs:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Select the security groups that allow Ingress and Egress for ports the DocumentDB.
+
+  projectName:
+    Description: Enter a name for the migration project. It is used as project tag for all the resources used during the migration.
+    Default: docdb-poc
+    Type: String
+    MinLength: "1"
+    MaxLength: "64"
+    AllowedPattern : "[a-zA-Z][a-zA-Z0-9]*(-[a-zA-Z0-9]+)*"
+    ConstraintDescription : "Must begin with a letter and contain only alphanumeric characters."
+
+  DBMasterUser:
+    Description : "Enter a username for account with administrator role"
+    Default: "dbmaster"
+    Type: "String"
+    MinLength: "1"
+    MaxLength: "16"
+    AllowedPattern: "[a-zA-Z][a-zA-Z0-9]*"
+    ConstraintDescription : "Must begin with a letter and contain only alphanumeric characters."
+
+  DBMasterPassword:
+    NoEcho: "true"
+    Default: "a11b22c33"
+    Description : "Enter the password for the database administrator account password. Please do not change the password until the migration/cutover process is completed."
+    Type: "String"
+    MinLength: "1"
+    MaxLength: "41"
+    AllowedPattern : "[a-zA-Z0-9]+"
+    ConstraintDescription : "Must contain only alphanumeric characters."
+
+  DocumentDBInstanceClass:
+    Default: "db.r4.large"
+    Description : "Select the Amazon DocumentDB instance class type. Please refer to: https://amzn.to/3dsRhR8"
+    Type: "String"
+    AllowedValues:
+      - db.r4.large
+      - db.r4.xlarge
+      - db.r4.2xlarge
+      - db.r4.4xlarge
+      - db.r4.8xlarge
+      - db.r4.16xlarge
+      - db.r5.large
+      - db.r5.xlarge
+      - db.r5.2xlarge
+      - db.r5.4xlarge
+      - db.r5.12xlarge
+      - db.r5.24xlarge                             
+    ConstraintDescription : "Selected instance type must supported in the region."  
+
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: "Network Configurations"
+        Parameters: 
+          - vpcID
+          - subnetIDs
+      - Label: 
+          default: "Amazon DocumentDB Configurations"
+        Parameters: 
+          - DocumentDBInstanceClass
+          - DBMasterUser
+          - DBMasterPassword
+    ParameterLabels: 
+      vpcID: 
+        default: "Virual Private Cloud"
+      subnetIDs: 
+        default: "Private Subnets"
+      DBMasterUser: 
+        default: "Administrator Username"
+      DBMasterPassword:
+        default: "Administrator Password"
+      DocumentDBInstanceClass: 
+        default: "Instance Type"
+
+Resources:
+
+  # DocumentDB Cluster + Instances
+  documentDBSubnetGroup: 
+    Type: "AWS::DocDB::DBSubnetGroup"
+    Properties: 
+        DBSubnetGroupDescription: "SubnetGroup for the Amazon DocumentDB database"
+        SubnetIds: !Ref subnetIDs
+        Tags:
+          - Key: Project
+            Value: !Ref projectName
+
+  documentDBCluster:
+    Type: "AWS::DocDB::DBCluster"
+    DeletionPolicy: Delete
+    Properties:
+      DBClusterIdentifier: !Sub '${projectName}-cluster'
+      DBSubnetGroupName: !Ref documentDBSubnetGroup
+      MasterUsername: !Ref DBMasterUser
+      MasterUserPassword: !Ref DBMasterPassword
+      VpcSecurityGroupIds: !Ref securityGroupIDs
+      Tags:
+        - Key: Project
+          Value: !Ref projectName
+    DependsOn: documentDBSubnetGroup
+
+  documentDBInstance:
+    Type: "AWS::DocDB::DBInstance"
+    Properties:
+      DBClusterIdentifier: !Ref documentDBCluster
+      DBInstanceIdentifier: !Sub '${projectName}-instance'
+      DBInstanceClass: !Ref DocumentDBInstanceClass
+      Tags:
+        - Key: Project
+          Value: !Ref projectName
+    DependsOn: documentDBCluster
+
+Outputs:
+  outProjectName:
+    Value: !Ref projectName
+    Description: Config - The migration project name.
+  outVPCID:
+    Value: !Ref vpcID
+    Description: VPC - vpcID
+  outSubnetIDs:
+    Description: Private Subnet IDs
+    Value: !Join [ ":", !Ref subnetIDs ]
+  outSecurityGroupIDs:
+    Description: Security Groups
+    Value: !Join [ ":", !Ref securityGroupIDs ]
+  outDocumentDBClusterId:
+    Value: !Ref documentDBCluster
+    Description: DocumentDB - ClusterID.
+  outDocumentDBClusterEndpoint:
+    Value: !GetAtt documentDBCluster.Endpoint
+    Description: DocumentDB - Cluster Endpoint.
+  outDocumentDBClusterReadEndpoint:
+    Value: !GetAtt documentDBCluster.ReadEndpoint
+    Description: DocumentDB - Cluster Read Endpoint.
+  outDocumentDBClusterPort:
+    Value: !GetAtt documentDBCluster.Port
+    Description: DocumentDB - Cluster Port.
