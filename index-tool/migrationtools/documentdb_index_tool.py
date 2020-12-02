@@ -355,7 +355,7 @@ class DocumentDbIndexTool(IndexToolConstants):
 
                 if self.OPTIONS in collection_metadata:
                     for option_key in collection_metadata[self.OPTIONS]:
-                        if option_key in DocumentDbUnsupportedFeatures.UNSUPPORTED_COLLECTION_OPTIONS:
+                        if option_key in DocumentDbUnsupportedFeatures.UNSUPPORTED_COLLECTION_OPTIONS and collection_metadata[self.OPTIONS][option_key] is True:
                             if self.UNSUPPORTED_COLLECTION_OPTIONS_KEY not in compatibility_issues[
                                     db_name][collection_name]:
                                 compatibility_issues[db_name][collection_name][
