@@ -473,7 +473,8 @@ class DocumentDbIndexTool(IndexToolConstants):
                         logging.info(
                             "(dry run) %s.%s: would attempt to add index: %s",
                             db_name, collection_name, index_name)
-
+                        logging.info("(dry run) %s.%s.%s index options: %s",
+                            db_name, collection_name, index_name, index_options)
                     else:
                         logging.debug("Adding index %s -> %s", keys_to_create,
                                       index_options)
