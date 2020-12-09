@@ -453,6 +453,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     keys_to_create = []
                     index_options = {}
 
+                    index_options[self.INDEX_NAME] = index_name
                     for key in index_keys:
                         index_direction = index_keys[key]
 
@@ -641,7 +642,6 @@ def main():
         required=False,
         type=str,
         dest='auth_db',
-        default='admin',
         help='authenticate using database AUTH_DB (default: admin)')
 
     parser.add_argument('--tls',
@@ -677,6 +677,9 @@ def main():
 
     if args.auth_db is not None and not all([args.username, args.password]):
         parser.error("--auth-db requires both --username and --password.")
+
+    if args.auth_db is not None and args.username is not None:
+        args.auth_db = 'admin'
 
     indextool = DocumentDbIndexTool(args)
     indextool.run()
