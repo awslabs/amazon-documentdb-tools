@@ -679,7 +679,7 @@ def main():
     if args.auth_db is not None and not all([args.username, args.password]):
         parser.error("--auth-db requires both --username and --password.")
 
-    if args.auth_db is not None and args.username is not None:
+    if args.auth_db is None and args.username is not None:
         args.auth_db = 'admin'
 
     indextool = DocumentDbIndexTool(args)
