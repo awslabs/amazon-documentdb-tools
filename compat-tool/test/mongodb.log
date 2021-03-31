@@ -1,0 +1,102 @@
+2020-11-10T15:28:45.515+0000 I  CONTROL  [main] Automatically disabling TLS 1.0, to force-enable TLS 1.0 specify --sslDisabledProtocols 'none'
+2020-11-10T15:28:45.519+0000 W  ASIO     [main] No TransportLayer configured during NetworkInterface startup
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten] MongoDB starting : pid=786 port=27017 dbpath=/data/db 64-bit host=ip-172-31-20-3
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten] db version v4.2.8
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten] git version: 43d25964249164d76d5e04dd6cf38f6111e21f5f
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten] OpenSSL version: OpenSSL 1.1.1  11 Sep 2018
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten] allocator: tcmalloc
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten] modules: none
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten] build environment:
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten]     distmod: ubuntu1804
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten]     distarch: x86_64
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten]     target_arch: x86_64
+2020-11-10T15:28:45.519+0000 I  CONTROL  [initandlisten] options: { systemLog: { destination: "file", path: "/var/log/mongodb/mongodb.log" } }
+2020-11-10T15:28:45.519+0000 I  STORAGE  [initandlisten] Detected data files in /data/db created by the 'wiredTiger' storage engine, so setting the active storage engine to 'wiredTiger'.
+2020-11-10T15:28:45.520+0000 I  STORAGE  [initandlisten] 
+2020-11-10T15:28:45.520+0000 I  STORAGE  [initandlisten] ** WARNING: Using the XFS filesystem is strongly recommended with the WiredTiger storage engine
+2020-11-10T15:28:45.520+0000 I  STORAGE  [initandlisten] **          See http://dochub.mongodb.org/core/prodnotes-filesystem
+2020-11-10T15:28:45.520+0000 I  STORAGE  [initandlisten] wiredtiger_open config: create,cache_size=15257M,cache_overflow=(file_max=0M),session_max=33000,eviction=(threads_min=4,threads_max=4),config_base=false,statistics=(fast),log=(enabled=true,archive=true,path=journal,compressor=snappy),file_manager=(close_idle_time=100000,close_scan_interval=10,close_handle_minimum=250),statistics_log=(wait=0),verbose=[recovery_progress,checkpoint_progress],
+2020-11-10T15:28:46.491+0000 I  STORAGE  [initandlisten] WiredTiger message [1605022126:491876][786:0x7f775a2bfb00], txn-recover: Recovering log 3 through 4
+2020-11-10T15:28:46.535+0000 I  STORAGE  [initandlisten] WiredTiger message [1605022126:535445][786:0x7f775a2bfb00], txn-recover: Recovering log 4 through 4
+2020-11-10T15:28:46.591+0000 I  STORAGE  [initandlisten] WiredTiger message [1605022126:591934][786:0x7f775a2bfb00], txn-recover: Main recovery loop: starting at 3/17664 to 4/256
+2020-11-10T15:28:46.674+0000 I  STORAGE  [initandlisten] WiredTiger message [1605022126:674780][786:0x7f775a2bfb00], txn-recover: Recovering log 3 through 4
+2020-11-10T15:28:46.725+0000 I  STORAGE  [initandlisten] WiredTiger message [1605022126:725228][786:0x7f775a2bfb00], txn-recover: Recovering log 4 through 4
+2020-11-10T15:28:46.765+0000 I  STORAGE  [initandlisten] WiredTiger message [1605022126:765203][786:0x7f775a2bfb00], txn-recover: Set global recovery timestamp: (0, 0)
+2020-11-10T15:28:46.777+0000 I  RECOVERY [initandlisten] WiredTiger recoveryTimestamp. Ts: Timestamp(0, 0)
+2020-11-10T15:28:46.782+0000 I  STORAGE  [initandlisten] Timestamp monitor starting
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] 
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] ** WARNING: Access control is not enabled for the database.
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] **          Read and write access to data and configuration is unrestricted.
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] 
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] ** WARNING: This server is bound to localhost.
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] **          Remote systems will be unable to connect to this server. 
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] **          Start the server with --bind_ip <address> to specify which IP 
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] **          addresses it should serve responses from, or with --bind_ip_all to
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] **          bind to all interfaces. If this behavior is desired, start the
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] **          server with --bind_ip 127.0.0.1 to disable this warning.
+2020-11-10T15:28:46.784+0000 I  CONTROL  [initandlisten] 
+2020-11-10T15:28:46.787+0000 I  SHARDING [initandlisten] Marking collection local.system.replset as collection version: <unsharded>
+2020-11-10T15:28:46.789+0000 I  STORAGE  [initandlisten] Flow Control is enabled on this deployment.
+2020-11-10T15:28:46.789+0000 I  SHARDING [initandlisten] Marking collection admin.system.roles as collection version: <unsharded>
+2020-11-10T15:28:46.789+0000 I  SHARDING [initandlisten] Marking collection admin.system.version as collection version: <unsharded>
+2020-11-10T15:28:46.790+0000 I  SHARDING [initandlisten] Marking collection local.startup_log as collection version: <unsharded>
+2020-11-10T15:28:46.790+0000 I  FTDC     [initandlisten] Initializing full-time diagnostic data capture with directory '/data/db/diagnostic.data'
+2020-11-10T15:28:46.792+0000 I  SHARDING [LogicalSessionCacheRefresh] Marking collection config.system.sessions as collection version: <unsharded>
+2020-11-10T15:28:46.792+0000 I  SHARDING [LogicalSessionCacheReap] Marking collection config.transactions as collection version: <unsharded>
+2020-11-10T15:28:46.793+0000 I  NETWORK  [listener] Listening on /tmp/mongodb-27017.sock
+2020-11-10T15:28:46.793+0000 I  NETWORK  [listener] Listening on 127.0.0.1
+2020-11-10T15:28:46.793+0000 I  NETWORK  [listener] waiting for connections on port 27017
+2020-11-10T15:28:47.000+0000 I  SHARDING [ftdc] Marking collection local.oplog.rs as collection version: <unsharded>
+2020-11-10T15:28:53.404+0000 I  NETWORK  [listener] connection accepted from 127.0.0.1:50762 #1 (1 connection now open)
+2020-11-10T15:28:53.404+0000 I  NETWORK  [conn1] received client metadata from 127.0.0.1:50762 conn1: { application: { name: "MongoDB Shell" }, driver: { name: "MongoDB Internal Client", version: "4.2.8" }, os: { type: "Linux", name: "Ubuntu", architecture: "x86_64", version: "18.04" } }
+2020-11-10T15:29:23.183+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: profile { profile: 0.0, slowms: -1.0, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } numYields:0 reslen:79 locks:{ ParallelBatchWriterMode: { acquireCount: { r: 1 } }, ReplicationStateTransition: { acquireCount: { w: 1 } }, Global: { acquireCount: { w: 1 } }, Database: { acquireCount: { W: 1 } }, Mutex: { acquireCount: { r: 1 } } } flowControl:{ acquireCount: 1 } protocol:op_msg 0ms
+2020-11-10T15:29:23.184+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:29:27.861+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: profile { profile: -1.0, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } numYields:0 reslen:79 locks:{ ParallelBatchWriterMode: { acquireCount: { r: 1 } }, ReplicationStateTransition: { acquireCount: { w: 1 } }, Global: { acquireCount: { r: 1 } }, Database: { acquireCount: { R: 1 } }, Mutex: { acquireCount: { r: 1 } } } protocol:op_msg 0ms
+2020-11-10T15:29:27.861+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:29:50.993+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:29:56.845+0000 I  COMMAND  [conn1] CMD: drop test.testn
+2020-11-10T15:29:56.845+0000 I  STORAGE  [conn1] Finishing collection drop for test.testn (adef083d-4c41-4f10-87f3-e7e2937b9165).
+2020-11-10T15:29:56.847+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: drop { drop: "testn", lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } numYields:0 reslen:74 locks:{ ParallelBatchWriterMode: { acquireCount: { r: 1 } }, ReplicationStateTransition: { acquireCount: { w: 1 } }, Global: { acquireCount: { w: 1 } }, Database: { acquireCount: { w: 1 } }, Collection: { acquireCount: { W: 1 } }, Mutex: { acquireCount: { r: 1 } } } flowControl:{ acquireCount: 1 } storage:{} protocol:op_msg 1ms
+2020-11-10T15:29:56.848+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:01.714+0000 I  SHARDING [conn1] Marking collection test.testn as collection version: <unsharded>
+2020-11-10T15:30:01.714+0000 I  STORAGE  [conn1] createCollection: test.testn with generated UUID: 45d1bb0a-a02a-4d3f-b089-dc2db68973b9 and options: {}
+2020-11-10T15:30:01.726+0000 I  INDEX    [conn1] index build: done building index _id_ on ns test.testn
+2020-11-10T15:30:01.726+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: insert { insert: "testn", ordered: true, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } ninserted:1 keysInserted:1 numYields:0 reslen:45 locks:{ ParallelBatchWriterMode: { acquireCount: { r: 3 } }, ReplicationStateTransition: { acquireCount: { w: 3 } }, Global: { acquireCount: { w: 3 } }, Database: { acquireCount: { w: 3 } }, Collection: { acquireCount: { r: 2, w: 2, W: 1 } }, Mutex: { acquireCount: { r: 5 } } } flowControl:{ acquireCount: 3 } storage:{} protocol:op_msg 11ms
+2020-11-10T15:30:01.727+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:06.600+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: insert { insert: "testn", ordered: true, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } ninserted:1 keysInserted:1 numYields:0 reslen:45 locks:{ ParallelBatchWriterMode: { acquireCount: { r: 1 } }, ReplicationStateTransition: { acquireCount: { w: 1 } }, Global: { acquireCount: { w: 1 } }, Database: { acquireCount: { w: 1 } }, Collection: { acquireCount: { w: 1 } }, Mutex: { acquireCount: { r: 2 } } } flowControl:{ acquireCount: 1 } storage:{} protocol:op_msg 0ms
+2020-11-10T15:30:06.601+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:11.308+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:17.907+0000 I  WRITE    [conn1] update test.testn appName: "MongoDB Shell" command: { q: { a: "three" }, u: { $set: { a: "two" } }, multi: false, upsert: false } planSummary: COLLSCAN keysExamined:0 docsExamined:2 nMatched:1 nModified:1 numYields:0 queryHash:4B53BE76 planCacheKey:4B53BE76 locks:{ ParallelBatchWriterMode: { acquireCount: { r: 1 } }, ReplicationStateTransition: { acquireCount: { w: 1 } }, Global: { acquireCount: { w: 1 } }, Database: { acquireCount: { w: 1 } }, Collection: { acquireCount: { w: 1 } }, Mutex: { acquireCount: { r: 2 } } } flowControl:{ acquireCount: 1 } storage:{} 0ms
+2020-11-10T15:30:17.907+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: update { update: "testn", ordered: true, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } numYields:0 reslen:60 locks:{ ParallelBatchWriterMode: { acquireCount: { r: 2 } }, ReplicationStateTransition: { acquireCount: { w: 2 } }, Global: { acquireCount: { r: 1, w: 1 } }, Database: { acquireCount: { w: 1 } }, Collection: { acquireCount: { w: 1 } }, Mutex: { acquireCount: { r: 2 } } } flowControl:{ acquireCount: 1 } storage:{} protocol:op_msg 0ms
+2020-11-10T15:30:17.908+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:25.310+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: insert { insert: "testn", ordered: true, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } ninserted:1 keysInserted:1 numYields:0 reslen:45 locks:{ ParallelBatchWriterMode: { acquireCount: { r: 1 } }, ReplicationStateTransition: { acquireCount: { w: 1 } }, Global: { acquireCount: { w: 1 } }, Database: { acquireCount: { w: 1 } }, Collection: { acquireCount: { w: 1 } }, Mutex: { acquireCount: { r: 2 } } } flowControl:{ acquireCount: 1 } storage:{} protocol:op_msg 0ms
+2020-11-10T15:30:25.311+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:30.968+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: find { find: "testn", filter: {}, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } planSummary: COLLSCAN keysExamined:0 docsExamined:3 cursorExhausted:1 numYields:0 nreturned:3 reslen:275 locks:{ ReplicationStateTransition: { acquireCount: { w: 1 } }, Global: { acquireCount: { r: 1 } }, Database: { acquireCount: { r: 1 } }, Collection: { acquireCount: { r: 1 } }, Mutex: { acquireCount: { r: 1 } } } storage:{} protocol:op_msg 0ms
+2020-11-10T15:30:30.969+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:36.981+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: find { find: "testn", filter: { b: { $gt: 100.0 } }, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } planSummary: COLLSCAN keysExamined:0 docsExamined:3 cursorExhausted:1 numYields:0 nreturned:2 queryHash:9260E4C9 planCacheKey:9260E4C9 reslen:217 locks:{ ReplicationStateTransition: { acquireCount: { w: 1 } }, Global: { acquireCount: { r: 1 } }, Database: { acquireCount: { r: 1 } }, Collection: { acquireCount: { r: 1 } }, Mutex: { acquireCount: { r: 1 } } } storage:{} protocol:op_msg 0ms
+2020-11-10T15:30:36.981+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:43.796+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: aggregate { aggregate: "testn", pipeline: [ { $match: { b: { $gte: 200.0 } } }, { $group: { _id: "b", sum: { $sum: "$c" } } } ], cursor: {}, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } planSummary: COLLSCAN keysExamined:0 docsExamined:3 cursorExhausted:1 numYields:0 nreturned:1 queryHash:0E87FD37 planCacheKey:0E87FD37 reslen:131 locks:{ ReplicationStateTransition: { acquireCount: { w: 2 } }, Global: { acquireCount: { r: 2 } }, Database: { acquireCount: { r: 2 } }, Collection: { acquireCount: { r: 2 } }, Mutex: { acquireCount: { r: 2 } } } storage:{} protocol:op_msg 0ms
+2020-11-10T15:30:43.797+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:51.566+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: aggregate { aggregate: "testn", pipeline: [ { $facet: { xxx: [ { $bucket: { groupBy: "$b", boundaries: [ 0.0, 1000.0 ] } } ] } } ], cursor: {}, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } planSummary: COLLSCAN keysExamined:0 docsExamined:3 cursorExhausted:1 numYields:0 nreturned:1 reslen:149 locks:{ ReplicationStateTransition: { acquireCount: { w: 2 } }, Global: { acquireCount: { r: 2 } }, Database: { acquireCount: { r: 2 } }, Collection: { acquireCount: { r: 2 } }, Mutex: { acquireCount: { r: 2 } } } storage:{} protocol:op_msg 0ms
+2020-11-10T15:30:51.567+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:30:58.565+0000 I  COMMAND  [conn1] command test.testn appName: "MongoDB Shell" command: aggregate { aggregate: "testn", pipeline: [ { $facet: { xxx: [ { $bucketAuto: { groupBy: "$b", buckets: 4.0 } } ] } } ], cursor: {}, lsid: { id: UUID("1eaa70bc-041d-4fe1-8268-f0647eef17a8") }, $db: "test" } planSummary: COLLSCAN keysExamined:0 docsExamined:3 cursorExhausted:1 numYields:0 nreturned:1 reslen:282 locks:{ ReplicationStateTransition: { acquireCount: { w: 2 } }, Global: { acquireCount: { r: 2 } }, Database: { acquireCount: { r: 2 } }, Collection: { acquireCount: { r: 2 } }, Mutex: { acquireCount: { r: 2 } } } storage:{} protocol:op_msg 0ms
+2020-11-10T15:30:58.566+0000 I  COMMAND  [conn1] command test.$cmd appName: "MongoDB Shell" command: isMaster { isMaster: 1.0, forShell: 1.0, $db: "test" } numYields:0 reslen:242 locks:{} protocol:op_msg 0ms
+2020-11-10T15:31:08.771+0000 I  NETWORK  [conn1] end connection 127.0.0.1:50762 (0 connections now open)
+2020-11-10T15:31:12.036+0000 I  CONTROL  [signalProcessingThread] got signal 2 (Interrupt), will terminate after current cmd ends
+2020-11-10T15:31:12.036+0000 I  NETWORK  [signalProcessingThread] shutdown: going to close listening sockets...
+2020-11-10T15:31:12.037+0000 I  NETWORK  [listener] removing socket file: /tmp/mongodb-27017.sock
+2020-11-10T15:31:12.037+0000 I  -        [signalProcessingThread] Stopping further Flow Control ticket acquisitions.
+2020-11-10T15:31:12.037+0000 I  CONTROL  [signalProcessingThread] Shutting down free monitoring
+2020-11-10T15:31:12.037+0000 I  FTDC     [signalProcessingThread] Shutting down full-time diagnostic data capture
+2020-11-10T15:31:12.040+0000 I  STORAGE  [signalProcessingThread] Deregistering all the collections
+2020-11-10T15:31:12.040+0000 I  STORAGE  [signalProcessingThread] Timestamp monitor shutting down
+2020-11-10T15:31:12.040+0000 I  STORAGE  [signalProcessingThread] WiredTigerKVEngine shutting down
+2020-11-10T15:31:12.040+0000 I  STORAGE  [signalProcessingThread] Shutting down session sweeper thread
+2020-11-10T15:31:12.040+0000 I  STORAGE  [signalProcessingThread] Finished shutting down session sweeper thread
+2020-11-10T15:31:12.040+0000 I  STORAGE  [signalProcessingThread] Shutting down journal flusher thread
+2020-11-10T15:31:12.097+0000 I  STORAGE  [signalProcessingThread] Finished shutting down journal flusher thread
+2020-11-10T15:31:12.097+0000 I  STORAGE  [signalProcessingThread] Shutting down checkpoint thread
+2020-11-10T15:31:12.097+0000 I  STORAGE  [signalProcessingThread] Finished shutting down checkpoint thread
+2020-11-10T15:31:12.111+0000 I  STORAGE  [signalProcessingThread] shutdown: removing fs lock...
+2020-11-10T15:31:12.111+0000 I  CONTROL  [signalProcessingThread] now exiting
+2020-11-10T15:31:12.111+0000 I  CONTROL  [signalProcessingThread] shutting down with code:0

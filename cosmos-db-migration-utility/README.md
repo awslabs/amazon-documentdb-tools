@@ -1,4 +1,4 @@
-# Live migrate Azure Cosmos DB for MongoDB API to Amazon DocumentDB
+# Migrate Azure Cosmos DB for MongoDB API to Amazon DocumentDB with no downtime
 
 The Amazon DocumentDB (with MongoDB compatibility) is a fully managed database service that is compatible with the MongoDB API. You can migrate your data to [Amazon DocumentDB](https://docs.aws.amazon.com/documentdb/latest/developerguide/what-is.html) from [Azure Cosmos DB for MongoDB API](https://docs.microsoft.com/en-us/azure/cosmos-db/introduction) databases running on [Microsoft Azure cloud services](https://docs.microsoft.com/en-us/azure/) using the process detailed in this section. 
 

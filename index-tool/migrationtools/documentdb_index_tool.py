@@ -355,7 +355,7 @@ class DocumentDbIndexTool(IndexToolConstants):
 
                 if self.OPTIONS in collection_metadata:
                     for option_key in collection_metadata[self.OPTIONS]:
-                        if option_key in DocumentDbUnsupportedFeatures.UNSUPPORTED_COLLECTION_OPTIONS:
+                        if option_key in DocumentDbUnsupportedFeatures.UNSUPPORTED_COLLECTION_OPTIONS and collection_metadata[self.OPTIONS][option_key] is True:
                             if self.UNSUPPORTED_COLLECTION_OPTIONS_KEY not in compatibility_issues[
                                     db_name][collection_name]:
                                 compatibility_issues[db_name][collection_name][
@@ -453,6 +453,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     keys_to_create = []
                     index_options = {}
 
+                    index_options[self.INDEX_NAME] = index_name
                     for key in index_keys:
                         index_direction = index_keys[key]
 
@@ -472,7 +473,8 @@ class DocumentDbIndexTool(IndexToolConstants):
                         logging.info(
                             "(dry run) %s.%s: would attempt to add index: %s",
                             db_name, collection_name, index_name)
-
+                        logging.info("(dry run) %s.%s.%s index options: %s",
+                            db_name, collection_name, index_name, index_options)
                     else:
                         logging.debug("Adding index %s -> %s", keys_to_create,
                                       index_options)
@@ -641,7 +643,6 @@ def main():
         required=False,
         type=str,
         dest='auth_db',
-        default='admin',
         help='authenticate using database AUTH_DB (default: admin)')
 
     parser.add_argument('--tls',
@@ -677,6 +678,9 @@ def main():
 
     if args.auth_db is not None and not all([args.username, args.password]):
         parser.error("--auth-db requires both --username and --password.")
+
+    if args.auth_db is None and args.username is not None:
+        args.auth_db = 'admin'
 
     indextool = DocumentDbIndexTool(args)
     indextool.run()
