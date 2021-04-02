@@ -459,6 +459,8 @@ class DocumentDbIndexTool(IndexToolConstants):
 
                         if type(index_direction) is float:
                             index_direction = int(index_direction)
+                        elif type(index_direction) is dict and '$numberInt' in index_direction:
+                            index_direction = int(index_direction['$numberInt'])
 
                         keys_to_create.append((key, index_direction))
 
@@ -473,8 +475,8 @@ class DocumentDbIndexTool(IndexToolConstants):
                         logging.info(
                             "(dry run) %s.%s: would attempt to add index: %s",
                             db_name, collection_name, index_name)
-                        logging.info("(dry run) %s.%s.%s index options: %s",
-                            db_name, collection_name, index_name, index_options)
+                        logging.info("  (dry run) index options: %s", index_options)
+                        logging.info("  (dry run) index keys: %s", keys_to_create)
                     else:
                         logging.debug("Adding index %s -> %s", keys_to_create,
                                       index_options)
