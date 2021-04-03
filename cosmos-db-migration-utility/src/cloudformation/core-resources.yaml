@@ -192,12 +192,13 @@ Resources:
           FromPort: 27017
           ToPort: 27017
           CidrIp: !GetAtt VpcInfo.CidrBlock
-          Description: Allow DocumentDB port from VPC Cidr
+          Description: Allow DocumentDB port ingress from VPC Cidr
       SecurityGroupEgress:
         - IpProtocol: tcp
-          FromPort: 0
-          ToPort: 65535
-          CidrIp: 0.0.0.0/0
+          FromPort: 27017
+          ToPort: 27017
+          CidrIp: !GetAtt VpcInfo.CidrBlock
+          Description: Allow DocumentDB port egress from VPC Cidr
 
   # create lambda role
   iamLambdaMigratorRole:
@@ -249,6 +250,11 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration
@@ -266,6 +272,11 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration
@@ -287,6 +298,11 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 20
         WriteCapacityUnits: 20
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration
@@ -308,6 +324,11 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 20
         WriteCapacityUnits: 20
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration
@@ -329,6 +350,11 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration
@@ -346,6 +372,11 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 5
         WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration
@@ -356,6 +387,7 @@ Resources:
     Properties: 
       VisibilityTimeout: 30
       QueueName: app-request-queue
+      KmsMasterKeyId: 'alias/aws/sqs'
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration
@@ -365,6 +397,7 @@ Resources:
     Properties: 
       VisibilityTimeout: 180
       QueueName: gap-watch-request-queue
+      KmsMasterKeyId: 'alias/aws/sqs'
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration
@@ -374,6 +407,7 @@ Resources:
     Properties: 
       VisibilityTimeout: 180
       QueueName: read-batch-request-queue
+      KmsMasterKeyId: 'alias/aws/sqs'
       Tags:
         - Key: Purpose
           Value: DocumentDB Migration

@@ -35,7 +35,6 @@ Parameters:
 
   DBMasterPassword:
     NoEcho: "true"
-    Default: "a11b22c33"
     Description : "Enter the password for the database administrator account password. Please do not change the password until the migration/cutover process is completed."
     Type: "String"
     MinLength: "1"
