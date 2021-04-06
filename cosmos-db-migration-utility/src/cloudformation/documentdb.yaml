@@ -35,7 +35,6 @@ Parameters:
 
   DBMasterPassword:
     NoEcho: "true"
-    Default: "a11b22c33"
     Description : "Enter the password for the database administrator account password. Please do not change the password until the migration/cutover process is completed."
     Type: "String"
     MinLength: "1"
@@ -48,6 +47,7 @@ Parameters:
     Description : "Select the Amazon DocumentDB instance class type. Please refer to: https://amzn.to/3dsRhR8"
     Type: "String"
     AllowedValues:
+      - db.t3.medium
       - db.r4.large
       - db.r4.xlarge
       - db.r4.2xlarge
@@ -114,11 +114,33 @@ Resources:
           Value: !Ref projectName
     DependsOn: documentDBSubnetGroup
 
-  documentDBInstance:
+  documentDBInstance1:
     Type: "AWS::DocDB::DBInstance"
     Properties:
       DBClusterIdentifier: !Ref documentDBCluster
-      DBInstanceIdentifier: !Sub '${projectName}-instance'
+      DBInstanceIdentifier: !Sub '${projectName}-instance-01'
+      DBInstanceClass: !Ref DocumentDBInstanceClass
+      Tags:
+        - Key: Project
+          Value: !Ref projectName
+    DependsOn: documentDBCluster
+
+  documentDBInstance2:
+    Type: "AWS::DocDB::DBInstance"
+    Properties:
+      DBClusterIdentifier: !Ref documentDBCluster
+      DBInstanceIdentifier: !Sub '${projectName}-instance-02'
+      DBInstanceClass: !Ref DocumentDBInstanceClass
+      Tags:
+        - Key: Project
+          Value: !Ref projectName
+    DependsOn: documentDBCluster
+
+  documentDBInstance3:
+    Type: "AWS::DocDB::DBInstance"
+    Properties:
+      DBClusterIdentifier: !Ref documentDBCluster
+      DBInstanceIdentifier: !Sub '${projectName}-instance-03'
       DBInstanceClass: !Ref DocumentDBInstanceClass
       Tags:
         - Key: Project
