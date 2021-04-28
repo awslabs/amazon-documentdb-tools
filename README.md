@@ -4,7 +4,7 @@ This repo contains tools to make migrating to Amazon DocumentDB (with MongoDB co
 
 ## Amazon DocumentDB Index Tool 
 
-The `DocumentDB Index Tool` makes it easier to migrate only indexes (not data) between a source MongoDB deployment and a Amazon DocumentDB cluster. The Index Tool can also help you find potential compatibility issues between your source databases and Amazon DocumentDB. You can use the Index Tool to dump indexes and database metadata, or you can use the tool against an existing dump created with the mongodump tool.
+The `DocumentDB Index Tool` makes it easier to migrate only indexes (not data) between a source MongoDB deployment and an Amazon DocumentDB cluster. The Index Tool can also help you find potential compatibility issues between your source databases and Amazon DocumentDB. You can use the Index Tool to dump indexes and database metadata, or you can use the tool against an existing dump created with the mongodump tool.
 
 For more information about this tool, checkout the [Amazon DocumentDB Index Tool README](./index-tool/README.md) file.
 
