@@ -1,9 +1,9 @@
 # Amazon DocumentDB Compatibility Tool
-This compatibility tool will examine log files from MongoDB
+This compatibility tool examines log files from MongoDB
 to determine if there are any queries which use operators that
-are not supported in Amzon DocumentDB. This tool will produce a
-simple report of use of unsupported operators, as well as saving
-all log lines that were not supported being saved to an output
+are not supported in Amazon DocumentDB. This tool produces a
+simple report of use of unsupported operators and saves
+all log lines that were not supported to an output
 file for further investigation.
 
 ## Installation
