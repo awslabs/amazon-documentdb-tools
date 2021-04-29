@@ -1,0 +1,595 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:  "AWS CloudFormation template for creating Microsoft Azure Cosmos DB to Amazon DocumentDB migration application resources. The template creates all the required resources in Amazon DocumentDB, DynamoDB, SQS, Lambda, and S3."
+
+Parameters:
+  vpcID:
+    Type: AWS::EC2::VPC::Id
+    Description: Select an existing Virtual Private Cloud (VPC).
+
+  subnetIDs:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Select at least two private subnets from the above VPC.
+
+  s3BucketLambdaFiles:
+    Type: String
+    Description: Enter the bucket name where the lambda functions, layers are stored in /lambda/ folder
+    Default: 'bucket-with-lambda-files'
+
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+      - Label: 
+          default: "Network Configurations"
+        Parameters: 
+          - vpcID
+          - subnetIDs
+      - Label: 
+          default: "Other parameters"
+        Parameters: 
+          - s3BucketLambdaFiles
+    ParameterLabels: 
+      vpcID: 
+        default: "Virual Private Cloud"
+      subnetIDs: 
+        default: "Private Subnets"
+      s3BucketLambdaFiles:
+        default: "S3 Bucket name"
+
+Resources:
+
+  iamGetAttFromParamLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lambda.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - ec2:DescribeSubnets
+            - ec2:DescribeVpcs
+            Resource: "*"
+
+  GetAttFromParam:
+    Type: AWS::Lambda::Function
+    Properties: 
+      Description: Look up info from a VPC or subnet ID 
+      Handler: index.handler
+      MemorySize: 128
+      Role: !GetAtt iamGetAttFromParamLambdaRole.Arn
+      Runtime: "python3.6"
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import cfnresponse
+          import logging
+          
+          def handler(event, context):
+            logger = logging.getLogger()
+            logger.setLevel(logging.INFO)
+            
+            # initialize our responses, assume failure by default
+            
+            response_data = {}
+            response_status = cfnresponse.FAILED
+            
+            logger.info('Received event: {}'.format(json.dumps(event)))
+            
+            if event['RequestType'] == 'Delete':
+              response_status = cfnresponse.SUCCESS
+              cfnresponse.send(event, context, response_status, response_data)
+            
+            try:
+              ec2=boto3.client('ec2')
+            except Exception as e:
+              logger.info('boto3.client failure: {}'.format(e))
+              cfnresponse.send(event, context, response_status, response_data)
+            
+            name_filter = event['ResourceProperties']['NameFilter']
+            name_filter_parts = name_filter.split('-')
+            resource_type=name_filter_parts[0]
+            
+            if resource_type == "vpc":
+              try:
+                vpcs=ec2.describe_vpcs(VpcIds=[name_filter])
+              except Exception as e:
+                logger.info('ec2.describe_vpcs failure: {}'.format(e))
+                cfnresponse.send(event, context, response_status, response_data)
+              
+              number_of_vpcs = len(vpcs['Vpcs'])
+              logger.info('number of vpcs returned: {}'.format(number_of_vpcs))
+              
+              if number_of_vpcs == 1:
+                CidrBlock = vpcs['Vpcs'][0]['CidrBlock']
+                response_data['CidrBlock'] = CidrBlock
+                logger.info('vpc CidrBlock {}'.format(CidrBlock))
+                response_status = cfnresponse.SUCCESS
+                cfnresponse.send(event, context, response_status, response_data)
+              
+              elif number_of_vpcs == 0:
+                logger.info('no matching vpcs for filter {}'.format(name_filter))
+                cfnresponse.send(event, context, response_status, response_data)
+              
+              else:
+                logger.info('multiple matching vpcs for filter {}'.format(name_filter))
+                cfnresponse.send(event, context, response_status, response_data)
+              
+            elif resource_type == "subnet":
+              try:
+                subnets = ec2.describe_subnets(SubnetIds=[name_filter])
+              except Exception as e:
+                logger.info('ec2.describe_subnets failure: {}'.format(e))
+                cfnresponse.send(event, context, response_status, response_data)
+              
+              number_of_subnets = len(subnets['Subnets'])
+              logger.info('number of subnets returned: {}'.format(number_of_subnets))
+              
+              if number_of_subnets == 1:
+                CidrBlock = subnets['Subnets'][0]['CidrBlock']
+                VpcId = subnets['Subnets'][0]['VpcId']
+                AvailabilityZone = subnets['Subnets'][0]['AvailabilityZone']
+                response_data['AvailabilityZone'] = AvailabilityZone
+                response_data['CidrBlock'] = CidrBlock
+                response_data['VpcId'] = VpcId
+                
+                logger.info('subnet AvailabilityZone {}'.format(AvailabilityZone))
+                logger.info('subnet CidrBlock {}'.format(CidrBlock))
+                logger.info('subnet VpcId {}'.format(VpcId))
+                
+                response_status = cfnresponse.SUCCESS
+                cfnresponse.send(event, context, response_status, response_data)
+                
+              elif number_of_subnets == 0:
+                logger.info('no matching subnet for filter {}'.format(name_filter))
+                cfnresponse.send(event, context, response_status, response_data)
+                
+              else:
+                logger.info('multiple matching subnets for filter {}'.format(name_filter))
+                cfnresponse.send(event, context, response_status, response_data)
+              
+            else:
+              logger.info('invalid resource type {}'.resource_type)
+              cfnresponse.send(event, context, response_status, response_data)
+
+  VpcInfo:
+    Type: Custom::VpcInfo
+    Properties:
+      ServiceToken: !GetAtt GetAttFromParam.Arn
+      NameFilter: !Ref vpcID
+
+  # Security Group for DocumentDB
+  securityGroupMigrationRules:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value: SecurityGroup-DocumentDB
+      GroupDescription: Allow ingress and egress on DocumentDB ports
+      GroupName: SecurityGroup-DocumentDB
+      VpcId: !Ref vpcID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 27017
+          ToPort: 27017
+          CidrIp: !GetAtt VpcInfo.CidrBlock
+          Description: Allow DocumentDB port ingress from VPC Cidr
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 27017
+          ToPort: 27017
+          CidrIp: !GetAtt VpcInfo.CidrBlock
+          Description: Allow DocumentDB port egress from VPC Cidr
+
+  # create lambda role
+  iamLambdaMigratorRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'migrator-role'
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: xray-lambda-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+            - Action:
+              - "xray:PutTraceSegments"
+              - "xray:PutTelemetryRecords"
+              Effect: Allow
+              Resource: "*"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonDocDBFullAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AWSLambdaInvocation-DynamoDB"
+        - "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaDynamoDBExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaSQSQueueExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+
+  # DynamoDB Tables
+  dynamoTableWatchers: # watchers
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: watchers
+      AttributeDefinitions:
+      - AttributeName: watcher_id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: watcher_id
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  dynamoTableTracker: # tracker
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: tracker
+      AttributeDefinitions:
+      - AttributeName: key
+        AttributeType: S
+      KeySchema:
+      - AttributeName: key
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  dynamoTableChangeEvents: # change_events
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: change_events
+      AttributeDefinitions:
+      - AttributeName: watcher_id
+        AttributeType: S
+      - AttributeName: batch_status
+        AttributeType: S
+      KeySchema:
+      - AttributeName: watcher_id
+        KeyType: HASH
+      - AttributeName: batch_status
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 20
+        WriteCapacityUnits: 20
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  dynamoTableTimeGap: # time_gap
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: time_gap
+      AttributeDefinitions:
+      - AttributeName: cluster_name
+        AttributeType: S
+      - AttributeName: namespace
+        AttributeType: S
+      KeySchema:
+      - AttributeName: cluster_name
+        KeyType: HASH
+      - AttributeName: namespace
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 20
+        WriteCapacityUnits: 20
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  dynamoTableNamespaces: # namespaces
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: namespaces
+      AttributeDefinitions:
+      - AttributeName: cluster_name
+        AttributeType: S
+      - AttributeName: namespace
+        AttributeType: S
+      KeySchema:
+      - AttributeName: cluster_name
+        KeyType: HASH
+      - AttributeName: namespace
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  dynamoTableMigrationStatus: # migration_status
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: migration_status
+      AttributeDefinitions:
+      - AttributeName: cluster_name
+        AttributeType: S
+      KeySchema:
+      - AttributeName: cluster_name
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification: 
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  # SQS Queues
+  sqsAppRequestQueue:
+    Type: AWS::SQS::Queue
+    Properties: 
+      VisibilityTimeout: 30
+      QueueName: app-request-queue
+      KmsMasterKeyId: 'alias/aws/sqs'
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  sqsGapWatchRequestQueue:
+    Type: AWS::SQS::Queue
+    Properties: 
+      VisibilityTimeout: 180
+      QueueName: gap-watch-request-queue
+      KmsMasterKeyId: 'alias/aws/sqs'
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  sqsReadBatchRequestQueue:
+    Type: AWS::SQS::Queue
+    Properties: 
+      VisibilityTimeout: 180
+      QueueName: read-batch-request-queue
+      KmsMasterKeyId: 'alias/aws/sqs'
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  # S3 Buckets
+  s3BucketMigrationEvents:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::AccountId}-${AWS::Region}-change-feed'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  LambdaLayerPymongo:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+        - python3.7
+      Content:
+        S3Bucket: !Ref s3BucketLambdaFiles
+        S3Key: 'lambda/lambda-pack-pymongo.zip'
+      Description: A lambda layer for pymongo binaries
+      LayerName: lambda-pack-pymongo
+      LicenseInfo: MIT
+
+  # Lambda Functions 
+  lambdaAppRequestReader: # app-request-reader
+    Type: AWS::Lambda::Function
+    Properties:
+      Timeout: 30
+      MemorySize: 256
+      VpcConfig:
+        SecurityGroupIds: 
+          - !Ref securityGroupMigrationRules
+        SubnetIds: !Ref subnetIDs
+      FunctionName: app-request-reader
+      Runtime: python3.7
+      Role: !GetAtt iamLambdaMigratorRole.Arn
+      Handler: 'lambda_function.lambda_handler'
+      Code:
+        S3Bucket: !Ref s3BucketLambdaFiles
+        S3Key: "lambda/app-request-reader.zip"
+      Description: Invoke a function during stack creation.
+      TracingConfig:
+        Mode: Active
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  lambdaEventMappingAppRequest:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt sqsAppRequestQueue.Arn
+      FunctionName: !GetAtt lambdaAppRequestReader.Arn
+
+  lambdaGapWatchRequestReader: # gap-watch-request-reader
+    Type: AWS::Lambda::Function
+    Properties:
+      Timeout: 180
+      MemorySize: 256
+      VpcConfig:
+        SecurityGroupIds: 
+          - !Ref securityGroupMigrationRules
+        SubnetIds: !Ref subnetIDs
+      FunctionName: gap-watch-request-reader
+      Runtime: python3.7
+      Role: !GetAtt iamLambdaMigratorRole.Arn
+      Handler: 'lambda_function.lambda_handler'
+      Code:
+        S3Bucket: !Ref s3BucketLambdaFiles
+        S3Key: 'lambda/gap-watch-request-reader.zip'
+      Description: Invoke a function during stack creation.
+      TracingConfig:
+        Mode: Active
+      Layers:
+        - !Ref LambdaLayerPymongo
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  lambdaEventMappingGapWatchRequest:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt sqsGapWatchRequestQueue.Arn
+      FunctionName: !GetAtt lambdaGapWatchRequestReader.Arn
+
+  lambdaBatchRequestReader: # batch-request-reader
+    Type: AWS::Lambda::Function
+    Properties:
+      Timeout: 180
+      MemorySize: 2048
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Sub '${AWS::AccountId}-${AWS::Region}-change-feed'
+      VpcConfig:
+        SecurityGroupIds: 
+          - !Ref securityGroupMigrationRules
+        SubnetIds: !Ref subnetIDs
+      FunctionName: batch-request-reader
+      Runtime: python3.7
+      Role: !GetAtt iamLambdaMigratorRole.Arn
+      Handler: 'lambda_function.lambda_handler'
+      Code:
+        S3Bucket: !Ref s3BucketLambdaFiles
+        S3Key: 'lambda/batch-request-reader.zip'
+      Description: Invoke a function during stack creation.
+      TracingConfig:
+        Mode: Active
+      Layers:
+        - !Ref LambdaLayerPymongo
+      Tags:
+        - Key: Purpose
+          Value: DocumentDB Migration
+
+  lambdaEventMappingReadBatchRequest:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 1
+      Enabled: true
+      EventSourceArn: !GetAtt sqsReadBatchRequestQueue.Arn
+      FunctionName: !GetAtt lambdaBatchRequestReader.Arn
+
+Outputs:
+  outVPCID:
+    Value: !Ref vpcID
+    Description: VPC - vpcID
+  outVPCCidrBlock:
+    Description: VPC CidrBlock
+    Value: !GetAtt VpcInfo.CidrBlock
+  outSecurityGroupMigrationRules:
+    Value: !Ref securityGroupMigrationRules
+    Description: VPC - Security Group containing Migration Ingress/Outgress Rules
+  outS3BucketLambdaFiles:
+    Value: !Ref s3BucketLambdaFiles
+    Description: S3 - Bucket where all lambda functions, layers are already uploaded.
+  outs3BucketMigrationEvents:
+    Value: !Ref s3BucketMigrationEvents
+    Description: S3 - Bucket where all the live migration event data is stored.
+  outIAMLambdaMigratorRole:
+    Value: !Ref iamLambdaMigratorRole
+    Description: IAM - Role for allowing Lambda to invoke/access other services during migration.
+  outDynamoTableWatchers:
+    Value: !Ref 'dynamoTableWatchers'
+    Description: DynamoDB Table - Watchers
+  outDynamoTableTracker:
+    Value: !Ref 'dynamoTableTracker'
+    Description: DynamoDB Table - Tracker
+  outDynamoTableChangeEvents:
+    Value: !Ref 'dynamoTableChangeEvents'
+    Description: DynamoDB Table - Change Events
+  outDynamoTableTimeGap:
+    Value: !Ref 'dynamoTableTimeGap'
+    Description: DynamoDB Table - Time Gap
+  outDynamoTableNamespaces:
+    Value: !Ref 'dynamoTableNamespaces'
+    Description: DynamoDB Table - Namespaces
+  outDynamoTableMigrationStatus:
+    Value: !Ref 'dynamoTableMigrationStatus'
+    Description: DynamoDB Table - Migration Status
+  outSQSAppRequestQueueARN:
+    Value: !GetAtt sqsAppRequestQueue.Arn
+    Description: SQS - App Request Queue ARN
+  outSQSGapWatchRequestQueueARN:
+    Value: !GetAtt sqsGapWatchRequestQueue.Arn
+    Description: SQS - Gap Watch Request Queue ARN
+  outSQSReadBatchRequestQueueARN:
+    Value: !GetAtt sqsReadBatchRequestQueue.Arn
+    Description: SQS - Read Batch Request Queue ARN
+  outLambdaAppRequestReaderARN:
+    Value: !GetAtt lambdaAppRequestReader.Arn
+    Description: Lambda - App Request Reader ARN
+  outLambdaGapWatchRequestReaderARN:
+    Value: !GetAtt lambdaGapWatchRequestReader.Arn
+    Description: Lambda - Gap Watch Request Reader ARN
+  outLambdaBatchRequestReaderARN:
+    Value: !GetAtt lambdaBatchRequestReader.Arn
+    Description: Lambda - Batch Request Reader ARN
