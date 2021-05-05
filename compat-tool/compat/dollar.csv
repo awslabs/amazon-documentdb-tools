@@ -97,15 +97,15 @@ $arrayElemAt,Yes,Yes
 $arrayToObject,Yes,Yes
 $concatArrays,Yes,Yes
 $filter,Yes,Yes
-$indexOfArray,No,No
+$indexOfArray,Yes,Yes
 $isArray,Yes,Yes
 $objectToArray,Yes,Yes
 $range,Yes,Yes
-$reverseArray,No,No
+$reverseArray,Yes,Yes
 $reduce,No,No
 $size,Yes,Yes
 $slice,Yes,Yes
-$zip,No,No
+$zip,Yes,Yes
 $in,Yes,Yes
 $and,Yes,Yes
 $or,Yes,Yes
@@ -140,7 +140,7 @@ $dateFromString,Yes,Yes
 $isoWeekYear,Yes,Yes
 $literal,No,No
 $mergeObjects,No,No
-$natural,No,No
+$natural,Yes,Yes
 $setEquals,Yes,Yes
 $setIntersection,Yes,Yes
 $setUnion,Yes,Yes
