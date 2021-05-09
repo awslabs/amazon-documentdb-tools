@@ -1,8 +1,8 @@
-# How to live migrate Azure Cosmos DB for MongoDB API to Amazon DocumentDB (with MongoDB Compatibility)?
+# How to live migrate Azure Cosmos DB API for MongoDB to Amazon DocumentDB (with MongoDB Compatibility)?
 
 Amazon DocumentDB (with MongoDB compatibility) is a fully-managed database service that is compatible with the MongoDB API. The [Amazon DocumentDB Migration Guide](https://docs.aws.amazon.com/documentdb/latest/developerguide/docdb-migration.html#docdb-migration-approaches) outlines three primary approaches for migrating from MongoDB to Amazon DocumentDB: offline, online, and hybrid. Although the migration guide refers to MongoDB, the offline migration approach can be used for Azure Cosmos DB as well. Of these, you can only leverage the offline approach for migrating Cosmos DB to Amazon DocumentDB but not the online and hybrid migration approaches.
 
-This readme document explains how you can use the Azure Cosmos DB to Amazon DocumentDB migration utility tool to migrate your [Azure Cosmos DB for MongoDB API](https://docs.microsoft.com/en-us/azure/cosmos-db/introduction) (with v3.6 wire protocol) to [Amazon DocumentDB](https://docs.aws.amazon.com/documentdb/latest/developerguide/what-is.html).
+This readme document explains how you can use the Azure Cosmos DB to Amazon DocumentDB migration utility tool to migrate your [Azure Cosmos DB API for MongoDB](https://docs.microsoft.com/en-us/azure/cosmos-db/introduction) (with v3.6 wire protocol) to [Amazon DocumentDB](https://docs.aws.amazon.com/documentdb/latest/developerguide/what-is.html).
 
 ## Solution overview
 
@@ -431,6 +431,6 @@ For more information on identifying which resource is blocking, please refer to 
 
 ## Summary
 
-Using Azure Cosmos DB to Amazon DocumentDB migration utility tool you can perform a live migration of [Azure Cosmos DB](https://docs.microsoft.com/en-us/azure/cosmos-db/introduction) for MongoDB API database to [Amazon DocumentDB](https://docs.aws.amazon.com/documentdb/latest/developerguide/what-is.html) (with MongoDB compatibility) with minimal downtime. The tool keeps the target Amazon DocumentDB cluster in sync with the changes on the source Cosmos DB, and helps to minimize the overall application downtime as you perform the migration. 
+Using Azure Cosmos DB to Amazon DocumentDB migration utility tool you can perform a live migration of [Azure Cosmos DB](https://docs.microsoft.com/en-us/azure/cosmos-db/introduction) API for MongoDB database to [Amazon DocumentDB](https://docs.aws.amazon.com/documentdb/latest/developerguide/what-is.html) (with MongoDB compatibility) with minimal downtime. The tool keeps the target Amazon DocumentDB cluster in sync with the changes on the source Cosmos DB, and helps to minimize the overall application downtime as you perform the migration. 
 
 If you need additional expertise to accelerate the success of your migration projects to Amazon DocumentDB, contact your AWS Account team to learn more about [AWS Professional Services](https://aws.amazon.com/professional-services/) migration offerings. The AWS Professional Services (ProServe) organization is a global team of experts with years of experience across multiple customers. AWS ProServe can provide specialized skill augmentation, focused guidance, strategy, roadmap proposal, and streamlined process to accelerate your migration projects.
