@@ -256,9 +256,13 @@ class DocumentDbIndexTool(IndexToolConstants):
                     collection_metadata = {}
                     collection_indexes = connection[database_name][
                         collection_name].list_indexes()
-                    collection_metadata[self.INDEXES] = [
-                        index for index in collection_indexes
-                    ]
+                    thisIndexes = []
+                    for thisIndex in collection_indexes:
+                        if "ns" not in thisIndex:
+                            # mdb44+ eliminated the "ns" attribute
+                            thisIndex["ns"] = "{}.{}".format(database_name,collection_name)
+                        thisIndexes.append(thisIndex)
+                    collection_metadata[self.INDEXES] = thisIndexes
                     collection_metadata[self.OPTIONS] = connection[
                         database_name][collection_name].options()
 
