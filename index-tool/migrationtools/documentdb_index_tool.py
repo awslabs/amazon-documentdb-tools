@@ -201,8 +201,13 @@ class DocumentDbIndexTool(IndexToolConstants):
                         filepath))
 
             first_index = indexes[0]
-            first_index_namespace = first_index[self.NAMESPACE]
-            (db_name, collection_name) = first_index_namespace.split('.', 1)
+            if self.NAMESPACE in first_index:
+                first_index_namespace = first_index[self.NAMESPACE]
+                (db_name, collection_name) = first_index_namespace.split('.', 1)
+            else:
+                db_name = os.path.basename(os.path.dirname(filepath))
+                thisFileName = os.path.basename(filepath)
+                collection_name = thisFileName[0:(len(thisFileName)-len(self.METADATA_FILE_SUFFIX_PATTERN)-1)]
 
             collection_metadata[self.FILE_PATH] = filepath
 
@@ -210,7 +215,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                 index_name = index.pop(self.INDEX_NAME)
                 collection_metadata[self.INDEXES][index_name] = index
 
-                if file_metadata[self.OPTIONS]:
+                if self.OPTIONS in file_metadata:
                     collection_metadata[self.OPTIONS] = file_metadata[
                         self.OPTIONS]
 
@@ -465,6 +470,8 @@ class DocumentDbIndexTool(IndexToolConstants):
                             index_direction = int(index_direction)
                         elif type(index_direction) is dict and '$numberInt' in index_direction:
                             index_direction = int(index_direction['$numberInt'])
+                        elif type(index_direction) is dict and '$numberDouble' in index_direction:
+                            index_direction = int(float(index_direction['$numberDouble']))
 
                         keys_to_create.append((key, index_direction))
 
