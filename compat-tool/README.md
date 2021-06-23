@@ -17,12 +17,12 @@ pip3 install -r requirements.txt
 This tool supports examining compatibility with either the 3.6
 or 4.0 versions of Amazon DocumentDB. The format of the command is:
 ```
-python3 compat/compat.py <version> <input log file> <output file>
+python3 compat/compat.py <version> <input-log-file or input-log-directory> <output file>
 ```
 
 * The `<version>` is the version of Amazon DocumentDB with which you
 are evaluating compatibility.
-* The `<input log file>` is the MongoDB log file to process
+* The `<input-log-file or input-log-directory>` is an individual MongoDB log file to process or a directory containing one or more MongoDB log files to process
 * The `<output file>` is where all log lines that contain operators
 which are not supported by Amazon DocumentDB will saved
 
