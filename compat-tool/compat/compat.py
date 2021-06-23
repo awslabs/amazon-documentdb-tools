@@ -100,7 +100,7 @@ def process_line(le, usage_map, ver, cmd_map):
     retval = {"unsupported": False, "processed": 0}
     
     #print(f'Command: {le.command}, Component: {le.component}, Actual Query: {le.actual_query}')
-    if ('COMMAND' == le. component):
+    if ('COMMAND' == le.component):
         if le.command in ['find']:
             #print("Processing COMMAND find...")
             retval = process_find(le, usage_map, ver)
@@ -134,21 +134,30 @@ def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname):
     cmd_map = {}
     line_ct = 0
     unsupported_ct = 0
-    with open(fname) as log_file:
-        for line in log_file:
-#            print(f'\n{line}')
-            le = logevent.LogEvent(line)
-            if(le.datetime is None):
-                raise SystemExit("Error: <%s> does not appear to be a supported "
-                             "MongoDB log file format" % fname)
-            pl = process_line(le, usage_map, ver, cmd_map)
-            line_ct += pl["processed"]
-            if (pl["unsupported"]):
-                unsupported_file.write(pl["logevent"].line_str)
-                unsupported_file.write("\n")
-                unsupported_query_file.write(f'{pl["actual_query"]}  // {pl["unsupported_keys"]}\n')
-                unsupported_ct += 1
+    fileArray = []
+    if os.path.isfile(fname):
+        fileArray.append(fname)
+    else:
+        for fileName in os.listdir(fname):
+            fileArray.append(os.path.join(fname,fileName))
+    for thisFile in fileArray:
+        print("processing file {}".format(thisFile))
+        with open(thisFile) as log_file:
+            for line in log_file:
+                # print(f'\n{line}')
+                le = logevent.LogEvent(line)
+                if(le.datetime is None):
+                    raise SystemExit("Error: <%s> does not appear to be a supported "
+                                 "MongoDB log file format" % thisFile)
+                pl = process_line(le, usage_map, ver, cmd_map)
+                line_ct += pl["processed"]
+                if (pl["unsupported"]):
+                    unsupported_file.write(pl["logevent"].line_str)
+                    unsupported_file.write("\n")
+                    unsupported_query_file.write(f'{pl["actual_query"]}  // {pl["unsupported_keys"]}\n')
+                    unsupported_ct += 1
     unsupported_file.close()
+    unsupported_query_file.close()
 
     print('Results:')
     if (unsupported_ct > 0):
@@ -166,9 +175,9 @@ def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname):
     print(f'Queries of unsupported operators logged here: {unsupported_query_fname}')
 
 def print_usage():
-    print("Usage: compat.py <version> <input_file> <output_file>")
+    print("Usage: compat.py <version> <input_file or input_file_directory> <output_file>")
     print("  version : " + ", ".join(versions))
-    print("  input_file: location of MongoDB log file")
+    print("  input_file or input_file_directory: location of MongoDB log file or directory containing one or more MongoDB log files")
     print("  output_file: location to write log lines that correspond to unsupported operators")
 
 
@@ -183,8 +192,8 @@ def main(args):
         print_usage()
         sys.exit()
     infname = args[1]
-    if (not os.path.isfile(infname)):
-        print(f'Input file not found ({infname})')
+    if (not os.path.isfile(infname) and not os.path.isdir(infname)):
+        print(f'Input file/directory not found ({infname})')
         print_usage()
         sys.exit()
     outfname = args[2]
