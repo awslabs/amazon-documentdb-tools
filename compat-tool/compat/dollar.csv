@@ -166,7 +166,7 @@ $facet,No,No
 $bucket,No,No
 $bucketAuto,No,No
 $sortByCount,No,No
-$addFields,Yes,No
+$addFields,Yes,Yes
 $replaceRoot,Yes,Yes
 $count,Yes,Yes
 $currentOp,Yes,Yes
