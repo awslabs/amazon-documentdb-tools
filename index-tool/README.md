@@ -12,17 +12,17 @@ Features:
 
 ## Installing
 Clone the repository, then run the following command in the repo top-level director:
-`pip install -r requirements.txt`
+`pip3 install -r requirements.txt`
 
 ## Using the Index Tool
 To dump indexes from a running MongoDB instance or replica set, run the following command:
-`python migrationtools/documentdb_index_tool.py --dump-indexes --host <host> --port <port> --username <username> --password <password> --auth-db <auth db> --dir <directory to dump metadata to>`
+`python3 migrationtools/documentdb_index_tool.py --dump-indexes --host <host> --port <port> --username <username> --password <password> --auth-db <auth db> --dir <directory to dump metadata to>`
 
 To check for compatibility issues against dumped database metadata, run the following command:
-`python migrationtools/documentdb_index_tool.py --show-issues  --dir <directory that contains metadata dump>`
+`python3 migrationtools/documentdb_index_tool.py --show-issues  --dir <directory that contains metadata dump>`
 
 To restore only indexes that are compatible with Amazon DocumentDB, run the following command:
-`python migrationtools/documentdb_index_tool.py --restore-indexes --dir <directory that contains metadata dump>`
+`python3 migrationtools/documentdb_index_tool.py --restore-indexes --dir <directory that contains metadata dump>`
 
 ## License
 
