@@ -47,7 +47,11 @@ def check_keys(query, usage_map, ver):
 
 def process_aggregate(le, usage_map, ver):
     retval = {}
-    command = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+2:le.split_tokens.index("planSummary:")]))
+    try:
+        command = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+2:le.split_tokens.index("planSummary:")]))
+    except:
+        print("Unable to parse log line | {}".format(le))
+        raise
     p_usage_map = {}
     for p in command["pipeline"]:
         check_keys(p, p_usage_map, ver)
@@ -60,7 +64,11 @@ def process_aggregate(le, usage_map, ver):
 def process_query(le, usage_map, ver): 
     retval = {}
     p_usage_map = {}
-    query = yaml.safe_load(le.actual_query)
+    try:
+        query = yaml.safe_load(le.actual_query)
+    except:
+        print("Unable to parse log line | {}".format(le))
+        raise
     check_keys(query, p_usage_map, ver)
     for k in p_usage_map.keys():
         usage_map[k] = usage_map.get(k, 0) + 1
@@ -74,7 +82,11 @@ def process_query(le, usage_map, ver):
 def process_find(le, usage_map, ver): 
     retval = {}
     p_usage_map = {}
-    query = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+2:le.split_tokens.index("planSummary:")]))
+    try:
+        query = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+2:le.split_tokens.index("planSummary:")]))
+    except:
+        print("Unable to parse log line | {}".format(le))
+        raise
     check_keys(query["filter"], p_usage_map, ver)
     for k in p_usage_map.keys():
         usage_map[k] = usage_map.get(k, 0) + 1
@@ -88,7 +100,11 @@ def process_find(le, usage_map, ver):
 def process_update(le, usage_map, ver): 
     retval = {}
     p_usage_map = {}
-    command = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+1:le.split_tokens.index("planSummary:")]))
+    try:
+        command = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+1:le.split_tokens.index("planSummary:")]))
+    except:
+        print("Unable to parse log line | {}".format(le))
+        raise
     check_keys(command, p_usage_map, ver)
     for k in p_usage_map.keys():
         usage_map[k] = usage_map.get(k, 0) + 1
