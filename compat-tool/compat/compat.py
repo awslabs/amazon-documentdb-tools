@@ -45,97 +45,97 @@ def check_keys(query, usage_map, ver):
             unsupported = True
     return unsupported
 
-def process_aggregate(le, usage_map, ver):
+def process_aggregate(le, usage_map, ver, lineNum):
     retval = {}
     try:
         command = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+2:le.split_tokens.index("planSummary:")]))
+        p_usage_map = {}
+        for p in command["pipeline"]:
+            check_keys(p, p_usage_map, ver)
+        for k in p_usage_map.keys():
+            usage_map[k] = usage_map.get(k, 0) + 1
+        actual_query = f'{le.namespace}.aggregate({command["pipeline"]})'
+        retval = {"unsupported": (0 < len(p_usage_map.keys())), "unsupported_keys": list(p_usage_map.keys()), "logevent": le, "processed": 1, "actual_query": actual_query, "exception": False}
     except:
-        print("Unable to parse log line | {}".format(le))
-        raise
-    p_usage_map = {}
-    for p in command["pipeline"]:
-        check_keys(p, p_usage_map, ver)
-    for k in p_usage_map.keys():
-        usage_map[k] = usage_map.get(k, 0) + 1
-    actual_query = f'{le.namespace}.aggregate({command["pipeline"]})'
-    retval = {"unsupported": (0 < len(p_usage_map.keys())), "unsupported_keys": list(p_usage_map.keys()), "logevent": le, "processed": 1, "actual_query": actual_query}
+        #print("Unable to parse log line {} | {}".format(lineNum,le))
+        retval = {"unsupported": True, "unsupported_keys": [], "logevent": le, "processed": 0, "actual_query": "", "exception": True}
     return retval
 
-def process_query(le, usage_map, ver): 
+def process_query(le, usage_map, ver, lineNum):
     retval = {}
     p_usage_map = {}
     try:
         query = yaml.safe_load(le.actual_query)
+        check_keys(query, p_usage_map, ver)
+        for k in p_usage_map.keys():
+            usage_map[k] = usage_map.get(k, 0) + 1
+        actual_query = f'{le.namespace}.find({query["filter"]}'
+        if ("projection" in query.keys()):
+            actual_query = f'{actual_query}, {query["projection"]}'
+        actual_query = f'{actual_query})'
+        retval = {"unsupported": (0 < len(p_usage_map.keys())), "unsupported_keys": list(p_usage_map.keys()), "logevent": le, "processed": 1, "actual_query": actual_query, "exception": False}
     except:
-        print("Unable to parse log line | {}".format(le))
-        raise
-    check_keys(query, p_usage_map, ver)
-    for k in p_usage_map.keys():
-        usage_map[k] = usage_map.get(k, 0) + 1
-    actual_query = f'{le.namespace}.find({query["filter"]}'
-    if ("projection" in query.keys()):
-        actual_query = f'{actual_query}, {query["projection"]}'
-    actual_query = f'{actual_query})'
-    retval = {"unsupported": (0 < len(p_usage_map.keys())), "unsupported_keys": list(p_usage_map.keys()), "logevent": le, "processed": 1, "actual_query": actual_query}
+        #print("Unable to parse log line {} | {}".format(lineNum,le))
+        retval = {"unsupported": True, "unsupported_keys": [], "logevent": le, "processed": 0, "actual_query": "", "exception": True}
     return retval
 
-def process_find(le, usage_map, ver): 
+def process_find(le, usage_map, ver, lineNum):
     retval = {}
     p_usage_map = {}
     try:
         query = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+2:le.split_tokens.index("planSummary:")]))
+        check_keys(query["filter"], p_usage_map, ver)
+        for k in p_usage_map.keys():
+            usage_map[k] = usage_map.get(k, 0) + 1
+        actual_query = f'{le.namespace}.find({query["filter"]}'
+        if ("projection" in query.keys()):
+            actual_query = f'{actual_query}, {query["projection"]}'
+        actual_query = f'{actual_query})'
+        retval = {"unsupported": (0 < len(p_usage_map.keys())), "unsupported_keys": list(p_usage_map.keys()), "logevent": le, "processed": 1, "actual_query": actual_query, "exception": False}
     except:
-        print("Unable to parse log line | {}".format(le))
-        raise
-    check_keys(query["filter"], p_usage_map, ver)
-    for k in p_usage_map.keys():
-        usage_map[k] = usage_map.get(k, 0) + 1
-    actual_query = f'{le.namespace}.find({query["filter"]}'
-    if ("projection" in query.keys()):
-        actual_query = f'{actual_query}, {query["projection"]}'
-    actual_query = f'{actual_query})'
-    retval = {"unsupported": (0 < len(p_usage_map.keys())), "unsupported_keys": list(p_usage_map.keys()), "logevent": le, "processed": 1, "actual_query": actual_query}
+        #print("Unable to parse log line {} | {}".format(lineNum,le))
+        retval = {"unsupported": True, "unsupported_keys": [], "logevent": le, "processed": 0, "actual_query": "", "exception": True}
     return retval
 
-def process_update(le, usage_map, ver): 
+def process_update(le, usage_map, ver, lineNum):
     retval = {}
     p_usage_map = {}
     try:
         command = yaml.safe_load(" ".join(le.split_tokens[le.split_tokens.index("command:")+1:le.split_tokens.index("planSummary:")]))
+        check_keys(command, p_usage_map, ver)
+        for k in p_usage_map.keys():
+            usage_map[k] = usage_map.get(k, 0) + 1
+        actual_query = f'{le.namespace}.updateMany({command["q"]}, {command["u"]})'
+        retval = {"unsupported": (0 < len(p_usage_map.keys())), "unsupported_keys": list(p_usage_map.keys()), "logevent": le, "processed": 1, "actual_query": actual_query, "exception": False}
     except:
-        print("Unable to parse log line | {}".format(le))
-        raise
-    check_keys(command, p_usage_map, ver)
-    for k in p_usage_map.keys():
-        usage_map[k] = usage_map.get(k, 0) + 1
-    actual_query = f'{le.namespace}.updateMany({command["q"]}, {command["u"]})'
-    retval = {"unsupported": (0 < len(p_usage_map.keys())), "unsupported_keys": list(p_usage_map.keys()), "logevent": le, "processed": 1, "actual_query": actual_query}
+        #print("Unable to parse log line {} | {}".format(lineNum,le))
+        retval = {"unsupported": True, "unsupported_keys": [], "logevent": le, "processed": 0, "actual_query": "", "exception": True}
     return retval
 
-def process_line(le, usage_map, ver, cmd_map):
+def process_line(le, usage_map, ver, cmd_map, lineNum):
     retval = {"unsupported": False, "processed": 0}
     
     #print(f'Command: {le.command}, Component: {le.component}, Actual Query: {le.actual_query}')
     if ('COMMAND' == le.component):
         if le.command in ['find']:
             #print("Processing COMMAND find...")
-            retval = process_find(le, usage_map, ver)
+            retval = process_find(le, usage_map, ver, lineNum)
             cmd_map["find"] = cmd_map.get("find", 0) + 1
 
         if le.command in ['aggregate']:
             #print("Processing COMMAND aggregate...")
-            retval = process_aggregate(le, usage_map, ver)
+            retval = process_aggregate(le, usage_map, ver, lineNum)
             cmd_map["aggregate"] = cmd_map.get("aggregate", 0) + 1
 
     elif ('QUERY' == le.component):
         #print("Processing query...")
-        retval = process_query(le, usage_map, ver)
+        retval = process_query(le, usage_map, ver, lineNum)
         cmd_map["query"] = cmd_map.get("query", 0) + 1
 
     elif ('WRITE' == le.component):
         if (le.operation in ['update']):
             #print("Processing update...")
-            retval = process_update(le, usage_map, ver)
+            retval = process_update(le, usage_map, ver, lineNum)
             cmd_map["update"] = cmd_map.get("update", 0) + 1
 
  #   if ("actual_query" in retval.keys()):
@@ -150,6 +150,10 @@ def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname):
     cmd_map = {}
     line_ct = 0
     unsupported_ct = 0
+    truncated_line_ct = 0
+    unrecognized_line_ct = 0
+    parse_exception_ct = 0
+    totalLines = 0
     fileArray = []
     if os.path.isfile(fname):
         fileArray.append(fname)
@@ -158,31 +162,54 @@ def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname):
             fileArray.append(os.path.join(fname,fileName))
     for thisFile in fileArray:
         print("processing file {}".format(thisFile))
+        lineNum = 0
         with open(thisFile) as log_file:
             for line in log_file:
-                # print(f'\n{line}')
-                le = logevent.LogEvent(line)
-                if(le.datetime is None):
-                    raise SystemExit("Error: <%s> does not appear to be a supported "
-                                 "MongoDB log file format" % thisFile)
-                pl = process_line(le, usage_map, ver, cmd_map)
-                line_ct += pl["processed"]
-                if (pl["unsupported"]):
-                    unsupported_file.write(pl["logevent"].line_str)
-                    unsupported_file.write("\n")
-                    unsupported_query_file.write(f'{pl["actual_query"]}  // {pl["unsupported_keys"]}\n')
-                    unsupported_ct += 1
+                totalLines += 1
+                lineNum += 1
+                if (lineNum % 10000 == 0):
+                    # display log file progress
+                    print(".. line {}".format(lineNum))
+                if ("warning: log line attempted" in line) and ("over max size" in line) and ("printing beginning and end" in line):
+                    truncated_line_ct += 1
+                else:
+                    le = logevent.LogEvent(line)
+                    if (le.datetime is None):
+                        unrecognized_line_ct += 1
+                        #raise SystemExit("Error: <%s> does not appear to be a supported MongoDB log file format" % thisFile)
+                    else:
+                        pl = process_line(le, usage_map, ver, cmd_map, lineNum)
+                        line_ct += pl["processed"]
+                        #print("{} | {}".format(pl,le))
+                        if ("exception" in pl and pl["exception"]):
+                            parse_exception_ct += 1
+                        elif (pl["unsupported"]):
+                            unsupported_file.write(pl["logevent"].line_str)
+                            unsupported_file.write("\n")
+                            unsupported_query_file.write(f'{pl["actual_query"]}  // {pl["unsupported_keys"]}\n')
+                            unsupported_ct += 1
     unsupported_file.close()
     unsupported_query_file.close()
 
+    print("")
     print('Results:')
+    print("  Total lines processed = {}".format(totalLines))
+    print("")
+    if (truncated_line_ct > 0 or unrecognized_line_ct > 0 or parse_exception_ct > 0):
+        print("**NOTE** - portions of the log file(s) processed were truncated or incorrectly formatted and excluded from the compatibility assessment")
+        print("  Skipped {} log lines due to log line truncation (default 10KB, consider increasing maxLogSizeKB)".format(truncated_line_ct))
+        print("  Skipped {} log lines due to unrecognized log format (missing timestamp)".format(unrecognized_line_ct))
+        print("  Skipped {} log lines due to unusable log format (invalid JSON)".format(parse_exception_ct))
+    print("")
+
     if (unsupported_ct > 0):
-        print(f'\t {unsupported_ct} out of {line_ct} queries unsupported')
+        print(f'{unsupported_ct} out of {line_ct} queries unsupported')
         print(f'Unsupported operators (and number of queries used):')
         for k,v in sorted(usage_map.items(), key=lambda x: (-x[1],x[0])):
             print(f'\t{k:20}  {v}')
     else:
-        print('\t All queries are supported')
+        print('All queries are supported')
+    print("")
 
     print('Query Types:')
     for k,v in sorted(cmd_map.items(), key=lambda x: (-x[1],x[0])):
