@@ -96,6 +96,7 @@ $map,No,No
 $match,Yes,Yes
 $max,Yes,Yes
 $maxDistance,No,No
+$merge,No,No
 $mergeObjects,No,No
 $meta,No,No
 $millisecond,Yes,Yes
