@@ -200,14 +200,20 @@ class DocumentDbIndexTool(IndexToolConstants):
                     "Malformed metadata document {} has no indexes.".format(
                         filepath))
 
-            first_index = indexes[0]
-            if self.NAMESPACE in first_index:
-                first_index_namespace = first_index[self.NAMESPACE]
-                (db_name, collection_name) = first_index_namespace.split('.', 1)
-            else:
+            if (len(indexes) == 0):
+                # no indexes for this collection
                 db_name = os.path.basename(os.path.dirname(filepath))
                 thisFileName = os.path.basename(filepath)
                 collection_name = thisFileName[0:(len(thisFileName)-len(self.METADATA_FILE_SUFFIX_PATTERN)-1)]
+            else:
+                first_index = indexes[0]
+                if self.NAMESPACE in first_index:
+                    first_index_namespace = first_index[self.NAMESPACE]
+                    (db_name, collection_name) = first_index_namespace.split('.', 1)
+                else:
+                    db_name = os.path.basename(os.path.dirname(filepath))
+                    thisFileName = os.path.basename(filepath)
+                    collection_name = thisFileName[0:(len(thisFileName)-len(self.METADATA_FILE_SUFFIX_PATTERN)-1)]
 
             collection_metadata[self.FILE_PATH] = filepath
 
