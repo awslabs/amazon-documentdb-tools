@@ -77,4 +77,5 @@ Query Types:
         query       1
 Log lines of unsupported operators logged here: /tmp/compat.out
 Queries of unsupported operators logged here: /tmp/compat.out.query
+Skipped line information logged here: /tmp/compat.out.skipped
 ```
