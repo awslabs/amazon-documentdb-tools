@@ -143,9 +143,10 @@ def process_line(le, usage_map, ver, cmd_map, lineNum):
         
     return retval
 
-def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname): 
+def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname, skipped_line_fname):
     unsupported_file = open(unsupported_fname, "w")
     unsupported_query_file = open(unsupported_query_fname, "w")
+    skipped_line_file = open(skipped_line_fname, "w")
     usage_map = {}
     cmd_map = {}
     line_ct = 0
@@ -172,10 +173,13 @@ def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname):
                     print(".. line {}".format(lineNum))
                 if ("warning: log line attempted" in line) and ("over max size" in line) and ("printing beginning and end" in line):
                     truncated_line_ct += 1
+                    skipped_line_file.write("fname = {} | line number = {} | reason = {}\n".format(thisFile,lineNum,"truncated line"))
                 else:
                     le = logevent.LogEvent(line)
                     if (le.datetime is None):
                         unrecognized_line_ct += 1
+                        skipped_line_file.write("fname = {} | line number = {} | reason = {}\n".format(thisFile,lineNum,"unrecognized line"))
+                        skipped_line_file.write("   Actual Line | {}\n".format(le))
                         #raise SystemExit("Error: <%s> does not appear to be a supported MongoDB log file format" % thisFile)
                     else:
                         pl = process_line(le, usage_map, ver, cmd_map, lineNum)
@@ -183,6 +187,7 @@ def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname):
                         #print("{} | {}".format(pl,le))
                         if ("exception" in pl and pl["exception"]):
                             parse_exception_ct += 1
+                            skipped_line_file.write("fname = {} | line number = {} | reason = {}\n".format(thisFile,lineNum,"invalid JSON"))
                         elif (pl["unsupported"]):
                             unsupported_file.write(pl["logevent"].line_str)
                             unsupported_file.write("\n")
@@ -190,6 +195,7 @@ def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname):
                             unsupported_ct += 1
     unsupported_file.close()
     unsupported_query_file.close()
+    skipped_line_file.close()
 
     print("")
     print('Results:')
@@ -216,6 +222,7 @@ def process_log_file(ver, fname, unsupported_fname, unsupported_query_fname):
         print(f'\t{k:10}  {v}')
     print(f'Log lines of unsupported operators logged here: {unsupported_fname}')
     print(f'Queries of unsupported operators logged here: {unsupported_query_fname}')
+    print(f'Skipped line information logged here: {skipped_line_fname}')
 
 def print_usage():
     print("Usage: compat.py <version> <input_file or input_file_directory> <output_file>")
@@ -241,8 +248,9 @@ def main(args):
         sys.exit()
     outfname = args[2]
     outqueryfname = f'{outfname}.query'
+    outskippedfname = f'{outfname}.skipped'
     load_keywords(dollar_file)
-    process_log_file(ver, infname, outfname, outqueryfname)
+    process_log_file(ver, infname, outfname, outqueryfname, outskippedfname)
     
 
 
