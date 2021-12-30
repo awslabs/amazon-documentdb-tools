@@ -265,6 +265,11 @@ class DocumentDbIndexTool(IndexToolConstants):
                         database_name].list_collection_names():
                     logging.debug("Collection: %s", collection_name)
                     collection_metadata = {}
+                    collection_metadata[self.OPTIONS] = connection[
+                        database_name][collection_name].options()
+                    if 'viewOn' in collection_metadata[self.OPTIONS]:
+                        # views cannot have indexes, skip to next collection
+                        continue
                     collection_indexes = connection[database_name][
                         collection_name].list_indexes()
                     thisIndexes = []
@@ -274,8 +279,6 @@ class DocumentDbIndexTool(IndexToolConstants):
                             thisIndex["ns"] = "{}.{}".format(database_name,collection_name)
                         thisIndexes.append(thisIndex)
                     collection_metadata[self.INDEXES] = thisIndexes
-                    collection_metadata[self.OPTIONS] = connection[
-                        database_name][collection_name].options()
 
                     collection_metadata_filename = "{}.{}".format(
                         collection_name, self.METADATA_FILE_SUFFIX_PATTERN)
