@@ -58,9 +58,9 @@ $facet,No,No
 $filter,Yes,Yes
 $first,Yes,Yes
 $floor,No,No
-$geoIntersects,No,No
+$geoIntersects,Yes,Yes
 $geoNear,Yes,Yes
-$geoWithin,No,No
+$geoWithin,Yes,Yes
 $geometry,Yes,Yes
 $graphLookup,No,No
 $group,Yes,Yes
@@ -97,7 +97,7 @@ $match,Yes,Yes
 $max,Yes,Yes
 $maxDistance,Yes,Yes
 $merge,No,No
-$mergeObjects,No,No
+$mergeObjects,Yes,Yes
 $meta,No,No
 $millisecond,Yes,Yes
 $min,Yes,Yes
@@ -127,7 +127,7 @@ $pullAll,Yes,Yes
 $push,Yes,Yes
 $range,Yes,Yes
 $redact,Yes,Yes
-$reduce,No,No
+$reduce,Yes,Yes
 $regex,Yes,Yes
 $rename,Yes,Yes
 $replaceRoot,Yes,Yes
