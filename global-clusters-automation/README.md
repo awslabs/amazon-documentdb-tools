@@ -27,6 +27,7 @@ This function will remove and promote the secondary cluster provided as input. I
 Primary cluster in a functional AWS region as indicated by the `secondary_cluster_arn` in the input with the `primary_cluster_cname` pointing to this cluster’s cluster endpoint. 
 
 Note: During a DR scenario, the writes to the cluster will fail until the promotion process is complete. The RTO is typically less than minute and to avoid data loss, it is recommended to implement <a href="https://aws.amazon.com/blogs/database/building-resilient-applications-with-amazon-documentdb-with-mongodb-compatibility-part-2-exception-handling/" target="_blank">exception handling with retry </a>in the application. 
+
 ###2. convertRegionalClusterToGlobal
 #### Input
 ```
