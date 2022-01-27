@@ -10,7 +10,7 @@ This tool provides the following AWS Lambda functions to automate the failover p
 ### Architecture - Disaster Recovery
 ![Solution Architecture DR](images/GlobalClustersAutomation-DR.png)
 
-###1. failoverToSecondary
+### 1. failoverToSecondary
 #### Input
 ```
 {
@@ -28,7 +28,7 @@ Primary cluster in a functional AWS region as indicated by the `secondary_cluste
 
 Note: During a DR scenario, the writes to the cluster will fail until the promotion process is complete. The RTO is typically less than minute and to avoid data loss, it is recommended to implement <a href="https://aws.amazon.com/blogs/database/building-resilient-applications-with-amazon-documentdb-with-mongodb-compatibility-part-2-exception-handling/" target="_blank">exception handling with retry </a>in the application. 
 
-###2. convertRegionalClusterToGlobal
+### 2. convertRegionalClusterToGlobal
 #### Input
 ```
 {
@@ -63,7 +63,7 @@ Global cluster with a primary cluster and secondary cluster(s) in the provided r
 ### Architecture - Business Continuity Planning  
 ![Solution Architecture BCP](images/GlobalClustersAutomation-BCP.png)
 
-###3. failoverAndConvertToGlobal
+### 3. failoverAndConvertToGlobal
 #### Input
 ```
 {
