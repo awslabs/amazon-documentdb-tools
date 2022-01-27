@@ -93,7 +93,7 @@ cd amazon-documentdb-tools/global-clusters-automation
 ```
 3. Deploy Cloud formation template from the below location to your AWS account. Use the bucket from the previous step as parameter in the Cloud Formation template
 ```
-cd deploy/global_clusters_automation.yml
+cat deploy/global_clusters_automation.yml
 ```
 4. Navigate to AWS Lambda service and trigger the functions. The JSON payload sample can be found in the test folder of the git repo
 
