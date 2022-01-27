@@ -1,6 +1,6 @@
 # Amazon DocumentDB Tools
 
-This repo contains tools to make migrating to Amazon DocumentDB (with MongoDB compatibility) easier.
+This repo contains the following tools.
 
 ## Amazon DocumentDB Index Tool 
 
@@ -19,6 +19,12 @@ For more information about this tool, checkout the [Amazon DocumentDB Compatibil
 The `Cosmos DB Migration Utility` is an application created to help live migrate the Azure Cosmos DB for MongoDB API databases to Amazon DocumentDB with very little downtime. It keeps the target Amazon DocumentDB cluster in sync with the source Microsoft Azure Cosmos DB until the client applications are cut over to the DocumentDB cluster. 
 
 For more information about the Cosmos DB Migrator tool, checkout the [Cosmos DB Migration Utility README](./cosmos-db-migration-utility/README.md) file.
+
+## Amazon DocumentDB Global Clusters Automation Tool
+
+The `global-clusters-automation` is a tool created to automate the global cluster failover process for Disaster Recovery (DR) and Business Continuity Planning (BCP) use cases. It uses AWS lambda functions to trigger failover process and convert a standalone regional cluster to a global cluster.Amazon Route53 private hosted zone is used to manage cluster endpoints changes for applications. 
+
+For more information about the Global Clusters Automation Tool, checkout the [Global Clusters Automation Tool](./global-clusters-automation/README.md) file.
 
 ## License
 

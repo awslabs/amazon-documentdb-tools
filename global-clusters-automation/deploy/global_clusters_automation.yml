@@ -1,0 +1,161 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: This stack deploys AWS Lambda functions, IAM Role with appropriate policies and a AWS DynamoDB table to automate global cluster failover process
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: S3 bucket to host lambda code.
+
+Resources:
+  GlobalClustersTable: 
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+        - 
+          AttributeName: global_cluster_id
+          AttributeType: S
+        - 
+          AttributeName: target_cluster_arn
+          AttributeType: S
+
+      KeySchema: 
+        - 
+          AttributeName: global_cluster_id
+          KeyType: HASH
+        - 
+          AttributeName: target_cluster_arn
+          KeyType: RANGE
+      
+      ProvisionedThroughput: 
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+        
+      TableName: GlobalClusterFailover
+
+  LambdaGlobalClustersAutomationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+      Policies:
+        - PolicyName: DynamoDBTableAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource: !GetAtt GlobalClustersTable.Arn
+
+        - PolicyName: DocumentDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - rds:DescribeGlobalClusters
+                  - rds:DescribeDBClusters
+                  - rds:DescribeDBInstances
+                  - rds:RemoveFromGlobalCluster
+                  - route53:ListResourceRecordSets
+                  - route53:ChangeResourceRecordSets
+                  - rds:DeleteDBInstance
+                  - rds:ModifyDBCluster
+                  - rds:DeleteDBCluster
+                  - rds:DeleteGlobalCluster
+                  - rds:CreateGlobalCluster
+                  - rds:CreateDBCluster
+                  - rds:CreateDBInstance
+                Resource: "*"
+               
+        - PolicyName: LambdaAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: "*"
+      Path:
+        Fn::Sub: /      
+
+  FailoverToSecondaryLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+      - LambdaGlobalClustersAutomationRole
+
+    Properties:
+      Code:
+        S3Bucket: !Ref S3BucketName
+        S3Key: failoverLambdaFunction.zip
+      Handler: failover_and_delete_lambda_function.lambda_handler
+      Role: !GetAtt LambdaGlobalClustersAutomationRole.Arn
+      Runtime: python3.8
+      Description: "AWS Lambda used to failover secondary cluster in a global cluster"
+      FunctionName: failoverToSecondary
+      MemorySize: 256
+      Timeout: 900
+      Environment: 
+        Variables:
+          DYNAMODB_TABLE_NAME: !Select [1, !Split ['/', !GetAtt GlobalClustersTable.Arn]] 
+
+  ConvertRegionalToGlobalClusterLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+      - LambdaGlobalClustersAutomationRole
+    Properties:
+      Code:
+        S3Bucket: !Ref S3BucketName
+        S3Key: convertToGlobalLambdaFunction.zip
+      Handler: convert_to_global_lambda_function.lambda_handler
+      Role: !GetAtt LambdaGlobalClustersAutomationRole.Arn
+      Runtime: python3.8
+      Description: "AWS Lambda used to convert regional cluster to global cluster"
+      FunctionName: convertRegionalClusterToGlobal
+      MemorySize: 256
+      Timeout: 900
+      Environment: 
+        Variables:
+          DYNAMODB_TABLE_NAME: !Select [1, !Split ['/', !GetAtt GlobalClustersTable.Arn]]
+
+  FailoverAndConvertToGlobalClusterLambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: 
+      - LambdaGlobalClustersAutomationRole
+    Properties:
+      Code:
+        S3Bucket: !Ref S3BucketName
+        S3Key: failoverAndConvertToGlobalLambda.zip
+      Handler: failover_and_convert_lambda_function.lambda_handler
+      Role: !GetAtt LambdaGlobalClustersAutomationRole.Arn
+      Runtime: python3.8
+      Description: "AWS Lambda used to failover secondary cluster and convert to global cluster"
+      FunctionName: failoverAndConvertToGlobal
+      MemorySize: 256
+      Timeout: 900
+      Environment:
+        Variables:
+          FAILOVER_FUNCTION: !GetAtt FailoverToSecondaryLambdaFunction.Arn
+          CONVERT_TO_GLOBAL_FUNCTION: !GetAtt ConvertRegionalToGlobalClusterLambdaFunction.Arn
+          DYNAMODB_TABLE_NAME: !Select [1, !Split ['/', !GetAtt GlobalClustersTable.Arn]]
+  
+Outputs:
+  RoleArn:
+    Value: !GetAtt LambdaGlobalClustersAutomationRole.Arn
+  FailoverLambdaFunction:
+    Value: !GetAtt FailoverToSecondaryLambdaFunction.Arn
+  ConvertLambdaFunction:
+    Value: !GetAtt ConvertRegionalToGlobalClusterLambdaFunction.Arn
