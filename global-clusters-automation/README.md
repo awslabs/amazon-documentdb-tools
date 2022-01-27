@@ -8,7 +8,7 @@ This tool requires Route53 private hosted zone with at least one CNAME that will
 This tool provides the following AWS Lambda functions to automate the failover process for global clusters. The first two AWS Lambda functions addresses DR use case and the third function addresses BCP use case.
 
 ### Architecture - Disaster Recovery
-![Solution Architecture DR](images/Global Clusters Automation-DR.png)
+![Solution Architecture DR](images/GlobalClustersAutomation-DR.png)
 
 ###1. failoverToSecondary
 #### Input
@@ -60,7 +60,7 @@ This function will convert the regional cluster provided via input as `primary_c
 Global cluster with a primary cluster and secondary cluster(s) in the provided region(s) and subnet(s) 
 
 ### Architecture - Business Continuity Planning  
-![Solution Architecture BCP](images/Global Clusters Automation-BCP.png)
+![Solution Architecture BCP](images/GlobalClustersAutomation-BCP.png)
 
 ###3. failoverAndConvertToGlobal
 #### Input
