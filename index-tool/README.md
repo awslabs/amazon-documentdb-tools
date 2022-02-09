@@ -9,6 +9,7 @@ Features:
  - Checks indexes for unsupported index types
  - Checks collections for unsupported options
  - Restores supported indexes (without data) to Amazon DocumentDB
+ - Supports creation of 2dsphere indexes using --support-2dsphere command line option
 
 ## Installing
 Clone the repository, then run the following command in the repo top-level director:
