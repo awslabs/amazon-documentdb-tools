@@ -64,12 +64,11 @@ class DocumentDbUnsupportedFeatures(object):
     def __init__(self):
         pass
 
-    UNSUPPORTED_INDEX_TYPES = [
-        'text', '2d', '2dsphere', 'geoHaystack', 'hashed'
-    ]
+    UNSUPPORTED_INDEX_TYPES = ['text', '2d', '2dsphere', 'geoHaystack', 'hashed']
     UNSUPPORTED_INDEX_OPTIONS = ['partialFilterExpression', 'storageEngine', \
                                 'collation', 'dropDuplicates']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
+    IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion']
 
 
 class IndexToolConstants(object):
@@ -80,7 +79,7 @@ class IndexToolConstants(object):
     def __init__(self):
         pass
 
-    DATABASES_TO_SKIP = ['admin', 'local', 'system']
+    DATABASES_TO_SKIP = ['admin', 'config', 'local', 'system']
     METADATA_FILE_SUFFIX_PATTERN = 'metadata.json'
     CONNECT_TIMEOUT = 5000
     EXCEEDED_LIMITS = 'exceeded_limits'
@@ -486,7 +485,7 @@ class DocumentDbIndexTool(IndexToolConstants):
 
                     for k in metadata[db_name][collection_name][
                             self.INDEXES][index_name]:
-                        if k != self.INDEX_KEY and k != self.INDEX_VERSION:
+                        if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
                             # this key is an additional index option
                             index_options[k] = metadata[db_name][
                                 collection_name][self.INDEXES][index_name][k]
@@ -553,6 +552,9 @@ class DocumentDbIndexTool(IndexToolConstants):
                 if compatibility_issues:
                     logging.error(
                         "incompatible indexes exist and --skip-incompatible not specified."
+                    )
+                    logging.error(
+                        "force support of 2dsphere indexes by including --support-2dsphere"
                     )
                     sys.exit()
             else:
@@ -677,6 +679,11 @@ def main():
                         type=str,
                         help='path to CA file used for TLS connection')
 
+    parser.add_argument('--support-2dsphere',
+                        required=False,
+                        action='store_true',
+                        help='support 2dsphere indexes (collections must use GeoJSON Point type for indexing)')
+
     args = parser.parse_args()
 
     if not (args.dump_indexes or args.restore_indexes or args.show_issues
@@ -703,6 +710,10 @@ def main():
 
     if args.auth_db is None and args.username is not None:
         args.auth_db = 'admin'
+
+    if args.support_2dsphere:
+        # 2dsphere supported, remove from unsupported
+        DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_TYPES.remove('2dsphere')
 
     indextool = DocumentDbIndexTool(args)
     indextool.run()
