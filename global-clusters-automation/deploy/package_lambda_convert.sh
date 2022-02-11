@@ -16,4 +16,4 @@
    mv ../dist-packages/* .
    zip -r9 convertToGlobalLambdaFunction.zip .
    aws s3 cp convertToGlobalLambdaFunction.zip s3://$1
-   cd..
+   cd ..
