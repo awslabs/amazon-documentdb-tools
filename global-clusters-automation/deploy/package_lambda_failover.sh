@@ -2,8 +2,6 @@
    echo 'Packaging and uploading global cluster automation code to S3'
    # Upload Lambda Code
    cd app
-   #mkdir app1 && cd app1
-   #TODO Uncomment above line after downloading source code from git hub (after open sourcing)
 
    python3 -m venv failoverLambda
    source failoverLambda/bin/activate
