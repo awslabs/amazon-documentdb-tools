@@ -520,7 +520,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     host=self.args.host,
                     port=self.args.port,
                     tls=self.args.tls,
-                    tlsCAFile=self.args.tls_ca_file,
+                    tls_ca_file=self.args.tls_ca_file,
                     username=self.args.username,
                     password=self.args.password,
                     auth_db=self.args.auth_db)
