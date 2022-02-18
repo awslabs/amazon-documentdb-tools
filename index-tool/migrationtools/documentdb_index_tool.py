@@ -138,8 +138,8 @@ class DocumentDbIndexTool(IndexToolConstants):
         mongodb_client = MongoClient(
             host=host,
             port=port,
-            ssl=tls,
-            ssl_ca_certs=tls_ca_file,
+            tls=tls,
+            tlsCAFile=tls_ca_file,
             connect=True,
             connectTimeoutMS=DocumentDbIndexTool.CONNECT_TIMEOUT,
             serverSelectionTimeoutMS=DocumentDbIndexTool.CONNECT_TIMEOUT)
