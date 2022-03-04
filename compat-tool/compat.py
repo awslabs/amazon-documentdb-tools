@@ -10,10 +10,11 @@ import argparse
 versions = ['3.6', '4.0']
 processingFeedbackLines = 10000
 issuesDict = {}
+detailedIssuesDict = {}
 supportedDict = {}
 skippedFileList = []
+exceptionFileList = []
 numProcessedFiles = 0
-numSkippedFiles = 0
 
 
 def double_check(checkOperator, checkLine, checkLineLength):
@@ -28,7 +29,7 @@ def double_check(checkOperator, checkLine, checkLineLength):
 
 
 def scan_code(args, keywords):
-    global numProcessedFiles, numSkippedFiles, issuesDict, supportedDict, skippedFileList
+    global numProcessedFiles, issuesDict, detailedIssuesDict, supportedDict, skippedFileList, exceptionFileList
     
     ver = args.version
 
@@ -60,13 +61,18 @@ def scan_code(args, keywords):
                     numProcessedFiles += 1
                 else:
                     skippedFileList.append(filename)
-                    numSkippedFiles += 1
                     
     for thisFile in fileArray:
         print("processing file {}".format(thisFile))
         with open(thisFile, "r") as code_file:
             # line by line technique
-            fileLines = code_file.readlines()
+            try:
+                fileLines = code_file.readlines()
+            except:
+                print("  exception reading file, skipping")
+                exceptionFileList.append(thisFile)
+                continue
+                
             fileLineNum = 1
             
             for lineNum, thisLine in enumerate(fileLines):
@@ -78,10 +84,20 @@ def scan_code(args, keywords):
                         if (thisLine.find(checkCompat) >= 0):
                             # check for false positives - for each position found see if next character is not a..z|A..Z or if at EOL
                             if double_check(checkCompat, thisLine, thisLineLength):
+                                # add it to the counters
                                 if checkCompat in issuesDict:
                                     issuesDict[checkCompat] += 1
                                 else:
                                     issuesDict[checkCompat] = 1
+                                # add it to the filenames/line-numbers
+                                if checkCompat in detailedIssuesDict:
+                                    if thisFile in detailedIssuesDict[checkCompat]:
+                                        detailedIssuesDict[checkCompat][thisFile].append(fileLineNum)
+                                    else:
+                                        detailedIssuesDict[checkCompat][thisFile] = [fileLineNum]
+                                else:
+                                    detailedIssuesDict[checkCompat] = {}
+                                    detailedIssuesDict[checkCompat][thisFile] = [fileLineNum]
 
                     elif (keywords[checkCompat][ver] == 'Yes'):
                         # check for supported operators
@@ -123,26 +139,43 @@ def main(args):
     scan_code(args, keywords)
     
     print("")
-    print("Processed {} files, skipped {} files".format(numProcessedFiles,numSkippedFiles))
-    print("Found {} unsupported operators".format(len(issuesDict)))
+    print("Processed {} files, skipped {} files".format(numProcessedFiles,len(skippedFileList)+len(exceptionFileList)))
 
     if len(issuesDict) > 0:
         print("")
-        print("The following unsupported operators were found")
+        print("The following {} unsupported operators were found".format(len(issuesDict)))
         for thisKeyPair in sorted(issuesDict.items(), key=lambda x: (-x[1],x[0])):
-            print("  - {} | {}".format(thisKeyPair[0],thisKeyPair[1]))
+            print("  {} | found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
+            
+        # output detailed unsupported operator findings
+        print("")
+        print("Unsupported operators by filename and line number")
+        for thisKeyPair in sorted(issuesDict.items(), key=lambda x: (-x[1],x[0])):
+            print("  {} | lines = found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
+            for thisFile in detailedIssuesDict[thisKeyPair[0]]:
+                print("    {} | lines = {}".format(thisFile,detailedIssuesDict[thisKeyPair[0]][thisFile]))
+        
+    else:
+        print("")
+        print("No unsupported operators found")
 
-    if len(supportedDict) > 0:
+    if False and len(supportedDict) > 0:
         print("")
         print("The following supported operators were found")
         for thisKeyPair in sorted(supportedDict.items(), key=lambda x: (-x[1],x[0])):
-            print("  - {} | {}".format(thisKeyPair[0],thisKeyPair[1]))
+            print("  - {} | found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
 
     if len(skippedFileList) > 0:
         print("")
-        print("List of skipped files")
+        print("List of skipped files - excluded extensions")
         for skippedFile in skippedFileList:
             print("  {}".format(skippedFile))
+
+    if len(exceptionFileList) > 0:
+        print("")
+        print("List of skipped files - unsupported file type/content")
+        for exceptionFile in exceptionFileList:
+            print("  {}".format(exceptionFile))
 
     print("")
 
