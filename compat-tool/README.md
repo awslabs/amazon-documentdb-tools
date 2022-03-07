@@ -28,6 +28,9 @@ code file to be scanned for compatibility.
 * "full-path-to-directory-to-scan" is a directory containing MongoDB log 
 files or source code files, all included files will be scanned and 
 subdirectories will be scanned resursively.
+* NOTE - all files scanned by this utility are opened read-only and scanned in
+memory. With the exception of operators used there is no logging of the file
+contents.
 
 
 ### Enabling query logging
