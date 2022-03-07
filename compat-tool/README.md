@@ -14,18 +14,18 @@ Clone the repository.
 This tool supports examining compatibility with either the 3.6
 or 4.0 versions of Amazon DocumentDB. The format of the command is:
 ```
-python3 compat.py --file full-path-to-file
+python3 compat.py --file full-path-to-file-to-scan
 
 or
 
-python3 compat.py --directory full-path-to-directory
+python3 compat.py --directory full-path-to-directory-to-scan
 ```
 
 * By default the tool will test for Amazon DocumentDB 4.0 compatibility, 
 include --version 3.6 to test for that specific version.
-* "full-path-to-file is a single MongoDB log file or source 
+* "full-path-to-file-to-scan" is a single MongoDB log file or source 
 code file to be scanned for compatibility.
-* "full-path-to-directory" is a directory containing MongoDB log 
+* "full-path-to-directory-to-scan" is a directory containing MongoDB log 
 files or source code files, all included files will be scanned and 
 subdirectories will be scanned resursively.
 
