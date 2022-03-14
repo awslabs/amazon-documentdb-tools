@@ -237,7 +237,7 @@ class DocumentDbIndexTool(IndexToolConstants):
 
         return metadata_files
 
-    def _dump_indexes_from_server(self, connection, output_dir, dry_run=False):
+    def _dump_indexes_from_server(self, connection, output_dir, dry_run=False, database=None):
         """
         Discover all indexes in a mongodb server and dump them
         to files using the mongodump format
@@ -247,7 +247,9 @@ class DocumentDbIndexTool(IndexToolConstants):
         try:
             database_info = connection.admin.command({'listDatabases': 1})
 
-            for database_doc in database_info['databases']:
+            databases = filter(lambda di: database is None or di['name'] == database, database_info['databases'])
+
+            for database_doc in databases:
                 database_name = database_doc['name']
                 logging.debug("Database: %s", database_name)
 
@@ -533,7 +535,7 @@ class DocumentDbIndexTool(IndexToolConstants):
         # dump indexes from a MongoDB server
         if self.args.dump_indexes is True:
             self._dump_indexes_from_server(connection, self.args.dir,
-                                           self.args.dry_run)
+                                           self.args.dry_run, self.args.database_override)
             sys.exit()
 
         # all non-dump operations require valid source metadata
@@ -683,6 +685,11 @@ def main():
                         required=False,
                         action='store_true',
                         help='support 2dsphere indexes (collections must use GeoJSON Point type for indexing)')
+
+    parser.add_argument('--database-override',
+                        required=False,
+                        type=str,
+                        help='choose specific database to migrate')
 
     args = parser.parse_args()
 
