@@ -15,6 +15,8 @@ Features:
 Clone the repository, then run the following command in the repo top-level director:
 `pip3 install -r requirements.txt`
 
+**NOTE** - This tool requires Python 3.7 or greater.
+
 ## Using the Index Tool
 To dump indexes from a running MongoDB instance or replica set, run the following command:
 `python3 migrationtools/documentdb_index_tool.py --dump-indexes --host <host> --port <port> --username <username> --password <password> --auth-db <auth db> --dir <directory to dump metadata to>`
