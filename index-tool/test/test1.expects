@@ -1,0 +1,18 @@
+(dry run) idxtest.tmc: would attempt to add index: _id_
+  (dry run) index options: OrderedDict([('name', '_id_'), ('ns', 'idxtest.tmc')])
+  (dry run) index keys: [('_id', 1)]
+(dry run) idxtest.tmc: would attempt to add index: one_two
+  (dry run) index options: OrderedDict([('name', 'one_two'), ('ns', 'idxtest.tmc')])
+  (dry run) index keys: [('one', 1), ('two', 1)]
+(dry run) idxtest.tmc: would attempt to add index: five_three_four
+  (dry run) index options: OrderedDict([('name', 'five_three_four'), ('ns', 'idxtest.tmc')])
+  (dry run) index keys: [('five', 1), ('three', -1), ('four', 1)]
+(dry run) idxtest.tmc: would attempt to add index: five_four
+  (dry run) index options: OrderedDict([('name', 'five_four'), ('ns', 'idxtest.tmc')])
+  (dry run) index keys: [('five', 1), ('four', 1)]
+(dry run) idxtest.tmc: would attempt to add index: two_one_four
+  (dry run) index options: OrderedDict([('name', 'two_one_four'), ('ns', 'idxtest.tmc')])
+  (dry run) index keys: [('two', -1), ('one', 1), ('four', 1)]
+(dry run) idxtest.tmc: would attempt to add index: five_three_four_one_two
+  (dry run) index options: OrderedDict([('name', 'five_three_four_one_two'), ('ns', 'idxtest.tmc')])
+  (dry run) index keys: [('five', 1), ('three', -1), ('four', 1), ('one', 1), ('two', 1)]

@@ -25,7 +25,7 @@ from bson.json_util import dumps
 from pymongo import MongoClient
 from pymongo.errors import (ConnectionFailure, OperationFailure,
                             ServerSelectionTimeoutError)
-
+from collections import OrderedDict
 
 class AutovivifyDict(dict):
     """N depth defaultdict."""
@@ -188,8 +188,8 @@ class DocumentDbIndexTool(IndexToolConstants):
         with open(filepath, 'rt') as metadata_file:
             logging.debug("Getting metadata from file: %s", filepath)
 
-            file_metadata = json.load(metadata_file)
-            collection_metadata = AutovivifyDict()
+            file_metadata = json.load(metadata_file, object_pairs_hook=OrderedDict)
+            collection_metadata = OrderedDict()
             indexes = file_metadata.get(self.INDEXES, None)
 
             # every collection should have at least the _id_ index. If no indexes are listed, the
@@ -218,6 +218,8 @@ class DocumentDbIndexTool(IndexToolConstants):
 
             for index in indexes:
                 index_name = index.pop(self.INDEX_NAME)
+                if self.INDEXES not in collection_metadata:
+                    collection_metadata[self.INDEXES] = OrderedDict()
                 collection_metadata[self.INDEXES][index_name] = index
 
                 if self.OPTIONS in file_metadata:
@@ -468,7 +470,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     index_keys = metadata[db_name][collection_name][
                         self.INDEXES][index_name][self.INDEX_KEY]
                     keys_to_create = []
-                    index_options = {}
+                    index_options = OrderedDict()
 
                     index_options[self.INDEX_NAME] = index_name
                     for key in index_keys:
@@ -684,7 +686,16 @@ def main():
                         action='store_true',
                         help='support 2dsphere indexes (collections must use GeoJSON Point type for indexing)')
 
+    parser.add_argument('--skip-python-version-check',
+                        required=False,
+                        action='store_true',
+                        help='Permit execution on Python 3.6 and prior')
+
     args = parser.parse_args()
+
+    MIN_PYTHON = (3, 7)
+    if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
+        sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
 
     if not (args.dump_indexes or args.restore_indexes or args.show_issues
             or args.show_compatible):
