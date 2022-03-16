@@ -162,7 +162,7 @@ def main(args):
 
     if len(supportedDict) > 0 and args.showSupported:
         print("")
-        print("The following supported operators were found")
+        print("The following {} supported operators were found".format(len(supportedDict)))
         for thisKeyPair in sorted(supportedDict.items(), key=lambda x: (-x[1],x[0])):
             print("  - {} | found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
 
