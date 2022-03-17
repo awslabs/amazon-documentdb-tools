@@ -264,8 +264,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     self._mkdir_p(database_path)
 
                 # Write out each collection's stats in this database
-                for collection_name in connection[
-                        database_name].list_collection_names():
+                for collection_name in connection[database_name].list_collection_names():
                     logging.debug("Collection: %s", collection_name)
                     collection_metadata = {}
                     collection_metadata[self.OPTIONS] = connection[
