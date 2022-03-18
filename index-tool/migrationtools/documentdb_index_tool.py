@@ -239,7 +239,7 @@ class DocumentDbIndexTool(IndexToolConstants):
 
         return metadata_files
 
-    def _dump_indexes_from_server(self, connection, output_dir, dry_run=False, database=None):
+    def _dump_indexes_from_server(self, connection, output_dir, dry_run=False, database_arg=None):
         """
         Discover all indexes in a mongodb server and dump them
         to files using the mongodump format
@@ -249,11 +249,14 @@ class DocumentDbIndexTool(IndexToolConstants):
         try:
             database_info = connection.admin.command({'listDatabases': 1})
 
-            databases = filter(lambda di: database is None or di['name'] == database, database_info['databases'])
+            databases_to_include = [x.strip() for x in database_arg.split(',') if x]
 
-            for database_doc in databases:
+            for database_doc in database_info['databases']:
                 database_name = database_doc['name']
                 logging.debug("Database: %s", database_name)
+
+                if len(databases_to_include) > 0 and (database_name not in databases_to_include):
+                    continue
 
                 if database_name in self.DATABASES_TO_SKIP:
                     continue
@@ -264,7 +267,8 @@ class DocumentDbIndexTool(IndexToolConstants):
                     self._mkdir_p(database_path)
 
                 # Write out each collection's stats in this database
-                for collection_name in connection[database_name].list_collection_names():
+                for collection_name in connection[
+                        database_name].list_collection_names():
                     logging.debug("Collection: %s", collection_name)
                     collection_metadata = {}
                     collection_metadata[self.OPTIONS] = connection[
@@ -536,7 +540,7 @@ class DocumentDbIndexTool(IndexToolConstants):
         # dump indexes from a MongoDB server
         if self.args.dump_indexes is True:
             self._dump_indexes_from_server(connection, self.args.dir,
-                                           self.args.dry_run, self.args.database_override)
+                                           self.args.dry_run, self.args.include_databases)
             sys.exit()
 
         # all non-dump operations require valid source metadata
@@ -687,10 +691,10 @@ def main():
                         action='store_true',
                         help='support 2dsphere indexes (collections must use GeoJSON Point type for indexing)')
 
-    parser.add_argument('--database-override',
+    parser.add_argument('--include-databases',
                         required=False,
                         type=str,
-                        help='choose specific database to migrate')
+                        help='choose specific databases to migrate (comma-separated)')
 
     parser.add_argument('--skip-python-version-check',
                         required=False,
