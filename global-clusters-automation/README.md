@@ -101,4 +101,7 @@ cat deploy/global_clusters_automation.yml
 The Cloud Formation Template (from step 3 above) deploys the three AWS Lambda functions with an IAM Role that has access AWS DynamoDB, Amazon DocumentDB and AWS Lambda to invoke other Lambda functions. The CloudFormation template also creates a DynamoDB table to store the inputs and current state. This table helps to keep the Lambda functions idempotent. 
 
 ## Clean up
-To remove the components deployed by this tool, delete the CloudFormation stack and the zip files containing source code from S3 bucket. 
+To remove the components deployed by this tool, delete the CloudFormation stack and the zip files containing source code from S3 bucket.
+
+## Solution Demonstration
+https://user-images.githubusercontent.com/10189030/159790184-7fb69643-f2cf-41e1-9a88-6549ac018b98.mp4
