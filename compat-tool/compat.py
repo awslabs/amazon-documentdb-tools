@@ -233,7 +233,6 @@ def load_keywords():
         "$cos":{"mongodbversion":"4.2","3.6":"No","4.0":"No"},
         "$cosh":{"mongodbversion":"4.2","3.6":"No","4.0":"No"},
         "$count":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes"},
-        "$count":{"mongodbversion":"5.0","3.6":"No","4.0":"No"},
         "$currentDate":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes"},
         "$currentOp":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes"},
         "$dateAdd":{"mongodbversion":"5.0","3.6":"No","4.0":"No"},
