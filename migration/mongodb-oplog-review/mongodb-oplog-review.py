@@ -4,7 +4,7 @@ import sys
 import time
 import pymongo
 from bson.timestamp import Timestamp
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def printLog(thisMessage,thisFile):
@@ -21,8 +21,6 @@ def parseOplog(appConfig):
     client = pymongo.MongoClient(appConfig['uri'])
     oplog = client.local.oplog.rs
     
-    startTs = Timestamp(0, 1)
-
     if appConfig['startFromOplogStart']:
         # start with first oplog entry
         first = oplog.find().sort('$natural', pymongo.ASCENDING).limit(1).next()
@@ -31,12 +29,15 @@ def parseOplog(appConfig):
     else:
         # start at an arbitrary position
         startTs = Timestamp(1641240727, 5)
+        # get proper startTs from oplog
         printLog('starting with an arbitrary timestamp is not yet supported.',fp)
         sys.exit(1)
         # start with right now
         #startTs = Timestamp(int(time.time()), 1)
 
-    printLog("starting with opLog timestamp = {}".format(startTs.as_datetime()),fp)
+    currentTs = startTs
+
+    printLog("starting with opLog timestamp = {}".format(currentTs.as_datetime()),fp)
 
     numTotalOplogEntries = 0
     opDict = {}
@@ -58,31 +59,31 @@ def parseOplog(appConfig):
 
     while not allDone:
         if appConfig['includeAllDatabases']:
-            #cursor = oplog.find({'ts': {'$gte': startTs}},cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True,batch_size=appConfig['batchSize'])
-            cursor = oplog.find({'ts': {'$gte': startTs}},{'op':1,'ns':1,'ts':1},cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True,batch_size=appConfig['batchSize'])
+            cursor = oplog.find({'ts': {'$gte': currentTs}},{'op':1,'ns':1,'ts':1},cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True,batch_size=appConfig['batchSize'])
         else:
-            #cursor = oplog.find({'ts': {'$gte': startTs},'ns':sourceNs},cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True)
+            #cursor = oplog.find({'ts': {'$gte': currentTs},'ns':sourceNs},cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True)
             printLog('Namespace specific parsing is not yet supported.',fp)
             sys.exit(1)
             
-        printedFirstTs = False
-            
         while cursor.alive and not allDone:
             for doc in cursor:
-                endTs = doc['ts']
+                currentTs = doc['ts']
                 
                 numTotalOplogEntries += 1
                 if ((numTotalOplogEntries % appConfig['numOperationsFeedback']) == 0) or ((lastFeedback + appConfig['numSecondsFeedback']) < time.time()):
                     lastFeedback = time.time()
                     elapsedSeconds = time.time() - startTime
+                    secondsBehind = int((datetime.now(timezone.utc) - currentTs.as_datetime().replace(tzinfo=timezone.utc)).total_seconds())
                     if (elapsedSeconds != 0):
-                        printLog("  tot oplog entries read {:16,d} @ {:12,.0f} per second".format(numTotalOplogEntries,numTotalOplogEntries//elapsedSeconds),fp)
+                        printLog("  tot oplog entries read {:16,d} @ {:12,.0f} per second | {:12,d} seconds behind".format(numTotalOplogEntries,numTotalOplogEntries//elapsedSeconds,secondsBehind),fp)
                     else:
-                        printLog("  tot oplog entries read {:16,d} @ {:12,.0f} per second".format(0,0.0),fp)
+                        printLog("  tot oplog entries read {:16,d} @ {:12,.0f} per second | {:12,d} seconds behind".format(0,0.0,secondsBehind),fp)
 
-                #if (not printedFirstTs) and (doc['op'] in ['i','u','d']) and (doc['ns'] == sourceNs):
-                #    printLog("*** first timestamp = {}".format(doc['ts']),fp)
-                #    printedFirstTs = True
+                    # check if time to stop
+                    elapsedSeconds = time.time() - startTime
+                    if ((elapsedSeconds >= appConfig['collectSeconds']) or (appConfig['stopWhenOplogCurrent'] and (secondsBehind < 60))):
+                        allDone = True
+                        break
 
                 if (doc['op'] == 'i'):
                     # insert
@@ -128,19 +129,15 @@ def parseOplog(appConfig):
                     printLog(doc,fp)
                     sys.exit(1)
                 
-                '''
-                if numTotalOplogEntries > maxOplogEntries:
-                    allDone = True
-                    break
-                '''
-                elapsedSeconds = time.time() - startTime
-                if (elapsedSeconds >= appConfig['collectSeconds']):
-                    allDone = True
-                    break
+            # check if time to stop
+            elapsedSeconds = time.time() - startTime
+            if ((elapsedSeconds >= appConfig['collectSeconds']) or (appConfig['stopWhenOplogCurrent'] and (secondsBehind < 60))):
+                allDone = True
+                break
 
     # print overall ops, ips/ups/dps
 
-    oplogSeconds = (endTs.as_datetime()-startTs.as_datetime()).total_seconds()
+    oplogSeconds = (currentTs.as_datetime()-startTs.as_datetime()).total_seconds()
     oplogMinutes = oplogSeconds/60
     oplogHours = oplogMinutes/60
     oplogDays = oplogHours/24
@@ -199,13 +196,19 @@ def main():
     # roadmap
     
     # v1
-    #   - mvp
+    #   * mvp
     
     # v2
+    #   * add option to run for specified number of seconds
+    #   * start from last timestamp when creating oplog cursor
+    #   * output number of "seconds behind" when running
+    #   * add feature to stop when the oplog is current (default False)
+
+    # v3
+    #   - add logIt [proper timestamp, duration, etc]
     #   - scope to limited number of databases
     #   - parameterize more options
     #   - add option to run from/to particular timestamp
-    #   - add option to run for specified number of seconds
 
     parser = argparse.ArgumentParser(description='Calculate collection level acvitivity using the oplog.')
         
@@ -241,6 +244,11 @@ def main():
                         default=1000,
                         help='Number of oplog entries to retrieve per batch [default 1000].')
 
+    parser.add_argument('--stop-when-oplog-current',
+                        required=False,
+                        action='store_true',
+                        help='Stop processing and output results when fully caught up on the oplog')
+
     args = parser.parse_args()
     
     MIN_PYTHON = (3, 7)
@@ -256,6 +264,7 @@ def main():
     appConfig['serverAlias'] = args.server_alias
     appConfig['collectSeconds'] = args.collect_seconds
     appConfig['unitOfMeasure'] = args.unit_of_measure
+    appConfig['stopWhenOplogCurrent'] = args.stop_when_oplog_current
     
     # start from the beginning of the oplog rather than an aribtrary timestamp
     appConfig['startFromOplogStart'] = True
@@ -267,7 +276,7 @@ def main():
     appConfig['numSecondsFeedback'] = 5
     
     #appConfig['maxOplogEntries'] = 6100000
-    appConfig['maxSecondsBetweenBatches'] = 1
+    #appConfig['maxSecondsBetweenBatches'] = 1
     
     appConfig['batchSize'] = args.batch_size
 
