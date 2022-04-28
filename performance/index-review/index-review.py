@@ -155,6 +155,8 @@ def main():
     #    * add proper argument system
     
     # v1
+    #    filter by database and/or collection by name
+    #    filter by database and/or collection by regular expression
     #    report server uptime with suggestions
     #    allow override of minimum Python version
     #    clean up JSON - remove "start"
