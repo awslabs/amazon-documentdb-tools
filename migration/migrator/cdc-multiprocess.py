@@ -277,7 +277,7 @@ def main():
                         required=False,
                         type=int,
                         default=0,
-                        help='Number of seconds to run before existing, 0 = run forever')
+                        help='Number of seconds to run before exiting, 0 = run forever')
 
     parser.add_argument('--feedback-seconds',
                         required=False,
