@@ -20,7 +20,9 @@ def parseOplog(appConfig):
     printLog('connecting to MongoDB aliased as {}'.format(appConfig['serverAlias']),fp)
     client = pymongo.MongoClient(appConfig['uri'])
     oplog = client.local.oplog.rs
-    
+
+    secondsBehind = 999999
+
     if appConfig['startFromOplogStart']:
         # start with first oplog entry
         first = oplog.find().sort('$natural', pymongo.ASCENDING).limit(1).next()
