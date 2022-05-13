@@ -90,10 +90,19 @@ def getCollectionStats(client):
     return returnDict
     
     
-def evalIndexes(fname):
-    print("loading {}".format(fname))
-    with open(fname, 'r') as index_file:    
+def evalIndexes(appConfig):
+    print("loading first file {}".format(appConfig['files'][0]))
+    with open(appConfig['files'][0], 'r') as index_file:
         idxDict = json.load(index_file, object_pairs_hook=OrderedDict)
+
+    # load additional files
+    addlIdxDictList = []
+    addlIdxCount = 0
+    for filePtr in range(1,len(appConfig['files'])):
+        print("  loading additional file {}".format(appConfig['files'][filePtr]))
+        with open(appConfig['files'][filePtr], 'r') as index_file:
+            addlIdxDictList.append(json.load(index_file, object_pairs_hook=OrderedDict))
+            addlIdxCount += 1
 
     # for each database
     for thisDb in idxDict["start"]["collstats"]:
@@ -108,8 +117,16 @@ def evalIndexes(fname):
                 if thisIdx["name"] in ["_id","_id_"]:
                     continue
                     
-                # check index for non-usage
-                if thisIdx["accesses"]["ops"] == 0:
+                # check extra servers for non-usage
+                numXtraOps = 0
+                if addlIdxCount > 0:
+                    for n in range(0,addlIdxCount):
+                        for xtraIdx in addlIdxDictList[n]["start"]["collstats"][thisDb][thisColl]["indexInfo"]:
+                            if xtraIdx["name"] == thisIdx["name"]:
+                                numXtraOps += xtraIdx["accesses"]["ops"]
+
+                # check index for non-usage (all servers)
+                if (thisIdx["accesses"]["ops"]+numXtraOps == 0):
                     if not printedCollection:
                         printedCollection = True
                         print("    collection {}".format(thisColl))
@@ -122,6 +139,10 @@ def evalIndexes(fname):
                         printedCollection = True
                         print("    collection {}".format(thisColl))
                     print("        index {} | is redundant and covered by the following indexes : {}".format(thisIdx["name"],redundantList))
+
+                # output details
+                #with open('output.log', 'a') as fpDet:
+                #    fpDet.write("{:40s} {:40s} {:40s} {:12d} {:12d}\n".format(thisDb,thisColl,thisIdx["name"],thisIdx["accesses"]["ops"],numXtraOps))
 
 
 def checkIfRedundant(idxName,idxKeyAsString,indexList):
@@ -185,14 +206,19 @@ def main():
                         help='Permit execution on Python 3.6 and prior')
     
     parser.add_argument('--uri',
-                        required=True,
+                        required=False,
                         type=str,
                         help='MongoDB Connection URI')
 
     parser.add_argument('--server-alias',
-                        required=True,
+                        required=False,
                         type=str,
                         help='Alias for server, used to name output file')
+
+    parser.add_argument('--files',
+                        required=False,
+                        type=str,
+                        help='Comma separated list of existing output files to review')
 
     args = parser.parse_args()
     
@@ -200,16 +226,32 @@ def main():
     MIN_PYTHON = (3, 7)
     if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
         sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
-    
+
+    if args.uri is None and args.files is None:
+        parser.error("must provide either --uri or --files")
+
+    if args.uri is not None and args.files is not None:
+        parser.error("cannot provide both --uri and --files")
+
+    if args.uri is not None and args.server_alias is None:
+        parser.error("must provide --server-alias when running in URI mode")
+
     appConfig = {}
     appConfig['connectionString'] = args.uri
     appConfig['serverAlias'] = args.server_alias
     
     #checkReplicaSet(appConfig)
 
-    outfName = getData(appConfig)
-    
-    evalIndexes(outfName)
+    if (args.uri is not None):
+        # pulling from a server
+        outfName = getData(appConfig)
+        appConfig['files'] = [outfName]
+
+    else:
+        # comparing using 1 or more output files from prior runs
+        appConfig['files'] = args.files.split(',')
+
+    evalIndexes(appConfig)
 
 
 if __name__ == "__main__":
