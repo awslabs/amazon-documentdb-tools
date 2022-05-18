@@ -104,6 +104,12 @@ def evalIndexes(appConfig):
             addlIdxDictList.append(json.load(index_file, object_pairs_hook=OrderedDict))
             addlIdxCount += 1
 
+    outFile1 = open(appConfig['serverAlias']+'-collections.csv','wt')
+    outFile1.write("{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB'))
+
+    outFile2 = open(appConfig['serverAlias']+'-indexes.csv','wt')
+    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','index-name','index-accesses','redundant','covered-by'))
+
     # for each database
     for thisDb in idxDict["start"]["collstats"]:
         print("  database {}".format(thisDb))
@@ -111,6 +117,10 @@ def evalIndexes(appConfig):
         # for each collection
         for thisColl in idxDict["start"]["collstats"][thisDb]:
             printedCollection = False
+            thisCollInfo = idxDict["start"]["collstats"][thisDb][thisColl]
+            bToGb = 1024*1024*1024
+
+            outFile1.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb))
             
             # for each index
             for thisIdx in idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"]:
@@ -134,15 +144,22 @@ def evalIndexes(appConfig):
 
                 # check index for redundancy
                 redundantList = checkIfRedundant(thisIdx["name"],thisIdx["keyAsString"],idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"])
+                isRedundant = "No"
                 if len(redundantList) > 0:
                     if not printedCollection:
                         printedCollection = True
                         print("    collection {}".format(thisColl))
                     print("        index {} | is redundant and covered by the following indexes : {}".format(thisIdx["name"],redundantList))
+                    isRedundant = "Yes"
 
                 # output details
                 #with open('output.log', 'a') as fpDet:
                 #    fpDet.write("{:40s} {:40s} {:40s} {:12d} {:12d}\n".format(thisDb,thisColl,thisIdx["name"],thisIdx["accesses"]["ops"],numXtraOps))
+
+                outFile2.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,thisIdx["name"],thisIdx["accesses"]["ops"]+numXtraOps,isRedundant,redundantList))
+
+    outFile1.close()
+    outFile2.close()
 
 
 def checkIfRedundant(idxName,idxKeyAsString,indexList):
@@ -211,7 +228,7 @@ def main():
                         help='MongoDB Connection URI')
 
     parser.add_argument('--server-alias',
-                        required=False,
+                        required=True,
                         type=str,
                         help='Alias for server, used to name output file')
 
@@ -232,9 +249,6 @@ def main():
 
     if args.uri is not None and args.files is not None:
         parser.error("cannot provide both --uri and --files")
-
-    if args.uri is not None and args.server_alias is None:
-        parser.error("must provide --server-alias when running in URI mode")
 
     appConfig = {}
     appConfig['connectionString'] = args.uri
