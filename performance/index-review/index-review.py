@@ -108,7 +108,7 @@ def evalIndexes(appConfig):
     outFile1.write("{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB'))
 
     outFile2 = open(appConfig['serverAlias']+'-indexes.csv','wt')
-    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','index-name','index-accesses','redundant','covered-by'))
+    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by'))
 
     # for each database
     for thisDb in idxDict["start"]["collstats"]:
@@ -156,7 +156,9 @@ def evalIndexes(appConfig):
                 #with open('output.log', 'a') as fpDet:
                 #    fpDet.write("{:40s} {:40s} {:40s} {:12d} {:12d}\n".format(thisDb,thisColl,thisIdx["name"],thisIdx["accesses"]["ops"],numXtraOps))
 
-                outFile2.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,thisIdx["name"],thisIdx["accesses"]["ops"]+numXtraOps,isRedundant,redundantList))
+                outFile2.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],
+                  thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,thisIdx["name"],
+                  thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList))
 
     outFile1.close()
     outFile2.close()
