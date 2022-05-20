@@ -16,10 +16,10 @@ The index review tool catalogs all collections and their indexes (structure and 
 
 - Run on all instances (primary and all secondaries)
 - Connect directly to servers, not as replicaSet. If driver version supports &directConnection=true then provide it as part of the --uri
-- Use a different <server-alias> for each server, output files are named using <server-alias> as the start
+- Use a different \<server-alias> for each server, output files are named using \<server-alias> as the starting portion
 - Avoid running the tool from the server itself if possible, it consume disk space for the output files
-- The <mongodb-uri> options can be found at https://www.mongodb.com/docs/manual/reference/connection-string/ 
-- Consider adding "&compressor=snappy" to your <mongodb-uri> of your MongoDB server supports it
+- The \<mongodb-uri> options can be found at https://www.mongodb.com/docs/manual/reference/connection-string/ 
+- Consider adding "&compressor=snappy" to your \<mongodb-uri> if your MongoDB server supports it
 - For DocumentDB use the instance endpoints, not the cluster endpoint
 
 ## License
