@@ -181,6 +181,150 @@ def oplog_processor(threadnum, appConfig, perfQ):
     perfQ.put({"name":"processCompleted","processNum":threadnum})
 
 
+def change_stream_processor(threadnum, appConfig, perfQ):
+    if appConfig['verboseLogging']:
+        logIt(threadnum,'thread started')
+
+    sourceConnection = pymongo.MongoClient(appConfig["sourceUri"])
+    sourceDb = sourceConnection[appConfig["sourceNs"].split('.',2)[0]]
+    sourceColl = sourceDb[appConfig["sourceNs"].split('.',2)[1]]
+
+    destConnection = pymongo.MongoClient(appConfig["targetUri"])
+    destDatabase = destConnection[appConfig["targetNs"].split('.',2)[0]]
+    destCollection = destDatabase[appConfig["targetNs"].split('.',2)[1]]
+
+    startTime = time.time()
+    lastFeedback = time.time()
+    lastBatch = time.time()
+
+    allDone = False
+    threadOplogEntries = 0
+
+    bulkOpList = []
+
+    # list with replace, not insert, in case document already exists (replaying old oplog)
+    bulkOpListReplace = []
+    numCurrentBulkOps = 0
+
+    numTotalBatches = 0
+
+    printedFirstTs = False
+    myCollectionOps = 0
+
+    # starting timestamp
+    endTs = appConfig["startTs"]
+
+    stream = sourceColl.watch(start_at_operation_time=endTs, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}}])
+
+    if appConfig['verboseLogging']:
+        logIt(threadnum,"Creating change stream cursor for timestamp {}".format(endTs.as_datetime()))
+
+    while not allDone:
+        for change in stream:
+            # check if time to exit
+            if ((time.time() - startTime) > appConfig['durationSeconds']) and (appConfig['durationSeconds'] != 0):
+                allDone = True
+                break
+
+            endTs = change['clusterTime']
+            resumeToken = change['_id']['_data']
+            thisNs = change['ns']['db']+'.'+change['ns']['coll']
+            thisOp = change['operationType']
+
+            # NOTE: Python's non-deterministic hash() cannot be used as it is seeded at startup, since this code is multiprocessing we need all hash calls to be the same between processes
+            #   hash(str(doc['o']['_id']))
+            #if ((thisOp in ['insert','update','replace','delete']) and
+            #     (thisNs == appConfig["sourceNs"]) and
+            if ((int(hashlib.sha512(str(change['documentKey']).encode('utf-8')).hexdigest(), 16) % appConfig["numProcessingThreads"]) == threadnum):
+
+                # this is for my thread
+
+                threadOplogEntries += 1
+
+                if (not printedFirstTs) and (thisOp in ['insert','update','replace','delete']) and (thisNs == appConfig["sourceNs"]):
+                    if appConfig['verboseLogging']:
+                        logIt(threadnum,'first timestamp = {} aka {}'.format(change['clusterTime'],change['clusterTime'].as_datetime()))
+                    printedFirstTs = True
+
+                if (thisOp == 'insert'):
+                    # insert
+                    if (thisNs == appConfig["sourceNs"]):
+                        myCollectionOps += 1
+                        bulkOpList.append(pymongo.InsertOne(change['fullDocument']))
+                        # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
+                        #bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
+                        bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        numCurrentBulkOps += 1
+                    else:
+                        pass
+
+                elif (thisOp in ['update','replace']):
+                    # update/replace
+                    if (thisNs == appConfig["sourceNs"]):
+                        myCollectionOps += 1
+                        #bulkOpList.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
+                        bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
+                        #bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
+                        bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        numCurrentBulkOps += 1
+                    else:
+                        pass
+
+                elif (thisOp == 'delete'):
+                    # delete
+                    if (thisNs == appConfig["sourceNs"]):
+                        myCollectionOps += 1
+                        bulkOpList.append(pymongo.DeleteOne({'_id':change['documentKey']}))
+                        # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
+                        bulkOpListReplace.append(pymongo.DeleteOne({'_id':change['documentKey']}))
+                        numCurrentBulkOps += 1
+                    else:
+                        pass
+
+                elif (thisOp in ['drop','rename','dropDatabase','invalidate']):
+                    # operations we do not track
+                    pass
+
+                else:
+                    print(change)
+                    sys.exit(1)
+
+            if ((numCurrentBulkOps >= appConfig["maxOperationsPerBatch"]) or (time.time() >= (lastBatch + appConfig["maxSecondsBetweenBatches"]))) and (numCurrentBulkOps > 0):
+                if not appConfig['dryRun']:
+                    try:
+                        result = destCollection.bulk_write(bulkOpList,ordered=True)
+                    except:
+                        # replace inserts as replaces
+                        result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
+                perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum})
+                bulkOpList = []
+                bulkOpListReplace = []
+                numCurrentBulkOps = 0
+                numTotalBatches += 1
+                lastBatch = time.time()
+
+            # nothing arrived in the oplog for 1 second, pause before trying again
+            #time.sleep(1)
+
+    if (numCurrentBulkOps > 0):
+        if not appConfig['dryRun']:
+            try:
+                result = destCollection.bulk_write(bulkOpList,ordered=True)
+            except:
+                # replace inserts as replaces
+                result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
+        perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum})
+        bulkOpList = []
+        bulkOpListReplace = []
+        numCurrentBulkOps = 0
+        numTotalBatches += 1
+
+    c.close()
+
+    perfQ.put({"name":"processCompleted","processNum":threadnum})
+
+
 def reporter(appConfig, perfQ):
     if appConfig['verboseLogging']:
         logIt(-1,'reporting thread started')
@@ -318,11 +462,33 @@ def main():
                         action='store_true',
                         help='Enable verbose logging')
 
+    parser.add_argument('--use-oplog',
+                        required=False,
+                        action='store_true',
+                        help='Use the oplog as change data capture source')
+
+    parser.add_argument('--use-change-stream',
+                        required=False,
+                        action='store_true',
+                        help='Use change streams as change data capture source')
+
     args = parser.parse_args()
 
     MIN_PYTHON = (3, 7)
     if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
         sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
+
+    if (not args.use_oplog) and (not args.use_change_stream):
+        message = "Must supply either --use-oplog or --use-change-stream"
+        parser.error(message)
+
+    if (args.use_oplog) and (args.use_change_stream):
+        message = "Cannot supply both --use-oplog or --use-change-stream"
+        parser.error(message)
+
+    if (args.use_change_stream) and (args.start_position == "0"):
+        message = "--start-position must be supplied as YYYY-MM-DD+HH:MM:SS in UTC when executing in --use-change-stream mode"
+        parser.error(message)
 
     appConfig = {}
     appConfig['sourceUri'] = args.source_uri
@@ -341,27 +507,26 @@ def main():
     appConfig['startPosition'] = args.start_position
     appConfig['verboseLogging'] = args.verbose
     
-    logIt(-1,"processing oplog using {0} threads".format(appConfig['numProcessingThreads']))
+    if args.use_oplog:
+        appConfig['cdcSource'] = 'oplog'
+    else:
+        appConfig['cdcSource'] = 'changeStream'
 
-    c = pymongo.MongoClient(appConfig["sourceUri"])
-    oplog = c.local.oplog.rs
-    appConfig["startTs"] = Timestamp(0, 1)
+    logIt(-1,"processing {} using {0} threads".format(appConfig['cdcSource'],appConfig['numProcessingThreads']))
 
     if appConfig["startPosition"] == "0":
         # start with first oplog entry
+        c = pymongo.MongoClient(appConfig["sourceUri"])
+        oplog = c.local.oplog.rs
         first = oplog.find().sort('$natural', pymongo.ASCENDING).limit(1).next()
         appConfig["startTs"] = first['ts']
+        c.close()
     else:
         # start at an arbitrary position
-        #appConfig["startTs"] = Timestamp(1641240727, 5)
-        # start with right now
-        #appConfig["startTs"] = Timestamp(int(time.time()), 1)
         appConfig["startTs"] = Timestamp(datetime.fromisoformat(args.start_position), 1)
         
     logIt(-1,"starting with timestamp = {}".format(appConfig["startTs"].as_datetime()))
 
-    c.close()
-    
     mp.set_start_method('spawn')
     q = mp.Queue()
 
@@ -370,7 +535,10 @@ def main():
     
     processList = []
     for loop in range(appConfig["numProcessingThreads"]):
-        p = mp.Process(target=oplog_processor,args=(loop,appConfig,q))
+        if (appConfig['cdcSource'] == 'oplog'):
+            p = mp.Process(target=oplog_processor,args=(loop,appConfig,q))
+        else:
+            p = mp.Process(target=change_stream_processor,args=(loop,appConfig,q))
         processList.append(p)
         
     for process in processList:
