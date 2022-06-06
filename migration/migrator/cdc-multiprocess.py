@@ -512,7 +512,7 @@ def main():
     else:
         appConfig['cdcSource'] = 'changeStream'
 
-    logIt(-1,"processing {} using {0} threads".format(appConfig['cdcSource'],appConfig['numProcessingThreads']))
+    logIt(-1,"processing {} using {} threads".format(appConfig['cdcSource'],appConfig['numProcessingThreads']))
 
     if appConfig["startPosition"] == "0":
         # start with first oplog entry
