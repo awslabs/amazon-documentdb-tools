@@ -9,7 +9,9 @@ import argparse
 
 def via_skips(appConfig):
     # get boundaries by performing large server-side skips
-    
+
+    boundaryList = []
+
     numBoundaries = appConfig['numSegments'] - 1
 
     client = pymongo.MongoClient(appConfig['uri'])
@@ -39,6 +41,13 @@ def via_skips(appConfig):
         elapsedSecs = int(time.time() - queryStartTime)
         estimatedSecsToDone = int(((100/pctDone)*elapsedSecs)-elapsedSecs)
         print("  boundary {:3d} - objectid {} | done in approximately {} seconds".format(x+1,currentId["_id"],estimatedSecsToDone))
+        boundaryList.append(currentId["_id"])
+
+    boundaryListAsString = "{}".format(",".join('"{}"'.format(i) for i in boundaryList))
+    print("")
+    print("boundaries as list | {}".format(boundaryListAsString))
+
+    print("")
 
     queryElapsedSecs = int(time.time() - queryStartTime)
     print('query required {} seconds'.format(queryElapsedSecs))
@@ -100,6 +109,11 @@ def via_cursor(appConfig):
     for thisBoundary in boundaryList:
         boundaryNum += 1
         print("  boundary {:3d} - objectid {}".format(boundaryNum,thisBoundary))
+
+    print("")
+
+    boundaryListAsString = "{}".format(",".join('"{}"'.format(i) for i in boundaryList))
+    print("boundaries as list | {}".format(boundaryListAsString))
 
     print("")
 
