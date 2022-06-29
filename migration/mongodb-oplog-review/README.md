@@ -16,8 +16,7 @@ The mongodb oplog review tool connects to any instance in a MongoDB replicaset (
 
 - Run on any instance in the replicaset (the larger the oplog the better)
 - Use a different \<server-alias> for each execution
-- If sharded
- - Run on one instance in each shard
+- If sharded, run on one instance in each shard
 - Avoid running the tool from the server itself if possible, it consume disk space for the output files
 - Each execution creates a file starting with \<server-alias> and ending with .log
 - The \<mongodb-uri> options can be found at https://www.mongodb.com/docs/manual/reference/connection-string/ 
