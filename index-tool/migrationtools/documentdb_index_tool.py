@@ -238,8 +238,13 @@ class DocumentDbIndexTool(IndexToolConstants):
                     metadata_files.append(os.path.join(dirpath, filename))
 
         return metadata_files
+    
+    def _databases_to_include(self, databases_to_include):
+        dbs = databases_to_include.split(" ")
+        print(dbs, "List fo Databases to Dump/Restore")
+        return dbs
 
-    def _dump_indexes_from_server(self, connection, output_dir, dry_run=False):
+    def _dump_indexes_from_server(self, connection, output_dir, databases_to_include, dry_run=False):
         """
         Discover all indexes in a mongodb server and dump them
         to files using the mongodump format
@@ -254,6 +259,8 @@ class DocumentDbIndexTool(IndexToolConstants):
                 logging.debug("Database: %s", database_name)
 
                 if database_name in self.DATABASES_TO_SKIP:
+                    continue
+                if database_name not in databases_to_include:
                     continue
 
                 database_path = os.path.join(output_dir, database_name)
@@ -460,9 +467,11 @@ class DocumentDbIndexTool(IndexToolConstants):
 
         return compatibility_issues
 
-    def _restore_indexes(self, connection, metadata):
+    def _restore_indexes(self, connection, metadata, databases_to_include):
         """Restore compatible indexes to a DocumentDB instance"""
         for db_name in metadata:
+            if db_name not in databases_to_include:
+                continue
             for collection_name in metadata[db_name]:
                 for index_name in metadata[db_name][collection_name][
                         self.INDEXES]:
@@ -534,8 +543,11 @@ class DocumentDbIndexTool(IndexToolConstants):
 
         # dump indexes from a MongoDB server
         if self.args.dump_indexes is True:
-            self._dump_indexes_from_server(connection, self.args.dir,
-                                           self.args.dry_run)
+            self._dump_indexes_from_server(
+                connection, 
+                self.args.dir, 
+                self._databases_to_include(self.args.databases_to_include),
+                self.args.dry_run,)
             sys.exit()
 
         # all non-dump operations require valid source metadata
@@ -563,7 +575,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                 metadata_to_restore = self._get_compatible_metadata(
                     metadata, compatibility_issues)
 
-            self._restore_indexes(connection, metadata_to_restore)
+            self._restore_indexes(connection, metadata_to_restore, self._databases_to_include(self.args.databases_to_include))
             sys.exit()
 
         # find and print a summary or detail or compatibility issues
@@ -670,7 +682,11 @@ def main():
         type=str,
         dest='auth_db',
         help='authenticate using database AUTH_DB (default: admin)')
-
+    parser.add_argument('--databases-to-include',
+                        required=True,
+                        type=str,
+                        help='specify the database names to store/dump in space separated string')
+   
     parser.add_argument('--tls',
                         required=False,
                         action='store_true',
@@ -705,7 +721,9 @@ def main():
     if args.dir is not None:
         if not os.path.isdir(args.dir):
             parser.error("--dir must specify a directory")
-
+    if not  args.databases_to_include :
+        message = "specify the database names u want to include in space separated string"
+        parser.error(message)
     if args.dump_indexes is True:
         if args.restore_indexes is True:
             parser.error("cannot dump and restore indexes simultaneously")
