@@ -105,10 +105,10 @@ def evalIndexes(appConfig):
             addlIdxCount += 1
 
     outFile1 = open(appConfig['serverAlias']+'-collections.csv','wt')
-    outFile1.write("{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB'))
+    outFile1.write("{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','ins/day','upd/day','del/day'))
 
     outFile2 = open(appConfig['serverAlias']+'-indexes.csv','wt')
-    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by'))
+    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day'))
 
     # for each database
     for thisDb in idxDict["start"]["collstats"]:
@@ -120,7 +120,13 @@ def evalIndexes(appConfig):
             thisCollInfo = idxDict["start"]["collstats"][thisDb][thisColl]
             bToGb = 1024*1024*1024
 
-            outFile1.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb))
+            thisNs = "{}.{}".format(thisDb,thisColl)
+            thisInsUpdDel = appConfig['opsDict'].get(thisNs,{"ins":"","upd":"","del":""})
+            insPerDay = thisInsUpdDel['ins']
+            updPerDay = thisInsUpdDel['upd']
+            delPerDay = thisInsUpdDel['del']
+
+            outFile1.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb,insPerDay,updPerDay,delPerDay))
             
             # for each index
             for thisIdx in idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"]:
@@ -156,9 +162,9 @@ def evalIndexes(appConfig):
                 #with open('output.log', 'a') as fpDet:
                 #    fpDet.write("{:40s} {:40s} {:40s} {:12d} {:12d}\n".format(thisDb,thisColl,thisIdx["name"],thisIdx["accesses"]["ops"],numXtraOps))
 
-                outFile2.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],
+                outFile2.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],
                   thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,thisIdx["name"],
-                  thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList))
+                  thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList,insPerDay,updPerDay,delPerDay))
 
     outFile1.close()
     outFile2.close()
@@ -184,6 +190,38 @@ def checkReplicaSet(appConfig):
     print("  rs.status() = {}".format(rsStatus))
 
     client.close()
+
+
+def readOpsFile(appConfig):
+    oD = {}
+
+    print("loading collection level operations from {}".format(appConfig['opsFile']))
+
+    with open(appConfig['opsFile'],'r') as f:
+        fileLines = f.readlines()
+        loadedLines = 0
+        headerLine = False
+
+        for lineNum, thisLine in enumerate(fileLines):
+            if thisLine.strip().count("|") == 10:
+                # usable line
+                if not headerLine:
+                    headerLine = True
+                    continue
+
+                parsedLine = thisLine.strip().split("|")
+                strippedLine = []
+
+                for thisItem in parsedLine:
+                    strippedLine.append(thisItem.strip().replace(",",""))
+
+                oD[strippedLine[0]] = {"ins":strippedLine[2],"upd":strippedLine[4],"del":strippedLine[6]}
+
+                loadedLines += 1
+
+        print("  loaded {} lines".format(loadedLines))
+
+    return oD
 
 
 def main():
@@ -240,6 +278,11 @@ def main():
                         type=str,
                         help='Comma separated list of existing output files to review')
 
+    parser.add_argument('--ops-file',
+                        required=False,
+                        type=str,
+                        help='File created by mongodb-oplog-review tool containing collection level operations per day.')
+
     args = parser.parse_args()
     
     # check for minimum Python version
@@ -256,6 +299,7 @@ def main():
     appConfig = {}
     appConfig['connectionString'] = args.uri
     appConfig['serverAlias'] = args.server_alias
+    appConfig['opsFile'] = args.ops_file
     
     #checkReplicaSet(appConfig)
 
@@ -267,6 +311,11 @@ def main():
     else:
         # comparing using 1 or more output files from prior runs
         appConfig['files'] = args.files.split(',')
+
+    if appConfig['opsFile'] is not None:
+        appConfig['opsDict'] = readOpsFile(appConfig)
+    else:
+        appConfig['opsDict'] = {}
 
     evalIndexes(appConfig)
 

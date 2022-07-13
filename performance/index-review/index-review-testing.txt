@@ -19,6 +19,7 @@ db.idxwiz.createIndex({"five":1,"three":-1},{"name":"five-pos_three-pos"});
 db.idxwiz.createIndex({"two":-1,"one":1,"four":1},{"name":"two-neg_one-pos_four-pos"});
 db.idxwiz.createIndex({"two":1,"one":1,"four":1},{"name":"two-pos_one-pos_four-pos"});
 db.idxwiz.createIndex({"five":1,"three":-1,"four":1},{"name":"five-pos_three-neg_four-pos"});
+db.idxwiz.createIndex({"one":1,"four":1,"two":1},{"name":"one-pos_four-pos_two-pos"});
 
 db.idxwiz.createIndex({"three":1,"one":1,"four":1},{"name":"three-pos_one-pos_four-pos_idx1"});
 db.idxwiz.createIndex({"three":1,"one":1,"four":1},{"name":"three-pos_one-pos_four-pos_idx2"});
