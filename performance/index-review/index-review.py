@@ -126,7 +126,7 @@ def evalIndexes(appConfig):
             updPerDay = thisInsUpdDel['upd']
             delPerDay = thisInsUpdDel['del']
 
-            outFile1.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb,insPerDay,updPerDay,delPerDay))
+            outFile1.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize',0),thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb,insPerDay,updPerDay,delPerDay))
             
             # for each index
             for thisIdx in idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"]:
@@ -162,7 +162,7 @@ def evalIndexes(appConfig):
                 #with open('output.log', 'a') as fpDet:
                 #    fpDet.write("{:40s} {:40s} {:40s} {:12d} {:12d}\n".format(thisDb,thisColl,thisIdx["name"],thisIdx["accesses"]["ops"],numXtraOps))
 
-                outFile2.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo['avgObjSize'],
+                outFile2.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize'),
                   thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,thisIdx["name"],
                   thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList,insPerDay,updPerDay,delPerDay))
 
