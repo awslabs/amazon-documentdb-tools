@@ -108,7 +108,7 @@ def evalIndexes(appConfig):
     outFile1.write("{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','ins/day','upd/day','del/day'))
 
     outFile2 = open(appConfig['serverAlias']+'-indexes.csv','wt')
-    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day'))
+    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day'))
 
     # for each database
     for thisDb in idxDict["start"]["collstats"]:
