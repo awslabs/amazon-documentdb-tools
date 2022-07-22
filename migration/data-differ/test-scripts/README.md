@@ -3,7 +3,7 @@
 ```
     cd test-scripts
 ```
-2. Create an envrionment file(s) as needed based on your migration needs. The environment file should look something like this with each variable filled out for your needs:
+2. Create an envrionment file(s) as needed based on your migration needs. The environment file should set environment variables and look something like this with each variable filled out for your use case:
 ```
     export SOURCE_URI=""
     export SOURCE_DB=""
