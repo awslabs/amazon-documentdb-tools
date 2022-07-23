@@ -9,6 +9,7 @@ mongo $TARGET_URI extra_target_field_target.js
 
 cd ..
 python3 data-differ.py --source-uri $SOURCE_URI --target-uri $TARGET_URI --source-namespace "$SOURCE_DB.$SOURCE_COLL" --target-namespace "$TARGET_DB.$TARGET_COLL" --percent 100
+cd test-scripts
 
 export myDB=$SOURCE_DB
 export myColl=$SOURCE_COLL
