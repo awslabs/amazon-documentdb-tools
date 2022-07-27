@@ -23,8 +23,8 @@ def oplog_processor(threadnum, appConfig, perfQ):
     oplog = c.local.oplog.rs
 
     destConnection = pymongo.MongoClient(appConfig["targetUri"])
-    destDatabase = destConnection[appConfig["targetNs"].split('.',2)[0]]
-    destCollection = destDatabase[appConfig["targetNs"].split('.',2)[1]]
+    destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
+    destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
 
     '''
     i  = insert
@@ -186,12 +186,12 @@ def change_stream_processor(threadnum, appConfig, perfQ):
         logIt(threadnum,'thread started')
 
     sourceConnection = pymongo.MongoClient(appConfig["sourceUri"])
-    sourceDb = sourceConnection[appConfig["sourceNs"].split('.',2)[0]]
-    sourceColl = sourceDb[appConfig["sourceNs"].split('.',2)[1]]
+    sourceDb = sourceConnection[appConfig["sourceNs"].split('.',1)[0]]
+    sourceColl = sourceDb[appConfig["sourceNs"].split('.',1)[1]]
 
     destConnection = pymongo.MongoClient(appConfig["targetUri"])
-    destDatabase = destConnection[appConfig["targetNs"].split('.',2)[0]]
-    destCollection = destDatabase[appConfig["targetNs"].split('.',2)[1]]
+    destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
+    destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
 
     startTime = time.time()
     lastFeedback = time.time()
