@@ -11,7 +11,7 @@ The mongodb oplog review tool connects to any instance in a MongoDB replicaset (
    - MongoDB 5.1+      | pymongo 4.0+
    - DocumentDB        | pymongo 3.10 - 4.0
 
-## Using the Index Review Tool
+## Using the MongoDB Oplog Review Tool
 `python3 mongo-oplog-review.py --server-alias <server-alias> --uri <mongodb-uri> --stop-when-oplog-current`
 
 - Run on any instance in the replicaset (the larger the oplog the better)
