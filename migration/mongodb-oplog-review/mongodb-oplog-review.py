@@ -237,7 +237,7 @@ def main():
     parser.add_argument('--collect-seconds',
                         required=False,
                         type=int,
-                        default=3600,
+                        default=10800,
                         help='Number of seconds to parse opLog before stopping.')
 
     parser.add_argument('--batch-size',
