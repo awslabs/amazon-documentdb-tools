@@ -63,7 +63,6 @@ def oplog_processor(threadnum, appConfig, perfQ):
         cursor = oplog.find({'ts': {'$gte': endTs},'ns':appConfig["sourceNs"]},cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True)
 
         while cursor.alive and not allDone:
-            #logIt(threadnum,"here")
             for doc in cursor:
                 # check if time to exit
                 if ((time.time() - startTime) > appConfig['durationSeconds']) and (appConfig['durationSeconds'] != 0):
@@ -214,7 +213,10 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     # starting timestamp
     endTs = appConfig["startTs"]
 
-    stream = sourceColl.watch(start_at_operation_time=endTs, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}}])
+    if (appConfig["startTs"] == "RESUME_TOKEN"):
+        stream = sourceColl.watch(resume_after={'_data': appConfig["startPosition"]}, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}])
+    else:
+        stream = sourceColl.watch(start_at_operation_time=endTs, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}])
 
     if appConfig['verboseLogging']:
         logIt(threadnum,"Creating change stream cursor for timestamp {}".format(endTs.as_datetime()))
@@ -236,7 +238,6 @@ def change_stream_processor(threadnum, appConfig, perfQ):
             #if ((thisOp in ['insert','update','replace','delete']) and
             #     (thisNs == appConfig["sourceNs"]) and
             if ((int(hashlib.sha512(str(change['documentKey']).encode('utf-8')).hexdigest(), 16) % appConfig["numProcessingThreads"]) == threadnum):
-
                 # this is for my thread
 
                 threadOplogEntries += 1
@@ -260,24 +261,25 @@ def change_stream_processor(threadnum, appConfig, perfQ):
 
                 elif (thisOp in ['update','replace']):
                     # update/replace
-                    if (thisNs == appConfig["sourceNs"]):
-                        myCollectionOps += 1
-                        #bulkOpList.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
-                        bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
-                        # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
-                        #bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
-                        bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
-                        numCurrentBulkOps += 1
-                    else:
-                        pass
+                    if (change['fullDocument'] is not None):
+                        if (thisNs == appConfig["sourceNs"]):
+                            myCollectionOps += 1
+                            #bulkOpList.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
+                            bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                            # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
+                            #bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
+                            bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                            numCurrentBulkOps += 1
+                        else:
+                            pass
 
                 elif (thisOp == 'delete'):
                     # delete
                     if (thisNs == appConfig["sourceNs"]):
                         myCollectionOps += 1
-                        bulkOpList.append(pymongo.DeleteOne({'_id':change['documentKey']}))
+                        bulkOpList.append(pymongo.DeleteOne({'_id':change['documentKey']['_id']}))
                         # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
-                        bulkOpListReplace.append(pymongo.DeleteOne({'_id':change['documentKey']}))
+                        bulkOpListReplace.append(pymongo.DeleteOne({'_id':change['documentKey']['_id']}))
                         numCurrentBulkOps += 1
                     else:
                         pass
@@ -297,7 +299,7 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     except:
                         # replace inserts as replaces
                         result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
-                perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum})
+                perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum,"resumeToken":resumeToken})
                 bulkOpList = []
                 bulkOpListReplace = []
                 numCurrentBulkOps = 0
@@ -314,7 +316,7 @@ def change_stream_processor(threadnum, appConfig, perfQ):
             except:
                 # replace inserts as replaces
                 result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
-        perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum})
+        perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum,"resumeToken":resumeToken})
         bulkOpList = []
         bulkOpListReplace = []
         numCurrentBulkOps = 0
@@ -323,6 +325,22 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     c.close()
 
     perfQ.put({"name":"processCompleted","processNum":threadnum})
+
+
+def get_resume_token(appConfig):
+    logIt(-1,'getting current change stream resume token')
+
+    sourceConnection = pymongo.MongoClient(appConfig["sourceUri"])
+    allDone = False
+
+    stream = sourceConnection.watch()
+
+    while not allDone:
+        for change in stream:
+            resumeToken = change['_id']['_data']
+            logIt(-1,'Change stream resume token is {}'.format(resumeToken))
+            allDone = True
+            break
 
 
 def reporter(appConfig, perfQ):
@@ -334,7 +352,9 @@ def reporter(appConfig, perfQ):
     
     lastProcessedOplogEntries = 0
     nextReportTime = startTime + appConfig["feedbackSeconds"]
-    
+
+    resumeToken = 'N/A'
+
     numWorkersCompleted = 0
     numProcessedOplogEntries = 0
     
@@ -355,6 +375,11 @@ def reporter(appConfig, perfQ):
                 else:
                     dtDict[thisProcessNum] = thisEndDt
                 #print("received endTs = {}".format(thisEndTs.as_datetime()))
+                if 'resumeToken' in qMessage:
+                    resumeToken = qMessage['resumeToken']
+                else:
+                    resumeToken = 'N/A'
+
             elif qMessage['name'] == "processCompleted":
                 numWorkersCompleted += 1
 
@@ -382,7 +407,7 @@ def reporter(appConfig, perfQ):
         avgSecondsBehind = int(totSecondsBehind / max(numSecondsBehindEntries,1))
 
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
-        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot {4:16,d} | {5:12,d} secs behind".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind))
+        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot {4:16,d} | {5:12,d} secs behind | resume token = {6}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind,resumeToken))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
         
         lastTime = nowTime
@@ -455,7 +480,7 @@ def main():
     parser.add_argument('--start-position',
                         required=True,
                         type=str,
-                        help='Starting position - 0 for all available changes, otherwise YYYY-MM-DD+HH:MM:SS in UTC')
+                        help='Starting position - 0 for all available changes, YYYY-MM-DD+HH:MM:SS in UTC, or change stream resume token')
 
     parser.add_argument('--verbose',
                         required=False,
@@ -472,6 +497,11 @@ def main():
                         action='store_true',
                         help='Use change streams as change data capture source')
 
+    parser.add_argument('--get-resume-token',
+                        required=False,
+                        action='store_true',
+                        help='Display the current change stream resume token')
+
     args = parser.parse_args()
 
     MIN_PYTHON = (3, 7)
@@ -487,7 +517,7 @@ def main():
         parser.error(message)
 
     if (args.use_change_stream) and (args.start_position == "0"):
-        message = "--start-position must be supplied as YYYY-MM-DD+HH:MM:SS in UTC when executing in --use-change-stream mode"
+        message = "--start-position must be supplied as YYYY-MM-DD+HH:MM:SS in UTC or resume token when executing in --use-change-stream mode"
         parser.error(message)
 
     appConfig = {}
@@ -506,6 +536,10 @@ def main():
         appConfig['targetNs'] = args.target_namespace
     appConfig['startPosition'] = args.start_position
     appConfig['verboseLogging'] = args.verbose
+
+    if args.get_resume_token:
+        get_resume_token(appConfig)
+        sys.exit(0)
     
     if args.use_oplog:
         appConfig['cdcSource'] = 'oplog'
@@ -514,18 +548,28 @@ def main():
 
     logIt(-1,"processing {} using {} threads".format(appConfig['cdcSource'],appConfig['numProcessingThreads']))
 
-    if appConfig["startPosition"] == "0":
-        # start with first oplog entry
-        c = pymongo.MongoClient(appConfig["sourceUri"])
-        oplog = c.local.oplog.rs
-        first = oplog.find().sort('$natural', pymongo.ASCENDING).limit(1).next()
-        appConfig["startTs"] = first['ts']
-        c.close()
+    if len(appConfig["startPosition"]) == 36:
+        # resume token
+        appConfig["startTs"] = "RESUME_TOKEN"
+
+        logIt(-1,"starting with resume token = {}".format(appConfig["startPosition"]))
+
     else:
-        # start at an arbitrary position
-        appConfig["startTs"] = Timestamp(datetime.fromisoformat(args.start_position), 1)
-        
-    logIt(-1,"starting with timestamp = {}".format(appConfig["startTs"].as_datetime()))
+        if appConfig["startPosition"] == "0":
+            # start with first oplog entry
+            c = pymongo.MongoClient(appConfig["sourceUri"])
+            oplog = c.local.oplog.rs
+            first = oplog.find().sort('$natural', pymongo.ASCENDING).limit(1).next()
+            appConfig["startTs"] = first['ts']
+            c.close()
+        elif appConfig["startPosition"].upper() == "NOW":
+            # start with current time
+            appConfig["startTs"] = Timestamp(datetime.utcnow(), 1)
+        else:
+            # start at an arbitrary position
+            appConfig["startTs"] = Timestamp(datetime.fromisoformat(args.start_position), 1)
+
+        logIt(-1,"starting with timestamp = {}".format(appConfig["startTs"].as_datetime()))
 
     mp.set_start_method('spawn')
     q = mp.Queue()
