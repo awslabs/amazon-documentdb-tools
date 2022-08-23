@@ -331,9 +331,12 @@ def get_resume_token(appConfig):
     logIt(-1,'getting current change stream resume token')
 
     sourceConnection = pymongo.MongoClient(appConfig["sourceUri"])
+    sourceDb = sourceConnection[appConfig["sourceNs"].split('.',1)[0]]
+    sourceColl = sourceDb[appConfig["sourceNs"].split('.',1)[1]]
+
     allDone = False
 
-    stream = sourceConnection.watch()
+    stream = sourceColl.watch()
 
     while not allDone:
         for change in stream:
