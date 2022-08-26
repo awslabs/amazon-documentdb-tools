@@ -218,7 +218,9 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     else:
         stream = sourceColl.watch(start_at_operation_time=endTs, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}])
 
-    if appConfig['verboseLogging']:
+    if appConfig['verboseLogging'] and (appConfig["startTs"] == "RESUME_TOKEN"):
+        logIt(threadnum,"Creating change stream cursor for resume token {}".format(appConfig["startPosition"]))
+    else:
         logIt(threadnum,"Creating change stream cursor for timestamp {}".format(endTs.as_datetime()))
 
     while not allDone:
