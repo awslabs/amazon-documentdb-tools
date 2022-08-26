@@ -128,7 +128,7 @@ def reporter(appConfig, perfQ):
         intervalOpsPerSecond = (numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds
 
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
-        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot {4:16,d} | {5:12,d} secs behind".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,-1))
+        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot ops {4:16,d}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
         
         lastTime = nowTime
