@@ -180,6 +180,11 @@ def main(args):
 
     print("")
 
+    if len(issuesDict) > 0:
+        sys.exit(1)
+    else:
+        sys.exit(0)
+
 
 def load_keywords():
     thisKeywords = {
