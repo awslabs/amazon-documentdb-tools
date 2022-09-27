@@ -15,7 +15,7 @@ This tool will export Amazon DocumentDB or MongoDB users to a file, which then c
 ## Restore users
 Edit the file and update passwords for each user. Run the .js script:
 
-`mongo --ssl --host mydocdb.cluster-cdtjj00yfi95.eu-west-2.docdb.amazonaws.com:27017 --sslCAFile /root/rds-combined-ca-bundle.pem --username <user> --password <password> <mydocdb-users.js`
+`mongo --ssl --host mydocdb.cluster-cdtjj00yfi95.eu-west-2.docdb.amazonaws.com:27017 --sslCAFile rds-combined-ca-bundle.pem --username <user> --password <password> <mydocdb-users.js`
 
 ## License
 This tool is licensed under the Apache 2.0 License.
