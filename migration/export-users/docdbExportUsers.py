@@ -1,66 +1,12 @@
-#!/bin/env python3
-
+import sys
 import argparse
 import pymongo
 
 
-# Pass DocumentDB connection info: username, password and uri
-parser = argparse.ArgumentParser(
-    description="Export Amazon DocumentDB users to user_output.js file, can be used to import them to other instance. Note: Passwords are not exported."
-)
-
-parser.add_argument('-u', '--username',
-                        required=True,
-                        type=str,
-                        help='Username for authentication to Amazon DocumentDB')
-parser.add_argument('-p', '--password',
-                        required=True,
-                        type=str,
-                        help='Password for authentication to Amazon DocumentDB')
-parser.add_argument('--host',
-                        required=True,
-                        type=str,
-                        help='Amazon DocumentDB host to connect to')
-parser.add_argument('--port',
-                        required=False,
-                        type=int,
-                        default=27017,
-                        help='Specify the Amazon DocumentDB port (defaults to 27017)')
-parser.add_argument('--tls',
-                        required=False,
-                        action='store_true',
-                        help='Connect using TLS')
-parser.add_argument('--cafile',
-                        required=False,
-                        type=str,
-                        help='Path to CA file used for TLS connection')
-args = parser.parse_args()
-
-
-def get_db_connection():
-    """Connect to instance, returning a connection"""
-    try:
-        mongodb_client = pymongo.MongoClient(
-            host=args.host,
-            port=args.port,
-            tls=args.tls,
-            tlsCAFile=args.cafile,
-            authSource='admin',
-            username=args.username,
-            password=args.password,
-            connectTimeoutMS=5000,
-            serverSelectionTimeoutMS=5000)
-    except Exception as e:
-        print(f"Failed to create new DocumentDB client: {e}")
-        raise
-    return mongodb_client
-
-
-def main():
-    """ Main function """
-    mongodb_client = get_db_connection()
-    listusers = mongodb_client.admin.command('usersInfo', {'forAllDBs': True})
-    with open("user_output.js", "w+", encoding='utf-8') as f:
+def exportUsers(appConfig):
+    client = pymongo.MongoClient(appConfig['uri'])
+    listusers = client.admin.command('usersInfo', {'forAllDBs': True})
+    with open(appConfig['usersFile'], "w+", encoding='utf-8') as f:
         print("use admin", file=f)
         for user in listusers['users']:
             """ Exclude serviceadmin user """
@@ -68,7 +14,40 @@ def main():
                 continue
             print(f"Exporting user:  {user['user']}")
             print('db.createUser({user: "' + user['user'] + '", pwd: "REPLACE_THIS_PASS",' + ' roles: ' + str(user['roles']) + '});', file=f)
-    print('Done! Users exported to user_output.js.')
+    print(f"Done! Users exported to {appConfig['usersFile']}")
+
+
+def main():
+    """ v1:  Initial script, export users to a file """
+
+    parser = argparse.ArgumentParser(description='Export Amazon DocumentDB users to user_output.js file, can be used to import them to other instance. Note: Passwords are not exported.')
+
+    parser.add_argument('--skip-python-version-check',
+                        required=False,
+                        action='store_true',
+                        help='Permit execution on Python 3.6 and prior')
+
+    parser.add_argument('--uri',
+                        required=True,
+                        type=str,
+                        help='MongoDB Connection URI')
+
+    parser.add_argument('--users-file',
+                        required=True,
+                        type=str,
+                        help='The users output file')
+
+    args = parser.parse_args()
+
+    MIN_PYTHON = (3, 7)
+    if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
+        sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
+
+    appConfig = {}
+    appConfig['uri'] = args.uri
+    appConfig['usersFile'] = args.users_file
+
+    exportUsers(appConfig)
 
 
 if __name__ == "__main__":
