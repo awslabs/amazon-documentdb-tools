@@ -10,18 +10,18 @@ import threading
 import os
 
 
-numOps = 1000000
+numOps = 500000
 
-percentInserts = 0
-percentUpdates = 100
-percentDeletes = 0
+percentInserts = 4
+percentUpdates = 95
+percentDeletes = 1
 
 # set to true to always create offsetting data (so sum of checksum is always 0)
 checkSumming = True
 
 checksumMax = 100
 
-dropCollection = True
+dropCollection = False
 
 numSecondsFeedback = 5
 
