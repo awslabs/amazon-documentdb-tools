@@ -25,16 +25,13 @@ dropCollection = False
 
 numSecondsFeedback = 5
 
-dbHost = os.environ.get('DOCDB_HOST')
-dbUsername = os.environ.get('DOCDB_USERNAME')
-dbPassword = os.environ.get('DOCDB_PASSWORD')
+numArgs = len(sys.argv) - 1
 
-if ".docdb." in dbHost:
-    connectionString = 'mongodb://'+dbUsername+':'+dbPassword+'@'+dbHost+'/?ssl=true&ssl_ca_certs=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=primary&retryWrites=false'
-    print('connecting to DocumentDB at {}'.format(dbHost))
+if (numArgs == 1):
+    connectionString = sys.argv[1]
 else:
-    connectionString = 'mongodb://'+dbUsername+':'+dbPassword+'@'+dbHost+'/?replicaSet=rs0&readPreference=primary&retryWrites=false'
-    print('connecting to MongoDB at {}'.format(dbHost))
+    print("Usage: python3 cdc-correctness.py <connection-string>")
+    sys.exit(1)
 
 numTotalInserts = 0
 numTotalUpdates = 0
@@ -252,6 +249,7 @@ def inserter(threadNum):
 
 
 def main():
+
     print("performing ~{0:16,d} operations across {1} threads".format(numOps,numInsertThreads))
 
     random.seed()
