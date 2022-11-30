@@ -410,7 +410,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     ) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH:
                         message = '<db>.<collection>$<index> greater than {} characters'.format(
                             DocumentDbLimits.
-                            COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH)
+                            FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH)
                         compatibility_issues[db_name][collection_name][
                             index_name][self.EXCEEDED_LIMITS][
                                 message] = fully_qualified_index_name
