@@ -80,6 +80,7 @@ class IndexToolConstants(object):
         pass
 
     DATABASES_TO_SKIP = ['admin', 'config', 'local', 'system']
+    METADATA_FILES_TO_SKIP = ['system.indexes.metadata.json', 'system.profile.metadata.json']
     METADATA_FILE_SUFFIX_PATTERN = 'metadata.json'
     CONNECT_TIMEOUT = 5000
     EXCEEDED_LIMITS = 'exceeded_limits'
@@ -234,7 +235,7 @@ class DocumentDbIndexTool(IndexToolConstants):
 
         for (dirpath, dirnames, files) in os.walk(start_dir):
             for filename in files:
-                if filename.endswith(self.METADATA_FILE_SUFFIX_PATTERN):
+                if (filename.endswith(self.METADATA_FILE_SUFFIX_PATTERN) and filename not in self.METADATA_FILES_TO_SKIP):
                     metadata_files.append(os.path.join(dirpath, filename))
 
         return metadata_files
