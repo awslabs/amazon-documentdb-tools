@@ -23,8 +23,7 @@ import sys
 
 from bson.json_util import dumps
 from pymongo import MongoClient
-from pymongo.errors import (ConnectionFailure, OperationFailure,
-                            ServerSelectionTimeoutError)
+from pymongo.errors import (ConnectionFailure, OperationFailure, ServerSelectionTimeoutError)
 from collections import OrderedDict
 
 class AutovivifyDict(dict):
@@ -82,7 +81,6 @@ class IndexToolConstants(object):
     DATABASES_TO_SKIP = ['admin', 'config', 'local', 'system']
     METADATA_FILES_TO_SKIP = ['system.indexes.metadata.json', 'system.profile.metadata.json']
     METADATA_FILE_SUFFIX_PATTERN = 'metadata.json'
-    CONNECT_TIMEOUT = 5000
     EXCEEDED_LIMITS = 'exceeded_limits'
     FILE_PATH = 'filepath'
     ID = '_id_'
@@ -131,30 +129,16 @@ class DocumentDbIndexTool(IndexToolConstants):
             else:
                 raise
 
-    def _get_db_connection(self, host, port, tls, tls_ca_file, username,
-                           password, auth_db):
+    def _get_db_connection(self, uri):
         """Connect to instance, returning a connection"""
-        logging.debug("Connecting to instance at %s:%s", host, port)
+        logging.info("Connecting to instance using provided URI")
 
-        mongodb_client = MongoClient(
-            host=host,
-            port=port,
-            ssl=tls,
-            ssl_ca_certs=tls_ca_file,
-            connect=True,
-            connectTimeoutMS=DocumentDbIndexTool.CONNECT_TIMEOUT,
-            serverSelectionTimeoutMS=DocumentDbIndexTool.CONNECT_TIMEOUT)
+        mongodb_client = MongoClient(uri)
 
         # force the client to actually connect
         mongodb_client.admin.command('ismaster')
 
-        if password is not None:
-            # deprecated in 3.6, but allows us to handle both auth types gracefully
-            mongodb_client[auth_db].authenticate(name=username,
-                                                 password=password)
-            logging.info("Successfully authenticated to database: %s", auth_db)
-
-        logging.info("Successfully connected to instance %s:%s", host, port)
+        logging.info("  .. successfully connected")
 
         return mongodb_client
 
@@ -519,18 +503,10 @@ class DocumentDbIndexTool(IndexToolConstants):
         # get a connection to our source mongodb or destination DocumentDb
         if self.args.dump_indexes is True or self.args.restore_indexes is True:
             try:
-                connection = self._get_db_connection(
-                    host=self.args.host,
-                    port=self.args.port,
-                    tls=self.args.tls,
-                    tls_ca_file=self.args.tls_ca_file,
-                    username=self.args.username,
-                    password=self.args.password,
-                    auth_db=self.args.auth_db)
+                connection = self._get_db_connection(self.args.uri)
             except (ConnectionFailure, ServerSelectionTimeoutError,
                     OperationFailure) as cex:
-                logging.error("Connection to instance %s:%s failed: %s",
-                              self.args.host, self.args.port, cex)
+                logging.error("Connection to instance failed: %s", cex)
                 sys.exit()
 
         # dump indexes from a MongoDB server
@@ -608,6 +584,11 @@ def main():
         action='store_true',
         help='Perform processing, but do not actually restore indexes')
 
+    parser.add_argument('--uri',
+                        required=True,
+                        type=str,
+                        help='URI to connect to MongoDB or DocumentDB')
+
     parser.add_argument('--dir',
                         required=True,
                         type=str,
@@ -629,58 +610,19 @@ def main():
     parser.add_argument('--dump-indexes',
                         required=False,
                         action='store_true',
-                        help='Dump indexes from the specified host/port')
+                        help='Dump indexes from the specified server')
 
     parser.add_argument(
         '--restore-indexes',
         required=False,
         action='store_true',
-        help='Restore indexes found in metadata to the specified host/port')
+        help='Restore indexes found in metadata to the specified server')
 
     parser.add_argument(
         '--skip-incompatible',
         required=False,
         action='store_true',
         help='Skip incompatible indexes while dumping or restoring')
-
-    parser.add_argument('--host',
-                        required=False,
-                        type=str,
-                        default='localhost',
-                        help='connect to host HOST (default: localhost)')
-
-    parser.add_argument('--port',
-                        required=False,
-                        type=int,
-                        default=27017,
-                        help='connect to port PORT (default: 27017)')
-
-    parser.add_argument('--username',
-                        required=False,
-                        type=str,
-                        help='authenticate with username USERNAME')
-
-    parser.add_argument('--password',
-                        required=False,
-                        type=str,
-                        help='authenticate with password PASSWORD')
-
-    parser.add_argument(
-        '--auth-db',
-        required=False,
-        type=str,
-        dest='auth_db',
-        help='authenticate using database AUTH_DB (default: admin)')
-
-    parser.add_argument('--tls',
-                        required=False,
-                        action='store_true',
-                        help='connect using TLS')
-
-    parser.add_argument('--tls-ca-file',
-                        required=False,
-                        type=str,
-                        help='path to CA file used for TLS connection')
 
     parser.add_argument('--support-2dsphere',
                         required=False,
@@ -710,18 +652,6 @@ def main():
     if args.dump_indexes is True:
         if args.restore_indexes is True:
             parser.error("cannot dump and restore indexes simultaneously")
-
-    if any([args.username, args.password]):
-        if not all([args.username, args.password]):
-            parser.error(
-                "both --username amd --password are required if providing MongoDB credentials."
-            )
-
-    if args.auth_db is not None and not all([args.username, args.password]):
-        parser.error("--auth-db requires both --username and --password.")
-
-    if args.auth_db is None and args.username is not None:
-        args.auth_db = 'admin'
 
     if args.support_2dsphere:
         # 2dsphere supported, remove from unsupported
