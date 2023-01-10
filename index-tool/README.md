@@ -22,7 +22,7 @@ To dump indexes from a running MongoDB instance or replica set, run the followin
 `python3 migrationtools/documentdb_index_tool.py --dump-indexes --uri <source-server-uri> --dir <directory to dump metadata to>`
 
 To check for compatibility issues against dumped database metadata, run the following command:
-`python3 migrationtools/documentdb_index_tool.py --show-issues  --dir <directory that contains metadata dump>`
+`python3 migrationtools/documentdb_index_tool.py --show-issues --uri <source-server-uri> --dir <directory that contains metadata dump>`
 
 To restore only indexes that are compatible with Amazon DocumentDB, run the following command:
 `python3 migrationtools/documentdb_index_tool.py --restore-indexes --uri <destination-server-uri> --dir <directory that contains metadata dump>`
