@@ -585,7 +585,7 @@ def main():
         help='Perform processing, but do not actually restore indexes')
 
     parser.add_argument('--uri',
-                        required=True,
+                        required=False,
                         type=str,
                         help='URI to connect to MongoDB or DocumentDB')
 
@@ -640,8 +640,11 @@ def main():
     if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
         sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
 
-    if not (args.dump_indexes or args.restore_indexes or args.show_issues
-            or args.show_compatible):
+    if (args.dump_indexes or args.restore_indexes) and (args.uri is None):
+        message = "must specify --uri when dumping or restoring indexes"
+        parser.error(message)
+
+    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible):
         message = "must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible]"
         parser.error(message)
 
