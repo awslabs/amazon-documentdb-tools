@@ -578,7 +578,7 @@ def main():
         logIt(-1,"starting with timestamp = {}".format(appConfig["startTs"].as_datetime()))
 
     mp.set_start_method('spawn')
-    q = mp.Queue()
+    q = mp.Manager().Queue()
 
     t = threading.Thread(target=reporter,args=(appConfig,q))
     t.start()

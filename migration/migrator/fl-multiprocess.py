@@ -215,7 +215,7 @@ def main():
     logIt(-1,"processing using {} threads".format(appConfig['numProcessingThreads']))
 
     mp.set_start_method('spawn')
-    q = mp.Queue()
+    q = mp.Manager().Queue()
 
     t = threading.Thread(target=reporter,args=(appConfig,q))
     t.start()
