@@ -32,7 +32,7 @@ To enable logging of queries to the MongoDB logs you enable the query profiler
 and set the `slowms` to `-1`, which will cause all queries to be logged.
 To do so, run the following query from the `mongo` shell.
 ```
-db.setProfilingLevel(0, -1)
+db.setProfilingLevel(2, -1)
 ```
 
 It is recommended to use a dev/test MongoDB installation to capture the queries, as
