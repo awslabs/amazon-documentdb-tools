@@ -38,6 +38,7 @@ Note: During a DR scenario, the writes to the cluster will fail until the promot
     {
       "region": "us-east-2",
       "secondary_cluster_id": "cluster-2",
+      "engine_version": "5.0.0",
       "number_of_instances": 3,
       "subnet_group": "default",
       "security_group_id": [

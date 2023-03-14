@@ -102,7 +102,7 @@ def create_secondary_cluster(each_item, global_cluster_id, client_local):
             VpcSecurityGroupIds=each_item['security_group_id'],
             KmsKeyId=each_item['kms_key_id'],
             Engine='docdb',
-            EngineVersion='4.0.0',
+            EngineVersion=each_item['engine_version'],
             DBClusterParameterGroupName=each_item['cluster_parameter_group'],
             BackupRetentionPeriod=each_item['backup_retention_period'],
             PreferredBackupWindow=each_item['preferred_back_up_window'],
