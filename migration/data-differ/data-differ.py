@@ -5,14 +5,36 @@ import sys
 from bson.json_util import dumps
 from deepdiff import DeepDiff 
 from tqdm import tqdm
+import time
+
+
+passed_forwards = None
+passed_forwardsAgains = None
+passed_backwards = None
 
 def data_compare(source_uri, target_uri, db1, db2, coll1, coll2, percent, direction):
-    client1 = pymongo.MongoClient(source_uri, serverSelectionTimeoutMS=5000)
-    client2 = pymongo.MongoClient(target_uri, serverSelectionTimeoutMS=5000)
+
+    global passed_forwards
+    global passed_forwardsAgains
+    global passed_backwards
+    found_error = False
+    print("data_compare : "+direction)
+    try: 
+      client1 = pymongo.MongoClient(source_uri, serverSelectionTimeoutMS=5000)
+    except Exception as e:
+      print(str(e))
+    try: 
+      client2 = pymongo.MongoClient(target_uri, serverSelectionTimeoutMS=5000)
+    except Exception as e:
+      print(str(e))
+    
+    missing_documtents_file = open(time.strftime("%Y%m%d-%H%M%S")+"-"+direction+'_missing_documents.txt', 'a')
     first_database = client1[db1]
     second_database = client2[db2]
     first_collection = first_database[coll1]
     second_collection = second_database[coll2]
+    
+
 
     #method will check edge cases to see if any of the collections passed in are empty, or if the 2 collections dont match each other in document length
     empty_coll_or_diff_num_docs_check(first_collection, second_collection) 
@@ -45,19 +67,31 @@ def data_compare(source_uri, target_uri, db1, db2, coll1, coll2, percent, direct
     #tqdm is the progress bar the terminal outputs to help the user see the progress
     for document in tqdm(sampled_docs): 
         queried_doc = find_one_coll.find_one({"_id": document["_id"]})
+        
+        
+        
         # Only if the direction is "forwards" or "backwards" do we check to see if the documents exist in the opposite collection as described above. "forwardsAgain" 
         # would not need this as you already checked the whole source collection in "forwards" so a random sample checking again would be redundant.
         if direction == "forwards" or direction == "backwards":
+            
             if queried_doc == None: 
                 if direction == "forwards":
-                    str = "\n\nXXXXFailed!XXXX\nThe following document based on it's ID was not found in the target but was found in the source:\n{0}\n"
+                    print_str = "\n\nXXXXFailed!XXXX\nThe following document based on it's ID was not found in the target but was found in the source:\n{0}\n"
+                    found_error = True
                 if direction == "backwards":
-                    str = "\n\nXXXXFailed!XXXX\nThe following document based on it's ID was not found in the source but was found in the target:\n{0}\n"
-                print(str.format(document))
-                sys.exit[0]
-                return False
+                    print_str = "\n\nXXXXFailed!XXXX\nThe following document based on it's ID was not found in the source but was found in the target:\n{0}\n"
+                    found_error = True
+                # print(print_str.format(document["_id"]))
+                missing_documtents_file.write(str(document["_id"])+ "\n")
+                # sys.exit[0]
+                # return False
+
+            
         elif direction == "forwardsAgain":
+            # print("starting document content comparison")
             #Only if direction = "forwardsAgain" then we will do the actual document comparison and difference finding 
+            if queried_doc == None: 
+                continue
             pretty_q_doc_str = dumps(queried_doc, indent = 4, separators =("", " = "))
             pretty_document_str = dumps(document, indent = 4, separators =("", " = "))
             #compare the strings of the documents to ensure they are equal for each document 
@@ -80,21 +114,32 @@ def data_compare(source_uri, target_uri, db1, db2, coll1, coll2, percent, direct
                 #     2) there is a difference with the dump strings, but the length of DeepDiff is 0, so then we know the only difference can be the order, so we print that to user and return False.
                 #     3) there is a difference with the dump strings, but the length is anything else but 0, so we know there are actual differences, so we print to user and return False.
                 diff = DeepDiff(document, queried_doc, verbose_level=2, report_repetition=True).pretty()
+                found_error = True
                 if len(diff) == 0:
-                    str = "\n\nXXXXFailed!XXXX\nThe values are all there but the order of values is different from source to target.\nSource document looks like this:\n{0}\nTarget document looks like this:\n{1}\n\n"
-                    print(str.format(pretty_document_str, pretty_q_doc_str))
-                    sys.exit[0]
-                    return False
+                    print_str = "\n\nXXXXFailed!XXXX\nThe values are all there but the order of values is different from source to target.\nSource document looks like this:\n{0}\nTarget document looks like this:\n{1}\n\n"
+                    # print(print_str.format(pretty_document_str, pretty_q_doc_str))
+                    missing_documtents_file.write("Order_Difference , "+str(document["_id"])+","+str(queried_doc["_id"])+ "\n")
+                    # sys.exit[0]
+                    # return False
                 else:
                     diff_str = "\n\nXXXXFailed!XXXX\nThere are differences that were found. Refer to the target doc as seen here:\n{0}\nRefer to the source doc as seen here:\n{1}\nThe Differences Consist Specifically of the Following:\n{2}\n\n"
-                    print(diff_str.format(pretty_document_str, pretty_q_doc_str, diff))
-                    sys.exit[0]
-                    return False
+                    # print(diff_str.format(pretty_document_str, pretty_q_doc_str, diff))
+                    missing_documtents_file.write("Value_Difference , "+str(document["_id"])+","+str(queried_doc["_id"])+ "\n")
+                    # sys.exit[0]
+                    # return False
         else:
             sys.exit[0]
-    if direction == "backwards":
-        print("\n****PASSED!****\n1)  All documents in source collection exist in target collection!\n2)  All documents in target collection exist in source!\n" 
-                "3)  All randomly sampled documents based on your defined percentage match exactly from source to target!\n\n")
+    if(found_error) :
+        if direction == "forwards":
+            passed_forwards = False
+        elif direction == "backwards":
+            passed_backwards = False
+        else :
+            passed_forwardsAgains = False
+    if direction != None:
+        print("\n****DONE!****\n1)  All documents in source collection exist in target collection! - {} \n2)  All documents in target collection exist in source! - {} \n" 
+                "3)  All randomly sampled documents based on your defined percentage match exactly from source to target! - {} \n\n".format(passed_forwards,passed_backwards,passed_forwardsAgains))
+        missing_documtents_file.close()
         return True
 
 def get_rand_sample_docs(sample_coll, percent):
@@ -125,10 +170,10 @@ def empty_coll_or_diff_num_docs_check(first_coll, second_coll):
 
     #Checks to see if number of documents in both are equal
     if coll1_num_docs != coll2_num_docs:
-        str = "\n\nXXXXFailed!XXXX\nBoth collections do not have the same number of documents. Source collection has {0} documents. Target collection has {1} documents." 
-        print(str.format(coll1_num_docs, coll2_num_docs))
-        sys.exit[0]
-        return False
+        print_str = "\n\nXXXXFailed!XXXX\nBoth collections do not have the same number of documents. Source collection has {0} documents. Target collection has {1} documents." 
+        print(print_str.format(coll1_num_docs, coll2_num_docs))
+        # sys.exit[0]
+        # return False
 
 #Main method
 if __name__ == "__main__":
@@ -153,5 +198,6 @@ try:
     data_compare(args.source_uri, args.target_uri, src_str[0], target_str[0], src_str[1], target_str[1], 100, "forwards")
     data_compare(args.source_uri, args.target_uri, src_str[0], target_str[0], src_str[1], target_str[1], args.percent, "forwardsAgain")
     data_compare(args.source_uri, args.target_uri, src_str[0], target_str[0], src_str[1], target_str[1], 100, "backwards")
-except: 
-    print("\n\nXXXXUnable to run fully!XXXX\nPlease fix any errors presented and make sure your command line arguments are entered correctly. For help on correct command line arguments syntax, pass --help as a command line argument for more help.\n\n")
+except Exception as e: 
+    print("\n\nXXXXUnable to run fully!XXXX\nPlease fix any errors presented and make sure your command line arguments are entered correctly. For help on correct command line arguments syntax, pass --help as a command line argument for more help.\n\n" )
+    print(str(e))
