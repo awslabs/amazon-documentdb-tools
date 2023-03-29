@@ -41,7 +41,7 @@ def getData(appConfig):
                 collectionCompressionRatio = collStats['size'] / collStats['storageSize']
                 gbDivisor = 1024*1024*1024
                 collectionCount = collStats['count']
-                collectionAvgObjSize = int(collStats['avgObjSize']) 
+                collectionAvgObjSize = int(collStats.get('avgObjSize',0))
                 collectionSizeGB = collStats['size']/gbDivisor
                 collectionStorageSizeGB = collStats['storageSize']/gbDivisor
 
