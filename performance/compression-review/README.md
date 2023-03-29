@@ -16,7 +16,8 @@ The compression review tool samples 1000 documents in each collection to determi
 `python3 compression-review.py --uri <server-uri> --server-alias <server-alias>`
 
 - Run on any instance in the replica set
-- Use a different \<server-alias> for each server analyzed, output files are named using \<server-alias> as the starting portion
+- Use a different \<server-alias> for each server analyzed, output file is named using \<server-alias> as the starting portion
+- Creates a single CSV file per execution
 - The \<server-uri> options can be found at https://www.mongodb.com/docs/manual/reference/connection-string/ 
 - Consider adding "&compressor=snappy" to your \<mongodb-uri> if your MongoDB server supports it
 - For DocumentDB use either the cluster endpoint or any of the instance endpoints
