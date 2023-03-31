@@ -18,7 +18,7 @@ def getData(appConfig):
     logFileName = "{}-{}-compression-review.csv".format(appConfig['serverAlias'],logTimeStamp)
     logFileHandle = open(logFileName, "w")
 
-    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minLz4','maxLz4','avgLz4','lz4Ratio'))
+    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minLz4','maxLz4','avgLz4','lz4Ratio','exceptions'))
 
     # get databases - filter out admin, config, local, and system
     dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":['admin','config','local','system']}})['databases']
@@ -45,7 +45,7 @@ def getData(appConfig):
                 collectionSizeGB = collStats['size']/gbDivisor
                 collectionStorageSizeGB = collStats['storageSize']/gbDivisor
 
-                sampleDocs = client[thisDbName][thisCollName].aggregate([{"$sample":{"size":sampleSize}}])
+                numExceptions = 0
                 minDocBytes = 999999999
                 maxDocBytes = 0
                 totDocs = 0
@@ -53,25 +53,29 @@ def getData(appConfig):
                 minLz4Bytes = 999999999
                 maxLz4Bytes = 0
                 totLz4Bytes = 0
-                for thisDoc in sampleDocs:
-                    totDocs += 1
-                    docAsString = str(thisDoc)
-                    docBytes = len(docAsString)
-                    totDocBytes += docBytes
-                    if (docBytes < minDocBytes):
-                        minDocBytes = docBytes
-                    if (docBytes > maxDocBytes):
-                        maxDocBytes = docBytes
 
-                    # compress it
-                    compressed = lz4.frame.compress(docAsString.encode())
-                    lz4Bytes = len(compressed)
-                    totLz4Bytes += lz4Bytes
-                    if (lz4Bytes < minLz4Bytes):
-                        minLz4Bytes = lz4Bytes
-                    if (lz4Bytes > maxLz4Bytes):
-                        maxLz4Bytes = lz4Bytes
+                try:
+                    sampleDocs = client[thisDbName][thisCollName].aggregate([{"$sample":{"size":sampleSize}}])
+                    for thisDoc in sampleDocs:
+                        totDocs += 1
+                        docAsString = str(thisDoc)
+                        docBytes = len(docAsString)
+                        totDocBytes += docBytes
+                        if (docBytes < minDocBytes):
+                            minDocBytes = docBytes
+                        if (docBytes > maxDocBytes):
+                            maxDocBytes = docBytes
 
+                        # compress it
+                        compressed = lz4.frame.compress(docAsString.encode())
+                        lz4Bytes = len(compressed)
+                        totLz4Bytes += lz4Bytes
+                        if (lz4Bytes < minLz4Bytes):
+                            minLz4Bytes = lz4Bytes
+                        if (lz4Bytes > maxLz4Bytes):
+                            maxLz4Bytes = lz4Bytes
+                except:
+                    numExceptions = 0
 
                 if (totDocs == 0):
                     avgDocBytes = 0
@@ -86,8 +90,8 @@ def getData(appConfig):
                     avgLz4Bytes = int(totLz4Bytes / totDocs)
                     lz4Ratio = collectionAvgObjSize / avgLz4Bytes
 
-                logFileHandle.write("{},{},{:d},{:d},{:.4f},{:.4f},{:.4f},{:d},{:d},{:d},{:d},{:d},{:d},{:.4f}\n".format(thisDb['name'],thisColl['name'],collectionCount,
-                    collectionAvgObjSize,collectionSizeGB,collectionStorageSizeGB,collectionCompressionRatio,minDocBytes,maxDocBytes,avgDocBytes,minLz4Bytes,maxLz4Bytes,avgLz4Bytes,lz4Ratio))
+                logFileHandle.write("{},{},{:d},{:d},{:.4f},{:.4f},{:.4f},{:d},{:d},{:d},{:d},{:d},{:d},{:.4f},{:d}\n".format(thisDb['name'],thisColl['name'],collectionCount,
+                    collectionAvgObjSize,collectionSizeGB,collectionStorageSizeGB,collectionCompressionRatio,minDocBytes,maxDocBytes,avgDocBytes,minLz4Bytes,maxLz4Bytes,avgLz4Bytes,lz4Ratio,numExceptions))
 
 
     logFileHandle.close() 
