@@ -4,13 +4,14 @@ The compression review tool samples 1000 documents in each collection to determi
 
 # Requirements
  - Python 3.7+
-   - If using Snappy wire protocol compression and MongoDB, "apt install python-snappy"
- - pymongo Python package
+ - pymongo Python package - tested versions
    - MongoDB 2.6 - 3.4 | pymongo 3.10 - 3.12
    - MongoDB 3.6 - 5.0 | pymongo 3.12 - 4.0
    - MongoDB 5.1+      | pymongo 4.0+
    - DocumentDB        | pymongo 3.10+
+   - If not installed - "$ pip3 install pymongo"
  - lz4 Python package
+   - If not installed - "$ pip3 install lz4"
 
 ## Using the Compression Review Tool
 `python3 compression-review.py --uri <server-uri> --server-alias <server-alias>`
@@ -19,7 +20,7 @@ The compression review tool samples 1000 documents in each collection to determi
 - Use a different \<server-alias> for each server analyzed, output file is named using \<server-alias> as the starting portion
 - Creates a single CSV file per execution
 - The \<server-uri> options can be found at https://www.mongodb.com/docs/manual/reference/connection-string/ 
-- Consider adding "&compressor=snappy" to your \<mongodb-uri> if your MongoDB server supports it
+  - If your URI contains ampersand (&) characters they must be escaped with the backslash or enclosed your URI in double quotes
 - For DocumentDB use either the cluster endpoint or any of the instance endpoints
 
 ## License
