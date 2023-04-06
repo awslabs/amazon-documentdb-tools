@@ -185,6 +185,13 @@ def delete_primary_cluster(global_cluster_id):
         remove_from_global_cluster(primary_cluster, global_cluster_id)
         # Wait until all standalone clusters are promoted
         wait_for_promotion_to_complete(global_cluster_id, primary_cluster)
+
+        # Wait until primary cluster status becomes available
+        primary_cluster_status = get_cluster_status(primary_cluster)
+        while primary_cluster_status != 'available':
+            time.sleep(10)
+            primary_cluster_status = get_cluster_status(primary_cluster)
+
         print('Deleting primary cluster, ', primary_cluster, ' from global cluster ', global_cluster_id)
         delete_cluster(primary_cluster)
     except ClientError as e:
