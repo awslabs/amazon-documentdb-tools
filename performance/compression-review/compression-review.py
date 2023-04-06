@@ -10,7 +10,10 @@ import lz4.frame
 
 def getData(appConfig):
     print('connecting to server')
-    client = pymongo.MongoClient(appConfig['uri'])
+    if appConfig['enableSSL'] == 'false':
+        client = pymongo.MongoClient(appConfig['uri'],username=appConfig['username'],password=appConfig['password'],ssl='false', retryWrites='false')
+    else:
+        client = pymongo.MongoClient(appConfig['uri'],username=appConfig['username'],password=appConfig['password'],ssl='true', ssl_ca_certs='rds-combined-ca-bundle.pem', retryWrites='false')
     sampleSize = appConfig['sampleSize']
 
     # log output to file
@@ -111,6 +114,21 @@ def main():
                         type=str,
                         help='MongoDB Connection URI')
 
+    parser.add_argument('--username',
+                        required=True,
+                        type=str,
+                        help='MongoDB Connection Username')
+
+    parser.add_argument('--password',
+                        required=True,
+                        type=str,
+                        help='MongoDB Connection Password')
+
+    parser.add_argument('--enable-ssl',
+                        required=True,
+                        type=str,
+                        help='MongoDB Connection with ssl cert')
+
     parser.add_argument('--server-alias',
                         required=True,
                         type=str,
@@ -131,6 +149,9 @@ def main():
 
     appConfig = {}
     appConfig['uri'] = args.uri
+    appConfig['username'] = args.username
+    appConfig['password'] = args.password
+    appConfig['enableSSL'] = args.enable_ssl
     appConfig['serverAlias'] = args.server_alias
     appConfig['sampleSize'] = int(args.sample_size)
     
