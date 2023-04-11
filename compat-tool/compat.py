@@ -116,12 +116,12 @@ def scan_code(args, keywords):
 
 def main(args):
     parser = argparse.ArgumentParser(description="Parse the command line.")
-    parser.add_argument("--version", dest="version", action="store", default="5.0", help="DocumentDB version (default 5.0)", choices=versions, required=False)
-    parser.add_argument("--directory", dest="scanDir", action="store", help="Directory for files to scan for compatibility", required=False)
+    parser.add_argument("--version", dest="version", action="store", default="5.0", help=""Check for DocumentDB version compatibility (default is 5.0), choices=versions, required=False)
+    parser.add_argument("--directory", dest="scanDir", action="store", help="Directory containing files to scan for compatibility", required=False)
     parser.add_argument("--file", dest="scanFile", action="store", help="Specific file to scan for compatibility", required=False)
     parser.add_argument("--excluded-extensions", dest="excludedExtensions", action="store", default="NONE", help="Filename extensions to exclude from scanning, comma separated", required=False)
     parser.add_argument("--included-extensions", dest="includedExtensions", action="store", default="ALL", help="Filename extensions to include in scanning, comma separated", required=False)
-    parser.add_argument("--show-supported", dest="showSupported", action="store_true", default=False, help="Include supported operators in the scan", required=False)
+    parser.add_argument("--show-supported", dest="showSupported", action="store_true", default=False, help="Include supported operators in the report", required=False)
     args = parser.parse_args()
     
     if args.scanDir is None and args.scanFile is None:
@@ -144,13 +144,13 @@ def main(args):
 
     if len(issuesDict) > 0:
         print("")
-        print("The following {} unsupported operators were found".format(len(issuesDict)))
+        print("The following {} unsupported operators were found:".format(len(issuesDict)))
         for thisKeyPair in sorted(issuesDict.items(), key=lambda x: (-x[1],x[0])):
             print("  {} | found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
             
         # output detailed unsupported operator findings
         print("")
-        print("Unsupported operators by filename and line number")
+        print("Unsupported operators by filename and line number:")
         for thisKeyPair in sorted(issuesDict.items(), key=lambda x: (-x[1],x[0])):
             print("  {} | lines = found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
             for thisFile in detailedIssuesDict[thisKeyPair[0]]:
@@ -158,11 +158,11 @@ def main(args):
         
     else:
         print("")
-        print("No unsupported operators found")
+        print("No unsupported operators found.")
 
     if len(supportedDict) > 0 and args.showSupported:
         print("")
-        print("The following {} supported operators were found".format(len(supportedDict)))
+        print("The following {} supported operators were found:".format(len(supportedDict)))
         for thisKeyPair in sorted(supportedDict.items(), key=lambda x: (-x[1],x[0])):
             print("  - {} | found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
 
