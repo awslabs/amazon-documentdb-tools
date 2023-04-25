@@ -116,7 +116,7 @@ def scan_code(args, keywords):
 
 def main(args):
     parser = argparse.ArgumentParser(description="Parse the command line.")
-    parser.add_argument("--version", dest="version", action="store", default="5.0", help=""Check for DocumentDB version compatibility (default is 5.0), choices=versions, required=False)
+    parser.add_argument("--version", dest="version", action="store", default="5.0", help="Check for DocumentDB version compatibility (default is 5.0)", choices=versions, required=False)
     parser.add_argument("--directory", dest="scanDir", action="store", help="Directory containing files to scan for compatibility", required=False)
     parser.add_argument("--file", dest="scanFile", action="store", help="Specific file to scan for compatibility", required=False)
     parser.add_argument("--excluded-extensions", dest="excludedExtensions", action="store", default="NONE", help="Filename extensions to exclude from scanning, comma separated", required=False)
