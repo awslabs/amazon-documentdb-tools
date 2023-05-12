@@ -38,10 +38,10 @@ The Index Tool accepts the following arguments:
 ```
 --debug                      Output debugging information
 --dry-run                    Perform processing, but do not actually export or restore indexes
---uri URI                    URI to connect to MongoDB or DocumentDB
+--uri URI                    URI to connect to MongoDB or Amazon DocumentDB
 --dir DIR                    Specify the folder to export to or restore from (required)
---show-compatible            Output all compatible indexes (without change)
---show-issues                Output a detailed structure of compatibility issues
+--show-compatible            Output all compatible indexes with Amazon DocumentDB (no change is applied)
+--show-issues                Output a report of compatibility issues found
 --dump-indexes               Perform index export from the specified server
 --restore-indexes            Restore indexes found in metadata to the specified server
 --skip-incompatible          Skip incompatible indexes when restoring metadata
