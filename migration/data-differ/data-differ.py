@@ -24,11 +24,11 @@ def compare_document_counts(srcCollection, tgtCollection, output_file):
     if count1 > count2:
         print(f"Document count mismatch: Found {count1} documents in the source collection vs. {count2} documents in the target collection, scanning...")
         missing_docs = srcCollection.find({'_id': {'$nin': tgtCollection.distinct('_id')}})
-        write_difference_to_file(output_file, "Document _IDs present in collection1 but not in collection2:")
+        write_difference_to_file(output_file, "Document _IDs present in the source collection but not in target collection:")
     else:
         print(f"Document count mismatch: Found {count1} documents in the source collection vs. {count2} documents in the target collection, scanning...")
         missing_docs = tgtCollection.find({'_id': {'$nin': srcCollection.distinct('_id')}})
-        write_difference_to_file(output_file, "Document _IDs present in collection2 but not in collection1:")
+        write_difference_to_file(output_file, "Document _IDs present in the target collection but not in the source collection:")
 
     for doc in missing_docs:
         print(doc['_id'])
