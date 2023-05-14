@@ -13,13 +13,20 @@ def connect_to_db(uri, pool_size):
 def compare_document_counts(srcCollection, tgtCollection, output_file):
     count1 = srcCollection.count_documents({})
     count2 = tgtCollection.count_documents({})
+   
+    if count1 == 0:
+        print("No documents found in the source collection, please re-check you selected the right source collection.")
+        return
+    elif count2 == 0:
+        print("No documents found in the target collection, please re-check you selected the right target collection.")
+        return
 
     if count1 > count2:
-        print(f"Document count mismatch: Found {count1} documents in srcCollection vs. {count2} documents in tgtCollection, scanning...")
+        print(f"Document count mismatch: Found {count1} documents in the source collection vs. {count2} documents in the target collection, scanning...")
         missing_docs = srcCollection.find({'_id': {'$nin': tgtCollection.distinct('_id')}})
         write_difference_to_file(output_file, "Document _IDs present in collection1 but not in collection2:")
     else:
-        print(f"Document count mismatch: Found {count1} documents in srcCollection vs. {count2} documents in tgtCollection, scanning...")
+        print(f"Document count mismatch: Found {count1} documents in the source collection vs. {count2} documents in the target collection, scanning...")
         missing_docs = tgtCollection.find({'_id': {'$nin': srcCollection.distinct('_id')}})
         write_difference_to_file(output_file, "Document _IDs present in collection2 but not in collection1:")
 
