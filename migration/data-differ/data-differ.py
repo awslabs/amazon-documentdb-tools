@@ -70,7 +70,7 @@ def compare_collections(srcCollection, tgtCollection, batch_size, output_file):
         compare_document_data(srcCollection, tgtCollection, batch_size, output_file)
 
 def main():
-    parser = argparse.ArgumentParser(description='Compare MongoDB collections and report differences.')
+    parser = argparse.ArgumentParser(description='Compare two collections and report differences.')
     parser.add_argument('--batch_size', type=int, default=1000, help='Batch size for bulk reads (default: 1000)')
     parser.add_argument('--output_file', type=str, default='differences.txt', help='Output file path (default: differences.txt)')
     args = parser.parse_args()
