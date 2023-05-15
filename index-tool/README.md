@@ -1,33 +1,76 @@
-# Amazon DocumentDB Index Tool 
+# Amazon DocumentDB Index Tool
 
-The Index Tool makes it easier to migrate only indexes (not data) between a source MongoDB deployment and a Amazon DocumentDB  cluster. The Index Tool can also help you find potential compatibility issues between your source databases and Amazon DocumentDB. You can use the Index Tool to dump indexes and database metadata, or you can use the tool against an existing dump created with the mongodump tool.
+The Index Tool facilitates the migration of indexes metadata (excluding data) between document databases deployments.
 
-Features:
- - Dump just the indexes from a running mongodb instance/replica set
- - Outputs in the same dump format that mongodump uses
- - Checks indexes, collections, and databases for compatibility with Amazon DocumentDB
- - Checks indexes for unsupported index types
- - Checks collections for unsupported options
- - Restores supported indexes (without data) to Amazon DocumentDB
- - Supports creation of 2dsphere indexes using --support-2dsphere command line option
+Supported source: 
+ - Amazon DocumentDB (any version)
+ - MongoDB (2.x and later versions) standalone, replicaset or sharded cluster
+ - Azure Cosmos DB
 
-## Installing
-Clone the repository, then run the following command in the repo top-level director:
-`pip3 install -r requirements.txt`
+Supported target: 
+ - Amazon DocumentDB (any version)
 
-**NOTE** - This tool requires Python 3.7 or greater.
-**NOTE** - Full documentation on the MongoDB URI format is available [here](https://www.mongodb.com/docs/manual/reference/connection-string/).
 
-## Using the Index Tool
-To dump indexes from a running MongoDB instance or replica set, run the following command:
-`python3 migrationtools/documentdb_index_tool.py --dump-indexes --uri <source-server-uri> --dir <directory to dump metadata to>`
+## Features
 
-To check for compatibility issues against dumped database metadata, run the following command:
-`python3 migrationtools/documentdb_index_tool.py --show-issues --dir <directory that contains metadata dump>`
+- Export indexes metadata from a running MongoDB or Amazon DocumentDB deployment
+- Checks for any unsupported indexes types or collections options with Amazon DocumentDB
+- Check index and collections options compatibility against a logical backup, taken with mongodump. The backup has to be uncompressed.
+- Restores supported indexes to Amazon DocumentDB (instance based or Elastic cluster)
+- Output is a json file, similar to mongodump format
+- Supports creation of 2dsphere indexes using the *--support-2dsphere* command line option
 
-To restore only indexes that are compatible with Amazon DocumentDB, run the following command:
-`python3 migrationtools/documentdb_index_tool.py --restore-indexes --uri <destination-server-uri> --dir <directory that contains metadata dump>`
+## Requirements
+Python 3.7 or greater, Pymongo.
+
+## Installation
+Clone the repository and install the requirements:
+
+```
+git clone https://github.com/awslabs/amazon-documentdb-tools.git
+cd amazon-documentdb-tools/index-tool
+python3 -m pip install -r requirements.txt
+```
+
+## Usage/Examples
+The Index Tool accepts the following arguments:
+
+```
+--debug                      Output debugging information
+--dry-run                    Perform processing, but do not actually export or restore indexes
+--uri URI                    URI to connect to MongoDB or Amazon DocumentDB
+--dir DIR                    Specify the folder to export to or restore from (required)
+--show-compatible            Output all compatible indexes with Amazon DocumentDB (no change is applied)
+--show-issues                Output a report of compatibility issues found
+--dump-indexes               Perform index export from the specified server
+--restore-indexes            Restore indexes found in metadata to the specified server
+--skip-incompatible          Skip incompatible indexes when restoring metadata
+--support-2dsphere           Support 2dsphere indexes creation (collections must use GeoJSON Point type for indexing)
+--skip-python-version-check  Permit execution using Python 3.6 and prior
+```
+
+### Export indexes from a MongoDB instance:
+```
+python3 migrationtools/documentdb_index_tool.py --dump-indexes --dir mongodb_index_export --uri 'mongodb://localhost:27017' 
+```
+
+### Export indexes from an Amazon DocumentDB cluster
+```
+python3 migrationtools/documentdb_index_tool.py --dump-indexes --dir docdb_index_export --uri 'mongodb://user:password@mydocdb.cluster-cdtjj00yfi95.eu-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=rds-combined-ca-bundle.pem&replicaSet=rs0&retryWrites=false' 
+```
+
+### Check compatibility with Amazon DocumentDB against exported index metadata
+```
+python3 migrationtools/documentdb_index_tool.py --show-issues --dir mongodb_index_export
+```
+
+### Restore compatible indexes to Amazon DocumentDB
+```
+python3 migrationtools/documentdb_index_tool.py --restore-indexes --skip-incompatible --dir mongodb_index_export --uri 'mongodb://user:password@mydocdb.cluster-cdtjj00yfi95.eu-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=rds-combined-ca-bundle.pem&replicaSet=rs0&retryWrites=false' 
+```
 
 ## License
+[Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
-This library is licensed under the Apache 2.0 License. 
+## Contributing
+Contributions are always welcome! See the [contributing](https://github.com/awslabs/amazon-documentdb-tools/blob/master/CONTRIBUTING.md) page for ways to get involved.

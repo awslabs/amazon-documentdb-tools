@@ -576,41 +576,41 @@ def main():
     parser.add_argument('--debug',
                         required=False,
                         action='store_true',
-                        help='output debugging information')
+                        help='Output debugging information')
 
     parser.add_argument(
         '--dry-run',
         required=False,
         action='store_true',
-        help='Perform processing, but do not actually restore indexes')
+        help='Perform processing, but do not actually export or restore indexes')
 
     parser.add_argument('--uri',
                         required=False,
                         type=str,
-                        help='URI to connect to MongoDB or DocumentDB')
+                        help='URI to connect to MongoDB or Amazon DocumentDB')
 
     parser.add_argument('--dir',
                         required=True,
                         type=str,
-                        help='dump to or restore from DIR')
+                        help='Specify the folder to export to or restore from (required)')
 
     parser.add_argument('--show-compatible',
                         required=False,
                         action='store_true',
                         dest='show_compatible',
-                        help='output all compatible indexes (without change)')
+                        help='Output all compatible indexes with Amazon DocumentDB (no change is applied)')
 
     parser.add_argument(
         '--show-issues',
         required=False,
         action='store_true',
         dest='show_issues',
-        help='output a detailed structure of compatibility issues')
+        help='Output a report of compatibility issues found')
 
     parser.add_argument('--dump-indexes',
                         required=False,
                         action='store_true',
-                        help='Dump indexes from the specified server')
+                        help='Perform index export from the specified server')
 
     parser.add_argument(
         '--restore-indexes',
@@ -622,12 +622,12 @@ def main():
         '--skip-incompatible',
         required=False,
         action='store_true',
-        help='Skip incompatible indexes while dumping or restoring')
+        help='Skip incompatible indexes when restoring metadata')
 
     parser.add_argument('--support-2dsphere',
                         required=False,
                         action='store_true',
-                        help='support 2dsphere indexes (collections must use GeoJSON Point type for indexing)')
+                        help='Support 2dsphere indexes creation (collections data must use GeoJSON Point type for indexing)')
 
     parser.add_argument('--skip-python-version-check',
                         required=False,
@@ -641,11 +641,11 @@ def main():
         sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
 
     if (args.dump_indexes or args.restore_indexes) and (args.uri is None):
-        message = "must specify --uri when dumping or restoring indexes"
+        message = "Must specify --uri when dumping or restoring indexes"
         parser.error(message)
 
     if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible):
-        message = "must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible]"
+        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible]"
         parser.error(message)
 
     if args.dir is not None:
@@ -654,7 +654,7 @@ def main():
 
     if args.dump_indexes is True:
         if args.restore_indexes is True:
-            parser.error("cannot dump and restore indexes simultaneously")
+            parser.error("Cannot dump and restore indexes simultaneously")
 
     if args.support_2dsphere:
         # 2dsphere supported, remove from unsupported
