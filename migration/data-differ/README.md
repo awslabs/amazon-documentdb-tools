@@ -1,35 +1,42 @@
-# DataDiffer Overview
-DataDiffer will compare a user-defined percentage of random documents between two MongoDB/DocumentDB servers for a single collection in each. 
+# Amazon DocumentDB DataDiffer Tool
+The purpose of DataDiffer tool is to compare two collections in order to validate if the data matches and it's useful for migration scenarios.
+The tools does 3 checks:
+ - Check document count, if is not the same it will try to find the documents that are missing.
+ - Check if indexes are the same and reports differences.
+ - Checks every document in each collection and compares using the DeepDiff library. This check can be quite intensive, the time it takes to scan for all documents will depend on document complexity and the CPU resources of the machine you're running the script from.
+   The script is using the Python multiprocessing library in order to parallelize the DeppDiff check.
 
-## Prerequisites that Must be Met for Running DataDiffer
-1. Install pymongo, deepdiff, and tqdm software packages by running the following commands in the command line: 
-```
-    pip install pymongo
-    pip install deepdiff
-    pip install tqdm
-```
-2. Clone the repo to your machine where you want to run DataDiffer.
+## Prerequisites:
 
-3. CD into DataDiffer
+ - Python 3
+ - Modules: pymongo, deepdiff, tqdm
+```
+  pip3 install pymongo deepdiff tqdm
+```
+Note: See the DeepDiff [documentation](https://zepworks.com/deepdiff/current/optimizations.html) for possible optimisations you may try out to see if you get better performance for your particular data set.
 
-## To Run DataDiffer On Your Own Source/Target Collections
-1. Assuming you have the prerequisites above met, create an envrionment file(s) as needed based on your migration needs. The environment file should set environment variables and look something like this with each variable filled out for your use case:
-```
-    export SOURCE_URI=""
-    export SOURCE_DB=""
-    export SOURCE_COLL=""
-    export TARGET_URI=""
-    export TARGET_DB=""
-    export TARGET_COLL=""
-```
-2. Source the environment file you built in the command line with a command such as the following: 
-```
-    source <environment-file-name-here>.sh
-```
-3. Run the data-differ.py file in the command line with the proper arguments, such as the following: 
-```
-     python data-differ.py --source-uri $SOURCE_URI --target-uri $TARGET_URI --source-namespace "$SOURCE_DB.$SOURCE_COLL" --target-namespace "$TARGET_DB.$TARGET_COLL" --percent 100
-```
-Note: You can adjust the percent value as you wish in the command above. 
+## How to use
 
-4. See the ouput in the command line! 
+1. Clone the repository and go to the tool folder:
+```
+git clone https://github.com/awslabs/amazon-documentdb-tools.git
+cd amazon-documentdb-tools/migration/data-differ/
+```
+
+2. Update the `source.vars` file and export the variables with `source source.vars`
+
+3. Run the data-differ.py tool, which accepts two optional arguments:
+
+```
+python3 compare_mp_final_indexes.py --help
+usage: compare_mp_final_indexes.py [-h] [--batch_size BATCH_SIZE]
+                                   [--output_file OUTPUT_FILE]
+
+Compare two collections and report differences.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --batch_size BATCH_SIZE
+                        Batch size for bulk reads (default: 1000)
+  --output_file OUTPUT_FILE
+```
