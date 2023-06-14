@@ -40,12 +40,16 @@ def via_skips(appConfig):
         pctDone = numDocsTotal/(numDocuments - feedbackDocuments)*100
         elapsedSecs = int(time.time() - queryStartTime)
         estimatedSecsToDone = int(((100/pctDone)*elapsedSecs)-elapsedSecs)
-        print("  boundary {:3d} - objectid {} | done in approximately {} seconds".format(x+1,currentId["_id"],estimatedSecsToDone))
+        print("  boundary {:3d} - {} {} | done in approximately {} seconds".format(x+1,type(currentId["_id"]),currentId["_id"],estimatedSecsToDone))
         boundaryList.append(currentId["_id"])
 
     boundaryListAsString = "{}".format(",".join('"{}"'.format(i) for i in boundaryList))
     print("")
     print("boundaries as list | {}".format(boundaryListAsString))
+
+    boundaryListAsStringForDms = "[{}]".format("],[".join('"{}"'.format(i) for i in boundaryList))
+    print("")
+    print("boundaries as list for DMS | {}".format(boundaryListAsStringForDms))
 
     print("")
 
@@ -114,6 +118,10 @@ def via_cursor(appConfig):
 
     boundaryListAsString = "{}".format(",".join('"{}"'.format(i) for i in boundaryList))
     print("boundaries as list | {}".format(boundaryListAsString))
+
+    boundaryListAsStringForDms = "[{}]".format("],[".join('"{}"'.format(i) for i in boundaryList))
+    print("")
+    print("boundaries as list for DMS | {}".format(boundaryListAsStringForDms))
 
     print("")
 
