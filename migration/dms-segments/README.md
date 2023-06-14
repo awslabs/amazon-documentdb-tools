@@ -8,7 +8,7 @@ The DMS Segment Analyzer calculates the segment boundaries of MongoDB and Amazon
    - MongoDB 2.6 - 3.4 | pymongo 3.10 - 3.12
    - MongoDB 3.6 - 5.0 | pymongo 3.12 - 4.0
    - MongoDB 5.1+      | pymongo 4.0+
-   - DocumentDB        | pymongo 3.10 - 4.0
+   - DocumentDB        | pymongo 3.10+
 
 ## Using the DMS Segment Analyzer
 `python3 dms-segments.py --uri <server-uri> --database <database-name> --collection <collection-name> --num-segments <number-of-segments>`
