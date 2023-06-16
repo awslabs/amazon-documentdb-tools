@@ -1,10 +1,11 @@
 # Amazon DocumentDB DataDiffer Tool
-The purpose of DataDiffer tool is to compare two collections in order to validate if the data matches and it's useful for migration scenarios.
-The tools does 3 checks:
- - Check document count, if is not the same it will try to find the documents that are missing.
- - Check if indexes are the same and reports differences.
- - Checks every document in each collection and compares using the DeepDiff library. This check can be quite intensive, the time it takes to scan for all documents will depend on document complexity and the CPU resources of the machine you're running the script from.
-   The script is using the Python multiprocessing library in order to parallelize the DeppDiff check.
+
+The purpose of the DataDiffer tool is to facilitate the validation of data consistency by comparing two collections, making it particularly useful in migration scenarios.
+This tool performs the following checks:
+
+- Document existence check: It reads documents in batches from the source collection and checks for their existence in the target collection. If there is a discrepancy, the tool attempts will identify and report the missing documents.
+- Index Comparison: examines the indexes of the collections and reports any differences.
+- Document Comparison: each document in the collections, with the same _id, is compared using the DeepDiff library. This process can be computationally intensive, as it involves scanning all document fields. The duration of this check depends on factors such as document complexity and the CPU resources of the machine executing the script.
 
 ## Prerequisites:
 
@@ -25,18 +26,20 @@ cd amazon-documentdb-tools/migration/data-differ/
 
 2. Update the `source.vars` file and export the variables with `source source.vars`
 
-3. Run the data-differ.py tool, which accepts two optional arguments:
+3. Run the data-differ.py tool, which accepts the following (optional) arguments:
 
 ```
-python3 compare_mp_final_indexes.py --help
-usage: compare_mp_final_indexes.py [-h] [--batch_size BATCH_SIZE]
-                                   [--output_file OUTPUT_FILE]
+python3 data-differ.py --help
+usage: data-differ.py [-h] [--batch_size BATCH_SIZE] [--output_file OUTPUT_FILE] [--check_target CHECK_TARGET]
 
 Compare two collections and report differences.
 
 optional arguments:
   -h, --help            show this help message and exit
   --batch_size BATCH_SIZE
-                        Batch size for bulk reads (default: 1000)
+                        Batch size for bulk reads (default: 100)
   --output_file OUTPUT_FILE
+                        Output file path (default: differences.txt)
+  --check_target CHECK_TARGET
+                        Check if extra documents exist in target database
 ```
