@@ -14,7 +14,7 @@ This tool performs the following checks:
 ```
   pip3 install pymongo deepdiff tqdm
 ```
-Note: See the DeepDiff [documentation](https://zepworks.com/deepdiff/current/optimizations.html) for possible optimisations you may try out to see if you get better performance for your particular data set.
+Note: Refer to the DeepDiff [documentation](https://zepworks.com/deepdiff/current/optimizations.html) for potential optimizations you may try out specifically for your dataset.
 
 ## How to use
 
