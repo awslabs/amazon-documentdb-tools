@@ -48,20 +48,16 @@ def compare_document_data(srcCollection, tgtCollection, batch_size, output_file,
     processed_docs = 0
 
     try:
-        src_ids = [document['_id'] for document in srcCollection.find({}, {'_id': 1})]
-        src_ids_set = set(src_ids)
-
         while source_cursor.alive:
             batch1 = [next(source_cursor, None) for _ in range(batch_size)]
             doc_pairs = []
+            src_ids_set = set()
 
             for document in batch1:
                 if document is not None:
                     source_id = document['_id']
-                    if source_id not in src_ids_set:
-                        tgt_missing_ids.append(source_id)
-                    else:
-                        doc_pairs.append((document, None))  # None is used as a placeholder for target document
+                    src_ids_set.add(source_id)
+                    doc_pairs.append((document, None))  # None is used as a placeholder for target document
 
             tgt_docs = tgtCollection.find({"_id": {"$in": [doc[0]['_id'] for doc in doc_pairs]}})
             tgt_docs_map = {doc['_id']: doc for doc in tgt_docs}
