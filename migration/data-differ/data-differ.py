@@ -1,157 +1,161 @@
-import pymongo
-import math
+import os
 import argparse
-import sys
-from bson.json_util import dumps
-from deepdiff import DeepDiff 
+from pymongo import MongoClient
+from deepdiff import DeepDiff
 from tqdm import tqdm
+from datetime import datetime
+from multiprocessing import Pool
 
-def data_compare(source_uri, target_uri, db1, db2, coll1, coll2, percent, direction):
-    client1 = pymongo.MongoClient(source_uri, serverSelectionTimeoutMS=5000)
-    client2 = pymongo.MongoClient(target_uri, serverSelectionTimeoutMS=5000)
-    first_database = client1[db1]
-    second_database = client2[db2]
-    first_collection = first_database[coll1]
-    second_collection = second_database[coll2]
 
-    #method will check edge cases to see if any of the collections passed in are empty, or if the 2 collections dont match each other in document length
-    empty_coll_or_diff_num_docs_check(first_collection, second_collection) 
+def connect_to_db(uri, pool_size):
+    try:
+        client = MongoClient(uri, maxPoolSize=pool_size)
+        return client
+    except Exception as e:
+        print(f"Error connecting to database: {e}")
+        return None
 
-    # Based on what the direction is when the function is called (default direction value from the main method is "forwards"), it will get a different set 
-    # of documents called sampled_docs to hold which will be used to loop through in the later code and.  
-    
-    # There are 3 total cases here for direction: 
-    #     1) "forwards" only checks to see if ALL (so 100% is passed here) documents from source collection are present in the target collection 
-    #     2) "forwardsAgain" does document level diff'ing to see if there are any actual differences based on the user-selected percentage of sample docs 
-    #     3) "backwards" checks to see if ALL (once again 100% is passed here) documents from target collection are present in the source collection
-    
-    # Also based on the direction, the find_one_coll is specified which is specifying which collection we are going to do the find_one on as we loop 
-    # through the sampled_docs. So for example, in the forwards case we will do a find_one on collection2 which would be the target namespace we are 
-    # looking for those documents in.
 
-    if direction == "forwards":
-        sampled_docs = get_rand_sample_docs(first_collection, 100)
-        find_one_coll = second_collection
-        print("\n\nProgress bar is checking to see if all documents in source collection exist in the target collection...")
-    if direction == "forwardsAgain":
-        sampled_docs = get_rand_sample_docs(first_collection, percent)
-        find_one_coll = second_collection
-        print("\nProgress bar this time is checking to see if based on the percent you selected, those random sample of documents match exactly from source -> target...")
-    if direction == "backwards":
-        sampled_docs = get_rand_sample_docs(second_collection, 100)
-        find_one_coll = first_collection
-        print("\nReverse Checking! Progress bar is lastly checking to see if all documents in target collection exist in the source collection...")
+## Find missing docs in source when doc count in target is higher
+def check_target_for_extra_documents(srcCollection, tgtCollection, output_file):
+    print("Check if extra documents exist in target database. Scanning......")
+    missing_docs = tgtCollection.find({'_id': {'$nin': srcCollection.distinct('_id')}})
+    if len(list(missing_docs.clone()))  > 0 :
+        write_difference_to_file(output_file, "Document _IDs present in the target collection but not in the source collection:")
+        for doc in missing_docs:
+            print(doc['_id'])
+            write_difference_to_file(output_file, doc['_id'])
 
-    #tqdm is the progress bar the terminal outputs to help the user see the progress
-    for document in tqdm(sampled_docs): 
-        queried_doc = find_one_coll.find_one({"_id": document["_id"]})
-        # Only if the direction is "forwards" or "backwards" do we check to see if the documents exist in the opposite collection as described above. "forwardsAgain" 
-        # would not need this as you already checked the whole source collection in "forwards" so a random sample checking again would be redundant.
-        if direction == "forwards" or direction == "backwards":
-            if queried_doc == None: 
-                if direction == "forwards":
-                    str = "\n\nXXXXFailed!XXXX\nThe following document based on it's ID was not found in the target but was found in the source:\n{0}\n"
-                if direction == "backwards":
-                    str = "\n\nXXXXFailed!XXXX\nThe following document based on it's ID was not found in the source but was found in the target:\n{0}\n"
-                print(str.format(document))
-                sys.exit[0]
-                return False
-        elif direction == "forwardsAgain":
-            #Only if direction = "forwardsAgain" then we will do the actual document comparison and difference finding 
-            pretty_q_doc_str = dumps(queried_doc, indent = 4, separators =("", " = "))
-            pretty_document_str = dumps(document, indent = 4, separators =("", " = "))
-            #compare the strings of the documents to ensure they are equal for each document 
-            if pretty_document_str == pretty_q_doc_str: 
-                continue
-            # if the dumps strings are not equal, it can be 2 cases: 
-            #     First case is that the right keys with the right values are there, just in the wrong order, 
-            #     Second case is there is  guranteed differences between the documents such as for example some portion of doc missing/extra portion added.
-            else: 
-                # DeepDiff is a package that compares 2 dictionaries, 2 iterables, 2 strings or 2 other objects and returns their differences as a <class 'deepdiff.diff.DeepDiff'>.
-                # This will return to user what the differences were between the 2 objects in the output. Learn more about DeepDiff here: https://zepworks.com/deepdiff/current/basics.html
-                # It is important to note however, that DeepDiff does not check for order of key/value pairs, so although our dumps strings earlier could have had 
-                # a difference (due to order being different) DeepDiff would not return anything as a difference. So for combatting this issue, a check is required 
-                # to see if the length of the result of that DeepDiff call = 0, then you know that the only difference was the orders from source to target. If that 
-                # is not the case, and the length of the diff is greater than 0, then there are actual differences that you have to report those differences to the 
-                # user.
 
-                # To summarize, there are 3 paths when comparing documents: 
-                #     1) the dump strings match each other in the document comparison and then we continue. If all the documents go down this path, at the end you print that it passed and return True.
-                #     2) there is a difference with the dump strings, but the length of DeepDiff is 0, so then we know the only difference can be the order, so we print that to user and return False.
-                #     3) there is a difference with the dump strings, but the length is anything else but 0, so we know there are actual differences, so we print to user and return False.
-                diff = DeepDiff(document, queried_doc, verbose_level=2, report_repetition=True).pretty()
-                if len(diff) == 0:
-                    str = "\n\nXXXXFailed!XXXX\nThe values are all there but the order of values is different from source to target.\nSource document looks like this:\n{0}\nTarget document looks like this:\n{1}\n\n"
-                    print(str.format(pretty_document_str, pretty_q_doc_str))
-                    sys.exit[0]
-                    return False
-                else:
-                    diff_str = "\n\nXXXXFailed!XXXX\nThere are differences that were found. Refer to the target doc as seen here:\n{0}\nRefer to the source doc as seen here:\n{1}\nThe Differences Consist Specifically of the Following:\n{2}\n\n"
-                    print(diff_str.format(pretty_document_str, pretty_q_doc_str, diff))
-                    sys.exit[0]
-                    return False
-        else:
-            sys.exit[0]
-    if direction == "backwards":
-        print("\n****PASSED!****\n1)  All documents in source collection exist in target collection!\n2)  All documents in target collection exist in source!\n" 
-                "3)  All randomly sampled documents based on your defined percentage match exactly from source to target!\n\n")
-        return True
+## Compare documents for any difference using deepDiff
+def compare_docs_deepdiff(doc1, doc2, output_file):
+    try:
+        diff = DeepDiff(doc1, doc2, verbose_level=2, report_repetition=True, ignore_order=True, cache_size=5000)
+        if diff:
+            print("Difference found at doc id:", doc1["_id"])
+            write_difference_to_file(output_file, "Difference found at doc id: " + str(doc1["_id"]))
+            write_difference_to_file(output_file, diff)
+    except Exception as e:
+        print(f"An error occurred while comparing documents: {e}")
 
-def get_rand_sample_docs(sample_coll, percent):
-    #Convert from percent to a number of documents to sample from in the aggregation
-    sample_size = math.ceil((percent/100) * sample_coll.count_documents({}))
 
-    #Aggregate the random sample based on sample_size
-    sampled_docs = list(sample_coll.aggregate([
-        {"$sample": {"size": sample_size}}
-    ]))
-    return sampled_docs
+## Main compare document function
+def compare_document_data(srcCollection, tgtCollection, batch_size, output_file, src_count):
+    source_cursor = srcCollection.find().sort('_id').batch_size(batch_size)
+    total_docs = src_count
+    progress_bar = tqdm(total=total_docs, desc='Comparing documents', unit='doc')
+    tgt_missing_ids = []
+    processed_docs = 0
 
-def empty_coll_or_diff_num_docs_check(first_coll, second_coll):
-    coll1_num_docs = first_coll.count_documents({})
-    coll2_num_docs= second_coll.count_documents({})
+    try:
+        while source_cursor.alive:
+            batch1 = [next(source_cursor, None) for _ in range(batch_size)]
+            doc_pairs = []
+            src_ids_set = set()
 
-    #Checks if first collection is empty
-    if coll1_num_docs == 0: 
-        print("\n\nXXXXFailed!XXXX\nYour first collection is empty, please re-check you selected the right source collection.")
-        sys.exit[0]
-        return False
-    
-    #Checks if second collection is empty 
-    if coll2_num_docs == 0:
-        print("\n\nXXXXFailed!XXXX\nYour second collection is empty, please re-check you selected the right target collection.")
-        sys.exit[0]
-        return False
+            for document in batch1:
+                if document is not None:
+                    source_id = document['_id']
+                    src_ids_set.add(source_id)
+                    doc_pairs.append((document, None))  # None is used as a placeholder for target document
 
-    #Checks to see if number of documents in both are equal
-    if coll1_num_docs != coll2_num_docs:
-        str = "\n\nXXXXFailed!XXXX\nBoth collections do not have the same number of documents. Source collection has {0} documents. Target collection has {1} documents." 
-        print(str.format(coll1_num_docs, coll2_num_docs))
-        sys.exit[0]
-        return False
+            tgt_docs = tgtCollection.find({"_id": {"$in": [doc[0]['_id'] for doc in doc_pairs]}})
+            tgt_docs_map = {doc['_id']: doc for doc in tgt_docs}
 
-#Main method
-if __name__ == "__main__":
-    #order diff, same content is "s_one", "s_two"
-    #same everything is "sample_one", "sample_two"
-    #same num of docs but one doc is missing id is wrong for one of them is "sa_one", "sa_two"
-    #extra field in target than source is "sam_one", "sam_two"
+            doc_pairs = [(doc[0], tgt_docs_map.get(doc[0]['_id'])) for doc in doc_pairs]
 
-    parser = argparse.ArgumentParser(description="DataDiffer Tool.")
+            # Check if any documents from source collection are missing in the target collection
+            missing_docs = [doc[0] for doc in doc_pairs if doc[1] is None]
+            tgt_missing_ids.extend([doc['_id'] for doc in missing_docs])
 
-    parser.add_argument("--source-uri", type=str, required=True, help="Required Argument. This is the source URI")
-    parser.add_argument("--target-uri", type=str, required=True, help="Required Argument. This is the target URI")
-    parser.add_argument("--source-namespace", type=str, required=True, help="Required Argument. This is the source namespace and should be in the format <source_database_name>.<source_collection_name>")
-    parser.add_argument("--target-namespace", type=str, required=True, help="Required Argument. This is the target namespace and should be in the format <target_database_name>.<target_collection_name>")
-    parser.add_argument("--percent", type=int, required=True, help="Required Argument. This is the percent value of source collection to compare in the target collection passed as an integer.")
-    
+            # Check difference between docs, multi process based on cpu_count()
+            pool_size = os.cpu_count()
+            with Pool(pool_size) as pool:
+                pool.starmap(compare_docs_deepdiff, [(doc1, doc2, output_file) for doc1, doc2 in doc_pairs if doc2 is not None])
+
+            processed_docs += len(doc_pairs)
+            progress_bar.update(len(doc_pairs))
+
+    except Exception as e:
+        print(f"An error occurred while comparing documents: {e}")
+
+    if len(tgt_missing_ids) > 0:
+        print(f"Found {len(tgt_missing_ids)} documents in the source collection that are missing in the target collection!")
+        write_difference_to_file(output_file, "Document _IDs present in the source collection, but not in the target collection:")
+        for doc_id in tgt_missing_ids:
+            write_difference_to_file(output_file, str(doc_id))
+
+    # Adjust progress bar to the correct count
+    progress_bar.n = processed_docs
+    progress_bar.refresh()
+    progress_bar.close()
+
+
+# Compare indexes between the two collections
+def compare_indexes(srcCollection, tgtCollection, output_file):
+    src_indexes = srcCollection.index_information()
+    tgt_indexes = tgtCollection.index_information()
+
+    diff = DeepDiff(src_indexes, tgt_indexes, verbose_level=2, report_repetition=True, ignore_order=True)
+    if diff:
+        print("Found difference in indexes, check the output file! ")
+        write_difference_to_file(output_file, "Index differences:")
+        write_difference_to_file(output_file, diff)
+
+
+def write_difference_to_file(output_file, content):
+    with open(output_file, 'a') as file:
+        file.write(str(content) + '\n')
+
+
+def compare_collections(srcCollection, tgtCollection, batch_size, output_file, check_target):
+    src_count = srcCollection.count_documents({})
+    trg_count = tgtCollection.count_documents({})
+
+    if src_count == 0:
+        print("No documents found in the source collection, please re-check you selected the right source collection.")
+        return
+    if trg_count == 0:
+        print("No documents found in the target collection, please re-check you selected the right target collection.")
+        return
+    if src_count < trg_count:
+        print(f"Warning: There are more documents in target collection than the source collection, {trg_count} vs. {src_count}. Use --check_target to identify the missing docs in the source collection. ")
+    write_difference_to_file(output_file, "Count of documents in source:" + str(src_count) )
+    write_difference_to_file(output_file, "Count of documents in target:" + str(trg_count) )
+
+    print(f"Starting data differ at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} , output is saved to {output_file}")
+    compare_document_data(srcCollection, tgtCollection, batch_size, output_file,src_count)
+    compare_indexes(srcCollection, tgtCollection, output_file)
+    if check_target :
+        check_target_for_extra_documents(srcCollection, tgtCollection, output_file)
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Compare two collections and report differences.')
+    parser.add_argument('--batch_size', type=int, default=100, help='Batch size for bulk reads (default: 100)')
+    parser.add_argument('--output_file', type=str, default='differences.txt', help='Output file path (default: differences.txt)')
+    parser.add_argument('--check_target', type=str, default=False, help='Check if extra documents exist in target database')
     args = parser.parse_args()
-    src_str = args.source_namespace.split(".")
-    target_str = args.target_namespace.split(".")
 
-try:
-    data_compare(args.source_uri, args.target_uri, src_str[0], target_str[0], src_str[1], target_str[1], 100, "forwards")
-    data_compare(args.source_uri, args.target_uri, src_str[0], target_str[0], src_str[1], target_str[1], args.percent, "forwardsAgain")
-    data_compare(args.source_uri, args.target_uri, src_str[0], target_str[0], src_str[1], target_str[1], 100, "backwards")
-except: 
-    print("\n\nXXXXUnable to run fully!XXXX\nPlease fix any errors presented and make sure your command line arguments are entered correctly. For help on correct command line arguments syntax, pass --help as a command line argument for more help.\n\n")
+    cluster1_uri = os.environ.get('SOURCE_URI')
+    cluster2_uri = os.environ.get('TARGET_URI')
+    srcDatabase = os.environ.get('SOURCE_DB')
+    tgtDatabase = os.environ.get('TARGET_DB')
+    srcCollection = os.environ.get('SOURCE_COLL')
+    tgtCollection = os.environ.get('TARGET_COLL')
+
+    # Connect to the source database cluster
+    cluster1_client = connect_to_db(cluster1_uri, 50)
+    srcdb = cluster1_client[srcDatabase]
+    srcCollection = srcdb[srcCollection]
+
+    # Connect to the target database cluster
+    cluster2_client = connect_to_db(cluster2_uri, 50)
+    tgtdb = cluster2_client[tgtDatabase]
+    tgtCollection = tgtdb[tgtCollection]
+
+    # Compare collections and report differences
+    compare_collections(srcCollection, tgtCollection, args.batch_size, args.output_file, args.check_target)
+
+if __name__ == '__main__':
+    main()
