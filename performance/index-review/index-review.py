@@ -58,7 +58,7 @@ def getCollectionStats(client):
         collCursor = client[thisDb['name']].list_collections()
         for thisColl in collCursor:
             #print(thisColl)
-            if thisColl['type'] == 'view':
+            if thisColl.get('type','NOT-FOUND') == 'view':
                 # exclude views
                 pass
             elif thisColl['name'] in ['system.profile']:
