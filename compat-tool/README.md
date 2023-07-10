@@ -19,7 +19,6 @@ This tool supports examining compatibility with either the 3.6, 4.0 or 5.0 versi
 --file SCANFILE         -> Specific file to scan for compatibility
 --excluded-extensions EXCLUDEDEXTENSIONS -> Filename extensions to exclude from scanning, comma separated
 --included-extensions INCLUDEDEXTENSIONS -> Filename extensions to include in scanning, comma separated
---show-supported        -> Include supported operators in the report
 ```
 
 #### Example 1:

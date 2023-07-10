@@ -99,7 +99,7 @@ def scan_code(args, keywords):
                                     detailedIssuesDict[checkCompat] = {}
                                     detailedIssuesDict[checkCompat][thisFile] = [fileLineNum]
 
-                    elif (keywords[checkCompat][ver] == 'Yes') and args.showSupported:
+                    elif (keywords[checkCompat][ver] == 'Yes'):
                         # check for supported operators
                         if (thisLine.find(checkCompat) >= 0):
                             # check for false positives - for each position found see if next character is not a..z|A..Z or if at EOL
@@ -121,7 +121,6 @@ def main(args):
     parser.add_argument("--file", dest="scanFile", action="store", help="Specific file to scan for compatibility", required=False)
     parser.add_argument("--excluded-extensions", dest="excludedExtensions", action="store", default="NONE", help="Filename extensions to exclude from scanning, comma separated", required=False)
     parser.add_argument("--included-extensions", dest="includedExtensions", action="store", default="ALL", help="Filename extensions to include in scanning, comma separated", required=False)
-    parser.add_argument("--show-supported", dest="showSupported", action="store_true", default=False, help="Include supported operators in the report", required=False)
     args = parser.parse_args()
     
     if args.scanDir is None and args.scanFile is None:
@@ -160,7 +159,7 @@ def main(args):
         print("")
         print("No unsupported operators found.")
 
-    if len(supportedDict) > 0 and args.showSupported:
+    if len(supportedDict) > 0:
         print("")
         print("The following {} supported operators were found:".format(len(supportedDict)))
         for thisKeyPair in sorted(supportedDict.items(), key=lambda x: (-x[1],x[0])):
