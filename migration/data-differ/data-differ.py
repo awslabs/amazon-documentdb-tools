@@ -1,10 +1,9 @@
-import os
 import argparse
 from pymongo import MongoClient
 from deepdiff import DeepDiff
 from tqdm import tqdm
 from datetime import datetime
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 
 
 def connect_to_db(uri, pool_size):
@@ -69,7 +68,7 @@ def compare_document_data(srcCollection, tgtCollection, batch_size, output_file,
             tgt_missing_ids.extend([doc['_id'] for doc in missing_docs])
 
             # Check difference between docs, multi process based on cpu_count()
-            pool_size = os.cpu_count()
+            pool_size = cpu_count()
             with Pool(pool_size) as pool:
                 pool.starmap(compare_docs_deepdiff, [(doc1, doc2, output_file) for doc1, doc2 in doc_pairs if doc2 is not None])
 
@@ -132,27 +131,26 @@ def compare_collections(srcCollection, tgtCollection, batch_size, output_file, c
 
 def main():
     parser = argparse.ArgumentParser(description='Compare two collections and report differences.')
-    parser.add_argument('--batch_size', type=int, default=100, help='Batch size for bulk reads (default: 100)')
-    parser.add_argument('--output_file', type=str, default='differences.txt', help='Output file path (default: differences.txt)')
-    parser.add_argument('--check_target', type=str, default=False, help='Check if extra documents exist in target database')
+    parser.add_argument('--batch_size', type=int, default=100, help='Batch size for bulk reads (optional, default: 100)')
+    parser.add_argument('--output_file', type=str, default='differences.txt', help='Output file path (optional, default: differences.txt)')
+    parser.add_argument('--check_target', type=str, default=False, help='optional, Check if extra documents exist in target database')
+    parser.add_argument('--source-uri', type=str, required=True, help='Source cluster URI (required)')
+    parser.add_argument('--target-uri', type=str, required=True, help='Target cluster URI (required)')
+    parser.add_argument('--source-db', type=str, required=True, help='Source database name (required)')
+    parser.add_argument('--target-db', type=str, required=True, help='Target database name (required)')
+    parser.add_argument('--source-coll', type=str, required=True, help='Source collection name (required)')
+    parser.add_argument('--target-coll', type=str, required=True, help='Target collection name (required)')
     args = parser.parse_args()
 
-    cluster1_uri = os.environ.get('SOURCE_URI')
-    cluster2_uri = os.environ.get('TARGET_URI')
-    srcDatabase = os.environ.get('SOURCE_DB')
-    tgtDatabase = os.environ.get('TARGET_DB')
-    srcCollection = os.environ.get('SOURCE_COLL')
-    tgtCollection = os.environ.get('TARGET_COLL')
-
     # Connect to the source database cluster
-    cluster1_client = connect_to_db(cluster1_uri, 50)
-    srcdb = cluster1_client[srcDatabase]
-    srcCollection = srcdb[srcCollection]
+    cluster1_client = connect_to_db(args.source_uri, 50)
+    srcdb = cluster1_client[args.source_db]
+    srcCollection = srcdb[args.source_coll]
 
     # Connect to the target database cluster
-    cluster2_client = connect_to_db(cluster2_uri, 50)
-    tgtdb = cluster2_client[tgtDatabase]
-    tgtCollection = tgtdb[tgtCollection]
+    cluster2_client = connect_to_db(args.target_uri, 50)
+    tgtdb = cluster2_client[args.target_db]
+    tgtCollection = tgtdb[args.target_coll]
 
     # Compare collections and report differences
     compare_collections(srcCollection, tgtCollection, args.batch_size, args.output_file, args.check_target)
