@@ -118,7 +118,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Real-time Amazon DocumentDB server stats monitoring tool.")
     parser.add_argument("--uri", required=True, help="DocumentDB connection URI.")
     parser.add_argument("--interval", type=int, default=1, help="Polling interval in seconds (Default: 1s).")
-    parser.add_argument("--header-interval", type=int, default=10, help="Interval to display the header in iterations (Default: 10.")
+    parser.add_argument("--header-interval", type=int, default=10, help="Interval to display the header in iterations (Default: 10).")
     parser.add_argument("--field", type=str, default='Host,Status,Connections,Inserts,Query,Updates,Deletes,GetMore,Command,CursorsTotal,CursorsNoTimeout,Transactions,Timestamp',
                         help="Comma-separated fields to display in the output.")
     parser.add_argument("--notls", action="store_true", help="Disable the TLS option.")
