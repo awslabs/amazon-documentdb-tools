@@ -22,7 +22,7 @@ The tools accepts the following arguments:
 
 ```
 # python3 docdbstat.py --help
-usage: docdbtop902.py [-h] --uri URI [--interval INTERVAL]
+usage: docdbstat.py [-h] --uri URI [--interval INTERVAL]
                       [--header-interval HEADER_INTERVAL] [--field FIELD]
                       [--notls] [--tls-ca-file TLS_CA_FILE]
 
