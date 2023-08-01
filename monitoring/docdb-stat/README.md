@@ -1,6 +1,6 @@
 # Real-time Amazon DocumentDB server stats monitoring tool. 
 
-The **docdbstat** tool connect to a compute instance and retrives real time metrics by polling `db.serverStatus()` at a configurable interval (defaults to 1 sec).
+The **docdbstat** tool connects to a compute instance and continuously fetches real-time metrics by polling `db.serverStatus()` at a configurable interval (defaults to 1 sec).
 
 
 ## Requirements
@@ -43,11 +43,11 @@ optional arguments:
 Get stats every 5 seconds:
 
 ```
-python3 docdbstat.py --uri "mongodb://<user>:<pass>@docdb-endpoint:27017" --interval 5
+python3 docdbstat.py --uri "mongodb://<user>:<pass>@docdb-instance-endpoint:27017" --interval 5
 ```
 
 Get specific stats, for example to ouput just write operations:
 
 ```
-python3 docdbstat.py --uri "mongodb://<user>:<pass>@docdb-endpoint:27017" --field inserts,updates,deletes
+python3 docdbstat.py --uri "mongodb://<user>:<pass>@docdb-instance-endpoint:27017" --field inserts,updates,deletes
 ```
