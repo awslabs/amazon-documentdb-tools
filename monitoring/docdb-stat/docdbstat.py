@@ -4,39 +4,14 @@ import argparse
 import time
 from pymongo import MongoClient
 import pandas as pd
-import re
-import os
 
 
-def get_user_host_and_pass(uri):
-    # Parse the provided URI to extract the user, password, and host
-    user = None
-    password = None
-    host = None
-    match = re.match(r"mongodb://([^:]+):([^@]+)@([^/]+)", uri)
-    if match:
-        user, password, host = match.groups()
-    return user, password, host
+def connect_to_docdb(uri):
+    # Check for replicaSet in uri and replace with directConnection
+    if "replicaSet=rs0" in uri:
+        uri = uri.replace("replicaSet=rs0", "directConnection=true")
 
-
-def connect_to_docdb(uri, tls_ca_file=None, notls=False):
-    user, password, host = get_user_host_and_pass(uri)
-
-    # Construct the base URI with user, password, and host
-    build_uri = f"mongodb://{user}:{password}@{host}/?directConnection=true"
-
-    # Include the TLS option if notls is not provided
-    if not notls:
-        build_uri += "&tls=true"
-        if tls_ca_file:
-            build_uri += f"&tlsCAFile={tls_ca_file}"
-        else:
-            # If tls_ca_file is not provided, use the file in the same path as the script by default
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            default_tls_ca_file = os.path.join(script_dir, "global-bundle.pem")
-            build_uri += f"&tlsCAFile={default_tls_ca_file}"
-
-    client = MongoClient(build_uri)
+    client = MongoClient(uri)
     db = client.admin
     return db
 
@@ -88,8 +63,8 @@ def display_server_stats(stats, header_interval_counter, db, fields):
         print(table_str[table_str.index('\n') + 1:])
 
 
-def main(uri, polling_interval, header_interval, fields, notls, tls_ca_file):
-    db = connect_to_docdb(uri, notls=notls, tls_ca_file=tls_ca_file)
+def main(uri, polling_interval, header_interval, fields):
+    db = connect_to_docdb(uri)
     previous_server_stats = None
     iteration_counter = 0
     header_interval_counter = 0
@@ -117,13 +92,11 @@ def main(uri, polling_interval, header_interval, fields, notls, tls_ca_file):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Real-time Amazon DocumentDB server stats monitoring tool.")
     parser.add_argument("--uri", required=True, help="DocumentDB connection URI.")
-    parser.add_argument("--interval", type=int, default=1, help="Polling interval in seconds (Default: 1s).")
-    parser.add_argument("--header-interval", type=int, default=10, help="Interval to display the header in iterations (Default: 10).")
-    parser.add_argument("--field", type=str, default='Host,Status,Connections,Inserts,Query,Updates,Deletes,GetMore,Command,CursorsTotal,CursorsNoTimeout,Transactions,Timestamp',
+    parser.add_argument("-i", "--interval", type=int, default=1, help="Polling interval in seconds (Default: 1s).")
+    parser.add_argument("-hi", "--header-interval", type=int, default=10, help="Interval to display the header in iterations (Default: 10).")
+    parser.add_argument("-f", "--field", type=str, default='Host,Status,Connections,Inserts,Query,Updates,Deletes,GetMore,Command,CursorsTotal,CursorsNoTimeout,Transactions,Timestamp',
                         help="Comma-separated fields to display in the output.")
-    parser.add_argument("--notls", action="store_true", help="Disable the TLS option.")
-    parser.add_argument("--tls-ca-file", type=str, help="Path to the TLS CA file.")
     args = parser.parse_args()
 
     fields = [field.strip() for field in args.field.split(',')]
-    main(args.uri, args.interval, args.header_interval, fields, args.notls, args.tls_ca_file)
+    main(args.uri, args.interval, args.header_interval, fields)

@@ -11,8 +11,8 @@ The **docdbstat** tool connects to a compute instance and continuously fetches r
 ```
 pip3 install pymongo pandas
 ```
-- TLS CA file in the same path of the script.
-Or specify the CA file using the `--tls-ca-file` argument
+
+- Download the Amazon DocumentDB Certificate Authority (CA) certificate required to authenticate to your instance
 ```
 wget https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 ```
@@ -22,20 +22,19 @@ The tools accepts the following arguments:
 
 ```
 # python3 docdbstat.py --help
-usage: docdbstat.py [-h] --uri URI [--interval INTERVAL]
-                      [--header-interval HEADER_INTERVAL] [--field FIELD]
-                      [--notls] [--tls-ca-file TLS_CA_FILE]
+usage: docdbstat.py [-h] --uri URI [-i INTERVAL] [-hi HEADER_INTERVAL] [-f FIELD]
 
 Real-time Amazon DocumentDB server stats monitoring tool.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --uri URI             DocumentDB connection URI.
-  --interval            Polling interval in seconds (Default: 1s).
-  --header-interval     Interval to display the header in iterations (Default: 10).
-  --field FIELD         Comma-separated fields to display in the output. Supported: Host,Status,Connections,Inserts,Query,Updates,Deletes,GetMore,Command,CursorsTotal,CursorsNoTimeout,Transactions,Timestamp
-  --notls               Disable the TLS option.
-  --tls-ca-file         Path to the TLS CA file.
+  -i INTERVAL, --interval INTERVAL
+                        Polling interval in seconds (Default: 1s).
+  -hi HEADER_INTERVAL, --header-interval HEADER_INTERVAL
+                        Interval to display the header in iterations (Default: 10).
+  -f FIELD, --field FIELD
+                        Comma-separated fields to display in the output.
 ```
 
 ## Example
@@ -43,11 +42,11 @@ optional arguments:
 Get stats every 5 seconds:
 
 ```
-python3 docdbstat.py --uri "mongodb://<user>:<pass>@docdb-instance-endpoint:27017" --interval 5
+python3 docdbstat.py --uri "mongodb://<user>:<pass>@<docdb-instance-endpoint>:27017/?tls=true&tlsCAFile=global-bundle.pem&retryWrites=false" -i 5
 ```
 
 Get specific stats, for example to ouput just write operations:
 
 ```
-python3 docdbstat.py --uri "mongodb://<user>:<pass>@docdb-instance-endpoint:27017" --field inserts,updates,deletes
+python3 docdbstat.py --uri "mongodb://<user>:<pass>@<docdb-instance-endpoint>:27017/?tls=true&tlsCAFile=global-bundle.pem&retryWrites=false" -f inserts,updates,deletes
 ```
