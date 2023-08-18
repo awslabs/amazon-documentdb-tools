@@ -72,8 +72,8 @@ Amazon DocumentDB indexes are a data structure using a hierarchical and sorted o
     Replace [DOCDB-CLUSTER-ENDPOINT], [USERNAME] and [PASSWORD] to match your DocumentDB database. 
 5. Clone this repository locally 
     ```
-    git clone https://github.com/aws-samples/amazon-documentdb-samples.git
-    cd amazon-documentdb-samples/blogs/index-cardinality-detection    
+    git clone https://github.com/awslabs/amazon-documentdb-tools.git
+    cd performance/index-cardinality-detection    
     ```
 5. Run  cardinality detection using the following code and review the results. 
     ```
