@@ -15,7 +15,7 @@ def init_conn():
     """     
     global client
     try:
-        client = pymongo.MongoClient(args.url)
+        client = pymongo.MongoClient(args.uri)
     except Exception as e:
         traceback.print_exception(*sys.exc_info())
         print(e)
@@ -28,7 +28,7 @@ def get_param():
     global args
     parser = argparse.ArgumentParser(prog='python detect-cardinality.py',
                     description='This program samples documents in each collection to find index cardinality. Sample count is set at default 100K and can be changed with --sample-count parameter. ')
-    parser.add_argument("-s", "--url",  help="DocumentDB connnection string", required=True)
+    parser.add_argument("-s", "--uri",  help="DocumentDB connnection string", required=True)
     parser.add_argument("-m", "--max-collections",default="100", help="Maximum number of collections to scan per database. Default 100")
     parser.add_argument("-t", "--threshold",default="1", help="Percentage of Cardinality threshold. Default 1 percent")
     parser.add_argument("-d", "--databases",default="All", help="Comma separated list of database names. Default=All")
@@ -37,7 +37,7 @@ def get_param():
     
     args = parser.parse_args()
 
-    if args.url is None:
+    if args.uri is None:
         print("Connection string is required")
         sys.exit(1)    
     
@@ -127,7 +127,7 @@ def start_cardinality_check():
     global args
     global client
     results = []
-    connection_string = args.url
+    connection_string = args.uri
     max_collections = int(args.max_collections)
     threshold = float(args.threshold) 
     

@@ -11,7 +11,7 @@ Amazon DocumentDB indexes are a data structure using a hierarchical and sorted o
 
 | Parameter        | Details          | Default  | Supported Values |
 | ------------- |:-------------:| -----:| -----: |
-| -s, --url      | Connection String of Amazon DocumentDB Instance |  | |
+| -s, --uri      | Connection String of Amazon DocumentDB Instance |  | |
 | -m, --max-collections     | Maximum number of collections to scan in a database     | 100   | |
 | -t, --threshold | Index Cardinality threshold percentage. Indexes with less than this % will be reported | 1 | |
 | -d, --databases | Command separated list of databases to check cardinality | All | |
@@ -77,7 +77,7 @@ Amazon DocumentDB indexes are a data structure using a hierarchical and sorted o
     ```
 5. Run  cardinality detection using the following code and review the results. 
     ```
-    python3 detect-cardinality.py --url "[DOCDB-CONNECTING-STRING]"
+    python3 detect-cardinality.py --uri "[DOCDB-CONNECTING-STRING]"
     ```
     * Update `[DOCDB-CONNECTING-STRING]` with the connection string format available in DocumentDB AWS Console. With python 4+ `ssl` has been replaced with `tls` and `ssl_ca_certs` has been replace with `tlsCAFile` in parameters. 
     e.g. replace [USERNAME], [PASSWORD], [CLUSTER-ENDPOINT] 
