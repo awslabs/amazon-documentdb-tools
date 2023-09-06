@@ -42,6 +42,6 @@ optional arguments:
 Get collection stats every 15 seconds, only if insert/update/delete has occurred:
 
 ```
-python3 documentdb-top.py --uri "mongodb://<user>:<pass>@<docdb-instance-endpoint>:27017/?tls=true&tlsCAFile=global-bundle.pem&retryWrites=false&directConnection=true" --database db1 --update-frequency-seconds 15 --log-file-name my-log-file.log 
+python3 documentdb-top.py --uri "mongodb://<user>:<pass>@<docdb-instance-endpoint>:27017/?tls=true&tlsCAFile=global-bundle.pem&retryWrites=false&directConnection=true" --database db1 --update-frequency-seconds 15 --log-file-name my-log-file.log --must-crud
 ```
 
