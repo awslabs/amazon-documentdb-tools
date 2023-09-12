@@ -3,9 +3,11 @@ from datetime import datetime
 import argparse, sys
 import traceback
 import pandas as pd 
+import termtables as tt
 
 global args
 global client
+
 
 def init_conn():
     """
@@ -51,19 +53,31 @@ def print_output(results):
     print("Total Databases Found: {}".format(args.db_counter))
     print("Total collections Found across {} database(s): {}".format(args.db_counter, args.coll_counter))
     print("Total indexes found : {}".format(args.index_counter))
-    print("------------------------------------------")    
+    print("------------------------------------------")
+    
     print("\n------------------------------------------")
-            
+    
+    
     low_cardinal_results = results[results["isLowCardinality"]=="Y"]
     low_cardinal_results = low_cardinal_results.sort_values('cardinality', ascending=True)
-
+    #print(low_cardinal_results)
     print("######Found {} indexes that may have low cardinality values.".format( len(low_cardinal_results) ))
+    header=["No","Index Name", "Index Keys", "Cardinality"]
+    data =[ ]
     
-    top_indexes = []
+    print("Top index(es) with lowest cardinality:" )
+    i = 1
     for index, row in low_cardinal_results.iterrows():
-        top_indexes.append( '{} : {}%'.format( row['index_name'], row['cardinality']))
+        keys = ','.join(list(row['index_keys'].keys()))
+        
+        data.append( [str(i), row['index_name'], keys, str(row['cardinality']) + '%'] )
+        i = i + 1
+        
     
-    print("Top index(es) with lowest cardinality : {}".format(top_indexes) )
+    tt.print(
+            data,
+            header=header
+        )
     print("------------------------------------------")
     
 def save_file(results):
@@ -104,8 +118,15 @@ def get_index_cardinality(db_name, coll_name, index):
     
     df = pd.DataFrame(values)
     
-    distinct = len(df)
+    #removing 'None' results as they does not need to be counted towards cardinality
+    for index, row in df.iterrows():
+        if row['_id'][0] == None and len(row['_id']) == 1:
+           df.drop(index, inplace=True)
     
+    #print(index_keys[])
+    #print(df)
+    distinct = len(df)
+
     if distinct > 0:    
         total = df['count'].sum()
         return { "total": total, "distinct": distinct, "cardinality": ( distinct / total ) * 100  }
@@ -163,14 +184,19 @@ def start_cardinality_check():
                 indexes = collection.list_indexes()
                 for index in indexes:
                     result_row = {}
-                    if index['name'] != '_id_':                        
-                        index_name = index['name']                                           
+                    if index['name'] != '_id_':
+                        
+                        index_name = index['name']
+                   
+                        
                         cardinality = 0
-                        isLowCardinality = 'N'                       
+                        isLowCardinality = 'N'
+                       
                         index_counter = index_counter + 1
                         rs = get_index_cardinality(db_name, coll_name, index)
                         if rs['total'] > 0:
                             result_row['index_name'] = index_name
+                            result_row['index_keys'] = index['key']
                             result_row['collection_name'] = index['ns']
                             result_row['cardinality'] = round(rs['cardinality'],4)
                             if rs['cardinality'] < threshold:
@@ -183,8 +209,11 @@ def start_cardinality_check():
                 print("### Finished cardinality check for collection - {}\n".format(coll_name))        
             args.db_counter = db_counter
             args.coll_counter = coll_counter
-            args.index_counter = index_counter        
-        return pd.DataFrame(results)                
+            args.index_counter = index_counter
+        
+        return pd.DataFrame(results)
+        
+        
         
     except Exception as e:
         traceback.print_exception(*sys.exc_info())
