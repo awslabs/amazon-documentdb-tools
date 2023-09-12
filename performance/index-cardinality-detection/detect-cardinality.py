@@ -4,10 +4,8 @@ import argparse, sys
 import traceback
 import pandas as pd 
 
-
 global args
 global client
-
 
 def init_conn():
     """
@@ -53,11 +51,9 @@ def print_output(results):
     print("Total Databases Found: {}".format(args.db_counter))
     print("Total collections Found across {} database(s): {}".format(args.db_counter, args.coll_counter))
     print("Total indexes found : {}".format(args.index_counter))
-    print("------------------------------------------")
-    
+    print("------------------------------------------")    
     print("\n------------------------------------------")
-    
-    
+            
     low_cardinal_results = results[results["isLowCardinality"]=="Y"]
     low_cardinal_results = low_cardinal_results.sort_values('cardinality', ascending=True)
 
@@ -83,7 +79,7 @@ def save_file(results):
     print("Detailed report is generated and saved at `{}`".format(file_name))
     print("##### Done #####")
 
-def get_index_cardinality(db_name, coll_name, index_name):
+def get_index_cardinality(db_name, coll_name, index):
     """
     Calculates the cardinality for a given database, collection and index_name. This function is called for each index in the database. 
 
@@ -94,14 +90,22 @@ def get_index_cardinality(db_name, coll_name, index_name):
     """     
     global client
     sample_count = int(args.sample_count)
+    
+    index_keys = []
+    for val in list(index["key"]):
+        index_keys.append('$'+val)
+    
     pipeline = [  
         { "$sample" : { "size" : sample_count } },
-        { "$group" : { "_id": "$"+index_name, "count" : {"$sum" : 1}  } }
+        { "$group" : { "_id": index_keys, "count" : {"$sum" : 1}  } }
         ]
     
     values = client[db_name][coll_name].aggregate( pipeline )
+    
     df = pd.DataFrame(values)
+    
     distinct = len(df)
+    
     if distinct > 0:    
         total = df['count'].sum()
         return { "total": total, "distinct": distinct, "cardinality": ( distinct / total ) * 100  }
@@ -159,15 +163,12 @@ def start_cardinality_check():
                 indexes = collection.list_indexes()
                 for index in indexes:
                     result_row = {}
-                    if index['name'] != '_id_':
-                        index_name = list(index['key'].keys())[0]
-
-                        
+                    if index['name'] != '_id_':                        
+                        index_name = index['name']                                           
                         cardinality = 0
-                        isLowCardinality = 'N'
-                       
+                        isLowCardinality = 'N'                       
                         index_counter = index_counter + 1
-                        rs = get_index_cardinality(db_name, coll_name, index_name)
+                        rs = get_index_cardinality(db_name, coll_name, index)
                         if rs['total'] > 0:
                             result_row['index_name'] = index_name
                             result_row['collection_name'] = index['ns']
@@ -182,11 +183,8 @@ def start_cardinality_check():
                 print("### Finished cardinality check for collection - {}\n".format(coll_name))        
             args.db_counter = db_counter
             args.coll_counter = coll_counter
-            args.index_counter = index_counter
-        
-        return pd.DataFrame(results)
-        
-        
+            args.index_counter = index_counter        
+        return pd.DataFrame(results)                
         
     except Exception as e:
         traceback.print_exception(*sys.exc_info())
@@ -204,7 +202,9 @@ def main():
         print("\nStarting Cardinality Check. Script may take few mins to finish.")
         print("Finding indexes where Cardinality/Distinct Values are less than ( {}% )...\n".format(args.threshold))
         results = start_cardinality_check()
-        if results.empty:
+        
+        
+        if results[results["isLowCardinality"]=="Y"].empty:
             print("All indexes are in good health. Cardinality detection script did not find any low cardinality indexes. ")
         else:
             print_output(results)
