@@ -3,7 +3,7 @@ from datetime import datetime
 import argparse, sys
 import traceback
 import pandas as pd 
-
+import termtables as tt
 
 global args
 global client
@@ -60,14 +60,24 @@ def print_output(results):
     
     low_cardinal_results = results[results["isLowCardinality"]=="Y"]
     low_cardinal_results = low_cardinal_results.sort_values('cardinality', ascending=True)
-
+    #print(low_cardinal_results)
     print("######Found {} indexes that may have low cardinality values.".format( len(low_cardinal_results) ))
+    header=["No","Index Name", "Index Keys", "Cardinality"]
+    data =[ ]
     
-    top_indexes = []
+    print("Top index(es) with lowest cardinality:" )
+    i = 1
     for index, row in low_cardinal_results.iterrows():
-        top_indexes.append( '{} : {}%'.format( row['index_name'], row['cardinality']))
+        keys = ','.join(list(row['index_keys'].keys()))
+        
+        data.append( [str(i), row['index_name'], keys, str(row['cardinality']) + '%'] )
+        i = i + 1
+        
     
-    print("Top index(es) with lowest cardinality : {}".format(top_indexes) )
+    tt.print(
+            data,
+            header=header
+        )
     print("------------------------------------------")
     
 def save_file(results):
@@ -83,7 +93,7 @@ def save_file(results):
     print("Detailed report is generated and saved at `{}`".format(file_name))
     print("##### Done #####")
 
-def get_index_cardinality(db_name, coll_name, index_name):
+def get_index_cardinality(db_name, coll_name, index):
     """
     Calculates the cardinality for a given database, collection and index_name. This function is called for each index in the database. 
 
@@ -94,14 +104,29 @@ def get_index_cardinality(db_name, coll_name, index_name):
     """     
     global client
     sample_count = int(args.sample_count)
+    
+    index_keys = []
+    for val in list(index["key"]):
+        index_keys.append('$'+val)
+    
     pipeline = [  
         { "$sample" : { "size" : sample_count } },
-        { "$group" : { "_id": "$"+index_name, "count" : {"$sum" : 1}  } }
+        { "$group" : { "_id": index_keys, "count" : {"$sum" : 1}  } }
         ]
     
     values = client[db_name][coll_name].aggregate( pipeline )
+    
     df = pd.DataFrame(values)
+    
+    #removing 'None' results as they does not need to be counted towards cardinality
+    for index, row in df.iterrows():
+        if row['_id'][0] == None and len(row['_id']) == 1:
+           df.drop(index, inplace=True)
+    
+    #print(index_keys[])
+    #print(df)
     distinct = len(df)
+
     if distinct > 0:    
         total = df['count'].sum()
         return { "total": total, "distinct": distinct, "cardinality": ( distinct / total ) * 100  }
@@ -160,16 +185,18 @@ def start_cardinality_check():
                 for index in indexes:
                     result_row = {}
                     if index['name'] != '_id_':
-                        index_name = list(index['key'].keys())[0]
-
+                        
+                        index_name = index['name']
+                   
                         
                         cardinality = 0
                         isLowCardinality = 'N'
                        
                         index_counter = index_counter + 1
-                        rs = get_index_cardinality(db_name, coll_name, index_name)
+                        rs = get_index_cardinality(db_name, coll_name, index)
                         if rs['total'] > 0:
                             result_row['index_name'] = index_name
+                            result_row['index_keys'] = index['key']
                             result_row['collection_name'] = index['ns']
                             result_row['cardinality'] = round(rs['cardinality'],4)
                             if rs['cardinality'] < threshold:
@@ -204,7 +231,9 @@ def main():
         print("\nStarting Cardinality Check. Script may take few mins to finish.")
         print("Finding indexes where Cardinality/Distinct Values are less than ( {}% )...\n".format(args.threshold))
         results = start_cardinality_check()
-        if results.empty:
+        
+        
+        if results[results["isLowCardinality"]=="Y"].empty:
             print("All indexes are in good health. Cardinality detection script did not find any low cardinality indexes. ")
         else:
             print_output(results)
