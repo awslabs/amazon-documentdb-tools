@@ -1,73 +1,71 @@
-# Amazon DocumentDB DataDiffer Tool
+# Amazon DocumentDB JSON Import Tool
 
-The purpose of the DataDiffer tool is to facilitate the validation of data consistency by comparing two collections, making it particularly useful in migration scenarios.
-This tool performs the following checks:
-
-- Document existence check: It reads documents in batches from the source collection and checks for their existence in the target collection. If there is a discrepancy, the tool attempts will identify and report the missing documents.
-- Index Comparison: examines the indexes of the collections and reports any differences.
-- Document Comparison: each document in the collections, with the same _id, is compared using the DeepDiff library. This process can be computationally intensive, as it involves scanning all document fields. The duration of this check depends on factors such as document complexity and the CPU resources of the machine executing the script.
+The purpose of the JSON Import Tool is to load JSON formatted data from a single file into DocumentDB or MongoDB in parallel. Input file must contain one JSON document per line.
 
 ## Prerequisites:
 
  - Python 3
- - Modules: pymongo, deepdiff, tqdm
+ - Modules: pymongo
 ```
-  pip3 install pymongo deepdiff tqdm
+  pip3 install pymongo
 ```
-Note: Refer to the DeepDiff [documentation](https://zepworks.com/deepdiff/current/optimizations.html) for potential optimizations you may try out specifically for your dataset.
-
 ## How to use
 
 1. Clone the repository and go to the tool folder:
 ```
 git clone https://github.com/awslabs/amazon-documentdb-tools.git
-cd amazon-documentdb-tools/migration/data-differ/
+cd amazon-documentdb-tools/migration/json-import/
 ```
 
-2. Run the data-differ.py tool, which accepts the following arguments:
+2. Run the json-import.py tool, which accepts the following arguments:
 
 ```
-python3 data-differ.py --help
-usage: data-differ.py [-h] [--batch_size BATCH_SIZE] [--output_file OUTPUT_FILE] [--check_target CHECK_TARGET] --source-uri SOURCE_URI --target-uri TARGET_URI --source-db SOURCE_DB --target-db TARGET_DB --source-coll
-                      SOURCE_COLL --target-coll TARGET_COLL
+python3 json-import.py --help
+usage: json-import.py [-h] --uri URI --file-name FILE_NAME --operations-per-batch OPERATIONS_PER_BATCH --workers WORKERS --database DATABASE --collection COLLECTION --log-file-name LOG_FILE_NAME
+                      [--skip-python-version-check] [--lines-per-chunk LINES_PER_CHUNK] [--debug-level DEBUG_LEVEL] --mode {insert,replace,update} [--drop-collection]
 
-Compare two collections and report differences.
+Bulk/Concurrent JSON file import utility.
 
-options:
+optional arguments:
   -h, --help            show this help message and exit
-  --batch_size BATCH_SIZE
-                        Batch size for bulk reads (optional, default: 100)
-  --output_file OUTPUT_FILE
-                        Output file path (optional, default: differences.txt)
-  --check_target CHECK_TARGET
-                        optional, Check if extra documents exist in target database
-  --source-uri SOURCE_URI
-                        Source cluster URI (required)
-  --target-uri TARGET_URI
-                        Target cluster URI (required)
-  --source-db SOURCE_DB
-                        Source database name (required)
-  --target-db TARGET_DB
-                        Target database name (required)
-  --source-coll SOURCE_COLL
-                        Source collection name (required)
-  --target-coll TARGET_COLL
-                        Target collection name (required)
+  --uri URI             URI
+  --file-name FILE_NAME
+                        Name of JSON file to load
+  --operations-per-batch OPERATIONS_PER_BATCH
+                        Number of operations per batch
+  --workers WORKERS     Number of parallel workers
+  --database DATABASE   Database name
+  --collection COLLECTION
+                        Collection name
+  --log-file-name LOG_FILE_NAME
+                        Log file name
+  --skip-python-version-check
+                        Permit execution on Python 3.6 and prior
+  --lines-per-chunk LINES_PER_CHUNK
+                        Number of lines each worker reserves before jumping ahead in the file to the next chunk
+  --debug-level DEBUG_LEVEL
+                        Debug output level.
+  --mode {insert,replace,update}
+                        Mode - insert, replace, or update
+  --drop-collection     Drop the collection prior to loading data
+
 ```
 
 ## Example usage:
-Connect to a standalone MongoDB instance as source and to a Amazon DocumentDB cluster as target.
-
-From the source uri, compare the collection *mysourcecollection* from database *mysource*, against the collection *mytargetcollection* from database *mytargetdb* in the target uri.
+Load data (as inserts) from JSON formatted file load-me.json
 
 ```
-python3 data-differ-args.py \
---source-uri "mongodb://user:password@mongodb-instance-hostname:27017/admin?directConnection=true" \
---target-uri "mongodb://user:password@target.cluster.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false" \
---source-db mysourcedb \
---source-coll mysourcecollection \
---target-db mytargetdb \
---target-coll mytargetcollection
+python3 json-import.py \
+  --uri "mongodb://user:password@target.cluster.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false" \
+  --file-name load-me.json
+  --operations-per-batch 100
+  --workers 4
+  --database jsonimport
+  --collection coll1
+  --log-file-name json-import-log-file.log
+  --lines-per-chunk 1000
+  --mode insert
+  --drop-collection
 ```
 
 For more information on the connection string format, refer to the [documentation](https://www.mongodb.com/docs/manual/reference/connection-string/).
