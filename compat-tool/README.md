@@ -12,11 +12,11 @@ cd amazon-documentdb-tools/compat-tool/
 ```
 
 ## Usage/Examples
-This tool supports examining compatibility with either the 3.6, 4.0 or 5.0 versions of Amazon DocumentDB. The script has the following arguments:
+This tool supports examining compatibility with either the 3.6, 4.0, 5.0, or Elastic Clusters 5.0 versions of Amazon DocumentDB. The script has the following arguments:
 ```
---version {3.6,4.0,5.0} -> Check for DocumentDB version compatibility (default is 5.0)
---directory SCANDIR     -> Directory containing files to scan for compatibility
---file SCANFILE         -> Specific file to scan for compatibility
+--version {3.6,4.0,5.0,EC5.0} -> Check for DocumentDB version compatibility (default is 5.0)
+--directory SCANDIR           -> Directory containing files to scan for compatibility
+--file SCANFILE               -> Specific file to scan for compatibility
 --excluded-extensions EXCLUDEDEXTENSIONS -> Filename extensions to exclude from scanning, comma separated
 --included-extensions INCLUDEDEXTENSIONS -> Filename extensions to include in scanning, comma separated
 ```
