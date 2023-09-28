@@ -289,7 +289,7 @@ def load_keywords():
         "$isoDayOfWeek":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$isoWeek":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$isoWeekYear":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
-        "$jsonSchema":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$jsonSchema":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"No"},
         "$last":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$lastN":{"mongodbversion":"5.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$let":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
