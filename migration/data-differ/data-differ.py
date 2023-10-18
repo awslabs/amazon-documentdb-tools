@@ -39,9 +39,16 @@ def compare_docs_deepdiff(doc1, doc2, output_file):
 
 
 ## Main compare document function
-def compare_document_data(srcCollection, tgtCollection, batch_size, output_file, src_count):
-    source_cursor = srcCollection.find().sort('_id').batch_size(batch_size)
-    total_docs = src_count
+def compare_document_data(srcCollection, tgtCollection, batch_size, output_file, src_count, sample_size_percent):
+    if sample_size_percent:
+        percentage_in_decimal = sample_size_percent / 100
+        docs_to_sample = int(percentage_in_decimal * src_count)
+        source_cursor = srcCollection.aggregate([ { "$sample": { "size": docs_to_sample } } ], batchSize=batch_size, maxTimeMS=500)
+        total_docs = docs_to_sample
+    else:
+        source_cursor = srcCollection.find().sort('_id').batch_size(batch_size)
+        total_docs = src_count
+
     progress_bar = tqdm(total=total_docs, desc='Comparing documents', unit='doc')
     tgt_missing_ids = []
     processed_docs = 0
@@ -107,7 +114,7 @@ def write_difference_to_file(output_file, content):
         file.write(str(content) + '\n')
 
 
-def compare_collections(srcCollection, tgtCollection, batch_size, output_file, check_target):
+def compare_collections(srcCollection, tgtCollection, batch_size, output_file, check_target, sample_size_percent):
     src_count = srcCollection.count_documents({})
     trg_count = tgtCollection.count_documents({})
 
@@ -123,7 +130,7 @@ def compare_collections(srcCollection, tgtCollection, batch_size, output_file, c
     write_difference_to_file(output_file, "Count of documents in target:" + str(trg_count) )
 
     print(f"Starting data differ at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} , output is saved to {output_file}")
-    compare_document_data(srcCollection, tgtCollection, batch_size, output_file,src_count)
+    compare_document_data(srcCollection, tgtCollection, batch_size, output_file, src_count, sample_size_percent)
     compare_indexes(srcCollection, tgtCollection, output_file)
     if check_target :
         check_target_for_extra_documents(srcCollection, tgtCollection, output_file)
@@ -140,6 +147,7 @@ def main():
     parser.add_argument('--target-db', type=str, required=True, help='Target database name (required)')
     parser.add_argument('--source-coll', type=str, required=True, help='Source collection name (required)')
     parser.add_argument('--target-coll', type=str, required=True, help='Target collection name (required)')
+    parser.add_argument('--sample_size_percent', type=int, required=False, help='optional, if set only samples a percentage of the documents')
     args = parser.parse_args()
 
     # Connect to the source database cluster
@@ -153,7 +161,7 @@ def main():
     tgtCollection = tgtdb[args.target_coll]
 
     # Compare collections and report differences
-    compare_collections(srcCollection, tgtCollection, args.batch_size, args.output_file, args.check_target)
+    compare_collections(srcCollection, tgtCollection, args.batch_size, args.output_file, args.check_target, args.sample_size_percent)
 
 if __name__ == '__main__':
     main()
