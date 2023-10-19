@@ -28,7 +28,7 @@ cd amazon-documentdb-tools/migration/data-differ/
 
 ```
 python3 data-differ.py --help
-usage: data-differ.py [-h] [--batch_size BATCH_SIZE] [--output_file OUTPUT_FILE] [--check_target CHECK_TARGET] --source-uri SOURCE_URI --target-uri TARGET_URI --source-db SOURCE_DB --target-db TARGET_DB --source-coll SOURCE_COLL --target-coll TARGET_COLL [--sample_size_percent SAMPLE_SIZE_PERCENT]
+usage: data-differ.py [-h] [--batch_size BATCH_SIZE] [--output_file OUTPUT_FILE] [--check_target CHECK_TARGET] --source-uri SOURCE_URI --target-uri TARGET_URI --source-db SOURCE_DB --target-db TARGET_DB --source-coll SOURCE_COLL --target-coll TARGET_COLL [--sample_size_percent SAMPLE_SIZE_PERCENT] [--sampling_timeout_ms SAMPLING_TIMEOUT_MS]
 
 Compare two collections and report differences.
 
@@ -54,6 +54,8 @@ options:
                         Target collection name (required)
   --sample_size_percent SAMPLE_SIZE_PERCENT
                         optional, if set only samples a percentage of the documents
+  --sampling_timeout_ms SAMPLING_TIMEOUT_MS
+                        optional, override the timeout for returning a sample of documents when using the --sample_size_percent argument
 ```
 
 ## Example usage:
@@ -87,3 +89,7 @@ database and compare them to the target database.
 Under the hood this uses the [MongoDB `$sample` operator](https://www.mongodb.com/docs/manual/reference/operator/aggregation/sample/)
 You should read the documentation on how that behaves on your version of MongoDB
 when the percentage to sample is >= 5% before picking a percentage to sample.
+
+The default timeout for retriving a sample of documents is `500ms`, if this is
+not long enough you can adjust it with the `--sampling_timeout_ms` argument.
+For example `--sample_timeout_ms 600` would increase the timeout to `600ms`.
