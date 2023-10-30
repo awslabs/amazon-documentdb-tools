@@ -2,7 +2,9 @@
 
 The purpose of mvu cdc migrator tool is to migrate the cluster wide changes from source Amazon DocumentDB Cluster to target  Amazon DocumentDB Cluster.
 
-It enables to perform near zero downtime Major Version Upgrade(MVU) from Amazon DocumentDB 3.6  to Amazon DocumentDB 5.0. 
+It enables to perform near zero downtime Major Version Upgrade(MVU) from Amazon DocumentDB 3.6  to Amazon DocumentDB 5.0.
+
+This tool is only recommended for performing MVU from Amazon DocumentDB 3.6. If you are performing MVU from Amazon DocumentDB 4.0 to 5.0, we recommend using the AWS Database Migration Service CDC approach.
 
 ## Prerequisites:
 
