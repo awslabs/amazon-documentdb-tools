@@ -296,10 +296,18 @@ def main():
 
     logAndPrint(appConfig,'---------------------------------------------------------------------------------------')
     for thisKey in appConfig:
-        if thisKey != 'uri':
+        if (thisKey == 'uri'):
+            thisUri = appConfig[thisKey]
+            thisParsedUri = pymongo.uri_parser.parse_uri(thisUri)
+            thisUsername = thisParsedUri['username']
+            thisPassword = thisParsedUri['password']
+            thisUri = thisUri.replace(thisUsername,'<USERNAME>')
+            thisUri = thisUri.replace(thisPassword,'<PASSWORD>')
+            logAndPrint(appConfig,"  config | {} | {}".format(thisKey,thisUri))
+        else:
             logAndPrint(appConfig,"  config | {} | {}".format(thisKey,appConfig[thisKey]))
     logAndPrint(appConfig,'---------------------------------------------------------------------------------------')
-    
+ 
     setup(appConfig)
 
     mp.set_start_method('spawn')
