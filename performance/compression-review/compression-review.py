@@ -14,6 +14,30 @@ def getData(appConfig):
     print('connecting to server')
     client = pymongo.MongoClient(appConfig['uri'])
     sampleSize = appConfig['sampleSize']
+    if appConfig['compressor'] == 'lz4-0':
+        compressor='lz4'
+        level=0
+    elif appConfig['compressor'] == 'lz4-16':
+        compressor='lz4'
+        level=16
+    elif appConfig['compressor'] == 'bz2-1':
+        compressor='bz2'
+        level=1
+    elif appConfig['compressor'] == 'bz2-9':
+        compressor='bz2'
+        level=9
+    elif appConfig['compressor'] == 'lzma-0':
+        compressor='lzma'
+        level=0
+    elif appConfig['compressor'] == 'lzma-6':
+        compressor='lzma'
+        level=6
+    elif appConfig['compressor'] == 'lzma-9':
+        compressor='lzma'
+        level=9
+    else:
+        print('Unknown compressor | {}'.format(appConfig['compressor']))
+        sys.exit(1)
 
     # log output to file
     logTimeStamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
@@ -69,11 +93,13 @@ def getData(appConfig):
                             maxDocBytes = docBytes
 
                         # compress it
-                        compressed = lz4.frame.compress(docAsString.encode())
-                        #compressed = lz4.frame.compress(docAsString.encode(),compression_level=16)
-                        #compressed = bz2.compress(docAsString.encode(),compresslevel=1)
-                        #compressed = bz2.compress(docAsString.encode(),compresslevel=9)
-                        #compressed = lzma.compress(docAsString.encode())
+                        if compressor == 'lz4':
+                            compressed = lz4.frame.compress(docAsString.encode(),compression_level=level)
+                        elif compressor == 'bz2':
+                            compressed = bz2.compress(docAsString.encode(),compresslevel=level)
+                        elif compressor == 'lzma':
+                            compressed = lzma.compress(docAsString.encode(),preset=level)
+
                         lz4Bytes = len(compressed)
                         totLz4Bytes += lz4Bytes
                         if (lz4Bytes < minLz4Bytes):
@@ -128,6 +154,13 @@ def main():
                         default=1000,
                         help='Number of documents to sample in each collection, default 1000')
 
+    parser.add_argument('--compressor',
+                        required=False,
+                        choices=['lz4-0','lz4-16','bz2-1','bz2-9','lzma-0','lzma-6','lzma-9'],
+                        type=str,
+                        default='lz4-0',
+                        help='Compressor')
+
     args = parser.parse_args()
     
     # check for minimum Python version
@@ -139,6 +172,7 @@ def main():
     appConfig['uri'] = args.uri
     appConfig['serverAlias'] = args.server_alias
     appConfig['sampleSize'] = int(args.sample_size)
+    appConfig['compressor'] = args.compressor
     
     getData(appConfig)
 
