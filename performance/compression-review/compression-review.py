@@ -6,6 +6,8 @@ import pymongo
 import time
 import os
 import lz4.frame
+import bz2
+import lzma
 
 
 def getData(appConfig):
@@ -68,6 +70,10 @@ def getData(appConfig):
 
                         # compress it
                         compressed = lz4.frame.compress(docAsString.encode())
+                        #compressed = lz4.frame.compress(docAsString.encode(),compression_level=16)
+                        #compressed = bz2.compress(docAsString.encode(),compresslevel=1)
+                        #compressed = bz2.compress(docAsString.encode(),compresslevel=9)
+                        #compressed = lzma.compress(docAsString.encode())
                         lz4Bytes = len(compressed)
                         totLz4Bytes += lz4Bytes
                         if (lz4Bytes < minLz4Bytes):
