@@ -44,7 +44,7 @@ def getData(appConfig):
     logFileName = "{}-{}-compression-review.csv".format(appConfig['serverAlias'],logTimeStamp)
     logFileHandle = open(logFileName, "w")
 
-    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minLz4','maxLz4','avgLz4','lz4Ratio','exceptions'))
+    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minLz4','maxLz4','avgLz4','lz4Ratio','exceptions','time(ms)'))
 
     # get databases - filter out admin, config, local, and system
     dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":['admin','config','local','system']}})['databases']
@@ -79,6 +79,8 @@ def getData(appConfig):
                 minLz4Bytes = 999999999
                 maxLz4Bytes = 0
                 totLz4Bytes = 0
+                totTimeMs = 0
+                totTimeNs = 0
 
                 try:
                     sampleDocs = client[thisDbName][thisCollName].aggregate([{"$sample":{"size":sampleSize}}])
@@ -92,6 +94,9 @@ def getData(appConfig):
                         if (docBytes > maxDocBytes):
                             maxDocBytes = docBytes
 
+                        startTimeMs = time.time()
+                        startTimeNs = time.time_ns()
+
                         # compress it
                         if compressor == 'lz4':
                             compressed = lz4.frame.compress(docAsString.encode(),compression_level=level)
@@ -99,6 +104,12 @@ def getData(appConfig):
                             compressed = bz2.compress(docAsString.encode(),compresslevel=level)
                         elif compressor == 'lzma':
                             compressed = lzma.compress(docAsString.encode(),preset=level)
+                        else:
+                            print('Unknown compressor | {}'.format('compressor'))
+                            sys.exit(1)
+
+                        totTimeMs = time.time() - startTimeMs
+                        totTimeNs = time.time_ns() - startTimeNs
 
                         lz4Bytes = len(compressed)
                         totLz4Bytes += lz4Bytes
@@ -106,6 +117,7 @@ def getData(appConfig):
                             minLz4Bytes = lz4Bytes
                         if (lz4Bytes > maxLz4Bytes):
                             maxLz4Bytes = lz4Bytes
+
                 except:
                     numExceptions = 0
 
@@ -122,8 +134,8 @@ def getData(appConfig):
                     avgLz4Bytes = int(totLz4Bytes / totDocs)
                     lz4Ratio = collectionAvgObjSize / avgLz4Bytes
 
-                logFileHandle.write("{},{},{:d},{:d},{:.4f},{:.4f},{:.4f},{:d},{:d},{:d},{:d},{:d},{:d},{:.4f},{:d}\n".format(thisDb['name'],thisColl['name'],collectionCount,
-                    collectionAvgObjSize,collectionSizeGB,collectionStorageSizeGB,collectionCompressionRatio,minDocBytes,maxDocBytes,avgDocBytes,minLz4Bytes,maxLz4Bytes,avgLz4Bytes,lz4Ratio,numExceptions))
+                logFileHandle.write("{},{},{:d},{:d},{:.4f},{:.4f},{:.4f},{:d},{:d},{:d},{:d},{:d},{:d},{:.4f},{:d},{:.4f}\n".format(thisDb['name'],thisColl['name'],collectionCount,
+                    collectionAvgObjSize,collectionSizeGB,collectionStorageSizeGB,collectionCompressionRatio,minDocBytes,maxDocBytes,avgDocBytes,minLz4Bytes,maxLz4Bytes,avgLz4Bytes,lz4Ratio,numExceptions,totTimeNs/1000000))
 
 
     logFileHandle.close() 
