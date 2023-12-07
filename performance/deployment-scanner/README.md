@@ -6,7 +6,7 @@ The deployment scanner reviews DocumentDB clusters for possible cost optimizatio
 
 ## Requirements
 Python 3.7 or greater, boto3, urllib3
-IAM privileges in https://github.com/awslabs/amazon-documentdb-tools/performance/deployment-scanner/iam-policy.json
+IAM privileges in https://github.com/awslabs/amazon-documentdb-tools/blob/master/performance/deployment-scanner/iam-policy.json
 
 ## Installation
 Clone the repository and install the requirements:
@@ -26,12 +26,12 @@ The deployment scanner accepts the following arguments:
 --start-date                 [optional] Starting date in YYYYMMDD for historical review of cluster resource usage
 --end-date                   [optional] Ending date in YYYYMMDD for historical review of cluster resource usage
 
-If --start-date and --end-date are not provided the last 30 days are used for historical cluster resource usage.
+If --start-date and --end-date are not provided, the last 30 days are used for historical cluster resource usage.
 ```
 
 ### Review Amazon DocumentDB clusters in us-east-1 for November 2023:
 ```
-python3 deployment-scanner.py --log-file-name nov-23-us-east-1.csv --start-date 20231101 --end-date 20231130
+python3 deployment-scanner.py --log-file-name nov-23-us-east-1 --start-date 20231101 --end-date 20231130
 ```
 
 
