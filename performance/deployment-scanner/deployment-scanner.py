@@ -48,6 +48,8 @@ def get_cw_metric_daily_average(appConfig, cwClient, cwMetric, cwMath, cwCluster
         metricValues[cw_metric['Timestamp']] = cw_metric.get(cwMath)
         cwMetricTotal += cw_metric.get(cwMath)
         cwMetricValues += 1
+        #if cwMetric == 'CPUSurplusCreditsCharged':
+        #    print("{}".format(cw_metric))
         
     if cwMetricValues == 0:
         cwMetricAverage = int(0)
@@ -98,9 +100,18 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
         avgWriteIopsMonth = get_cw_metric_daily_average(appConfig, cwClient, 'VolumeWriteIOPs', 'Sum', thisCluster['DBClusterIdentifier'])
         totStorageBytes = get_cw_metric_daily_average(appConfig, cwClient, 'VolumeBytesUsed', 'Maximum', thisCluster['DBClusterIdentifier'])
         totBackupStorageBilledBytes = get_cw_metric_daily_average(appConfig, cwClient, 'TotalBackupStorageBilled', 'Maximum', thisCluster['DBClusterIdentifier'])
+        totCPUCredits = get_cw_metric_daily_average(appConfig, cwClient, 'CPUSurplusCreditsCharged', 'Sum', thisCluster['DBClusterIdentifier'])
         
-        totIopsMonth = (avgReadIopsMonth * 30) + avgWriteIopsMonth * 30
+        totIopsMonth = (avgReadIopsMonth * 30) + (avgWriteIopsMonth * 30)
         
+        # estimated CPU credits
+        thisCPUCreditCost = round(totCPUCredits * float(pricingDict['cpu-credits|'+appConfig['region']]['price']) / 60 * 30,0)
+        thisMonthlyStandardIoCompute += thisCPUCreditCost
+        thisMonthlyOptimizedIoCompute += thisCPUCreditCost
+
+        monthlyStandard += thisCPUCreditCost
+        monthlyIoOptimized += thisCPUCreditCost
+
         # estimated io cost
         thisStandardIopsCost = round(totIopsMonth * float(pricingDict['io|'+appConfig['region']+'|standard']['price']),0)
         thisOptimizedIopsCost = round(totIopsMonth * float(pricingDict['io|'+appConfig['region']+'|iopt1']['price']),0)
@@ -264,11 +275,14 @@ def get_pricing(appConfig):
              
         elif (thisProduct["productFamily"] == "CPU Credits"):
             # CPU Credits
-            thisSku = thisProduct['sku']
-            thisRegion = thisProduct["attributes"]["regionCode"]
-            thisPrice = terms[thisSku]
-            thisPricingDictKey = "{}|{}".format('cpu-credits',thisRegion)
-            pd[thisPricingDictKey] = {'type':'cpu-credits','region':thisRegion,'price':thisPrice}
+            # using db.t4g.medium for all burstable [conserving cloudwatch calls - cluster only, minor price difference]
+            if (thisProduct["attributes"]["instanceType"] == 'db.t4g.medium'):
+                thisSku = thisProduct['sku']
+                thisRegion = thisProduct["attributes"]["regionCode"]
+                thisPrice = terms[thisSku]
+                thisInstanceType = thisProduct["attributes"]["instanceType"]
+                thisPricingDictKey = "{}|{}".format('cpu-credits',thisRegion)
+                pd[thisPricingDictKey] = {'type':'cpu-credits','region':thisRegion,'price':thisPrice,'instanceType':thisInstanceType}
              
         else:
             print("UNKNOWN - {}".format(thisProduct))
