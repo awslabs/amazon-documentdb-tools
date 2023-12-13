@@ -243,19 +243,19 @@ def get_pricing(appConfig):
             # Database Storage
             # volumeType in ['General Purpose','IO-Optimized-DocDB']
             # skip elastic clusters storage
-            if thisProduct["attributes"].get('usagetype','not-here') in ['StorageUsage','IO-OptimizedStorageUsage']:
+            if thisProduct["attributes"].get('volumeType','UNKNOWN') in ['General Purpose','IO-Optimized-DocDB']:
                 thisSku = thisProduct['sku']
                 thisRegion = thisProduct["attributes"]["regionCode"]
                 if thisProduct["attributes"]["volumeType"] == "IO-Optimized-DocDB":
                     thisIoType = 'iopt1'
                 elif thisProduct["attributes"]["volumeType"] == "General Purpose":
                     thisIoType = 'standard'
-                else:
-                    print("*** Unknown volumeType {}, exiting".format(thisProduct["attributes"]["volumeType"]))
-                    sys.exit(1)
                 thisPrice = terms[thisSku]
                 thisPricingDictKey = "{}|{}|{}".format('storage',thisRegion,thisIoType)
                 pd[thisPricingDictKey] = {'type':'storage','region':thisRegion,'ioType':thisIoType,'price':thisPrice}
+            else:
+                print("*** Unknown volumeType {}, exiting".format(thisProduct["attributes"].get('volumeType','UNKNOWN')))
+                sys.exit(1)
             
         elif (thisProduct["productFamily"] == "Storage Snapshot"):
             # Storage Snapshot
