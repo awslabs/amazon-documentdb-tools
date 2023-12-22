@@ -85,22 +85,25 @@ def get_cluster_details(cluster):
         for each_item in cluster_response['VpcSecurityGroups']:
             vpc_group_ids.append(each_item['VpcSecurityGroupId'])
 
-        cluster_details = {"region": region,
-                           "secondary_cluster_id": cluster_id + "-" + dt_string,
-                           # When converting the cluster to global cluster and adding clusters from the prior global
-                           # cluster, we append the timestamp to keep the cluster ID unique. This is needed so that the
-                           # function does not wait for the older clusters to be deleted. Also helps to differentiate
-                           # between clusters created by script.
-                           "number_of_instances": len(cluster_response['DBClusterMembers']),
-                           "subnet_group": cluster_response['DBSubnetGroup'],
-                           "security_group_id": vpc_group_ids,
-                           "kms_key_id": cluster_response['KmsKeyId'],
-                           "backup_retention_period": cluster_response['BackupRetentionPeriod'],
-                           "cluster_parameter_group": cluster_response['DBClusterParameterGroup'],
-                           "preferred_back_up_window": cluster_response['PreferredBackupWindow'],
-                           "preferred_maintenance_window": cluster_response['PreferredMaintenanceWindow'],
-                           "storage_encryption": cluster_response['StorageEncrypted'],
-                           "deletion_protection": cluster_response['DeletionProtection']}
+        cluster_details = {
+            # When converting the cluster to global cluster and adding clusters from the prior global
+            # cluster, we append the timestamp to keep the cluster ID unique. This is needed so that the
+            # function does not wait for the older clusters to be deleted. Also helps to differentiate
+            # between clusters created by script.
+            "secondary_cluster_id": cluster_id + "-" + dt_string,
+            "region": region,
+            "number_of_instances": len(cluster_response['DBClusterMembers']),
+            "subnet_group": cluster_response['DBSubnetGroup'],
+            "security_group_id": vpc_group_ids,
+            "kms_key_id": cluster_response['KmsKeyId'],
+            "backup_retention_period": cluster_response['BackupRetentionPeriod'],
+            "cluster_parameter_group": cluster_response['DBClusterParameterGroup'],
+            "preferred_back_up_window": cluster_response['PreferredBackupWindow'],
+            "preferred_maintenance_window": cluster_response['PreferredMaintenanceWindow'],
+            "storage_encryption": cluster_response['StorageEncrypted'],
+            "deletion_protection": cluster_response['DeletionProtection'],
+            "engine_version": cluster_response['EngineVersion']
+        }
 
         return cluster_details
 

@@ -175,14 +175,26 @@ def delete_primary_cluster(global_cluster_id):
     try:
         print('Retrieving primary cluster to delete from global cluster ', global_cluster_id)
         primary_cluster = get_primary_cluster(global_cluster_id)
+
+        # Primary cluster state will change to 'modifying' a few seconds after the secondary cluster is removed
+        # Wait until cluster status is 'modifying' and then wait for it to become 'available' again
+        primary_cluster_status = ""
+        wait_start = time.time()
+        while primary_cluster_status != 'modifying' and (time.time() - wait_start < 30):
+            print('primary cluster status is not modifying')
+            primary_cluster_status = get_cluster_status(primary_cluster)
+            time.sleep(1)
+
         # Cluster should be in available status before removing from global cluster
         primary_cluster_status = ""
         while primary_cluster_status != 'available':
             print('Checking for primary cluster ', primary_cluster, ' and its instance status before deletion...')
             primary_cluster_status = get_cluster_status(primary_cluster)
             time.sleep(1)
+
         print('Removing primary cluster... ', primary_cluster, ' from global cluster ', global_cluster_id)
         remove_from_global_cluster(primary_cluster, global_cluster_id)
+
         # Wait until all standalone clusters are promoted
         wait_for_promotion_to_complete(global_cluster_id, primary_cluster)
 
