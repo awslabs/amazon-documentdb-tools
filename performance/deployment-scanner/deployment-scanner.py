@@ -66,7 +66,7 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
     client = boto3.client('docdb',region_name=appConfig['region'])
     cwClient = boto3.client('cloudwatch',region_name=appConfig['region'])
     
-    printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format('cluster','io-type','standard-compute','standard-io','standard-storage','standard-backup','standard-total','io-optimized-compute','io-optimized-io','io-optimized-storage','io-optimized-backup','io-optimized-total','recommendation','estimated-potential-savings'),appConfig)
+    printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format('cluster','io-type','version','num-instances','standard-compute','standard-io','standard-storage','standard-backup','standard-total','io-optimized-compute','io-optimized-io','io-optimized-storage','io-optimized-backup','io-optimized-total','recommendation','estimated-potential-savings'),appConfig)
     
     #response = client.describe_db_clusters()
     response = client.describe_db_clusters(Filters=[{'Name': 'engine','Values': ['docdb']}])
@@ -79,6 +79,8 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
         thisMonthlyStandardIoCompute = 0.00
         thisMonthlyOptimizedIoCompute = 0.00
         numInstances = 0
+        engineVersionFull = thisCluster['EngineVersion']
+        engineVersionMajor = int(engineVersionFull.split('.')[0])
         for thisInstance in thisCluster['DBClusterMembers']:
             # get instance type
             responseInstance = client.describe_db_instances(DBInstanceIdentifier=thisInstance['DBInstanceIdentifier'])
@@ -89,7 +91,7 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
             thisMonthlyOptimizedIoCompute += thisOptimizedIoCompute
             
         print("")
-        print("cluster = {} | IO type = {} | instances = {:d}".format(thisCluster['DBClusterIdentifier'],ioType,numInstances))
+        print("cluster = {} | IO type = {} | version = {} | instances = {:d}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances))
         print("  ESTIMATED standard storage costs      | ESTIMATED io optimized storage costs")
 
         monthlyStandard += thisMonthlyStandardIoCompute
@@ -140,7 +142,12 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
         
         recommendationString = ""
         estimatedMonthlySavings = 0.00
-        if (ioType == "standard") and (monthlyIoOptimized < monthlyStandard):
+        if (ioType == "standard") and (monthlyIoOptimized < monthlyStandard) and (engineVersionMajor < 5):
+            estimatedMonthlySavings = monthlyStandard-monthlyIoOptimized
+            recommendationString = "  **** recommendation - consider switching to IO optimized to potentially save ${:,.0f} per month, requires upgrading to DocumentDB v5+".format(estimatedMonthlySavings)
+            print("")
+            print(recommendationString)
+        elif (ioType == "standard") and (monthlyIoOptimized < monthlyStandard):
             estimatedMonthlySavings = monthlyStandard-monthlyIoOptimized
             recommendationString = "  **** recommendation - consider switching to IO optimized to potentially save ${:,.0f} per month".format(estimatedMonthlySavings)
             print("")
@@ -161,7 +168,7 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
             print("")
             print(recommendationString)
 
-        printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(thisCluster['DBClusterIdentifier'],ioType,
+        printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances,
           thisMonthlyStandardIoCompute,thisStandardIopsCost,thisStandardStorageCost,thisBackupCost,monthlyStandard,
           thisMonthlyOptimizedIoCompute,thisOptimizedIopsCost,thisOptimizedStorageCost,thisBackupCost,monthlyIoOptimized,
           recommendationString,estimatedMonthlySavings),appConfig)
