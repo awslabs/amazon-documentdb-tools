@@ -110,9 +110,7 @@ CPUUtilization = {
     "type": "metric",
     "properties": {
         "metrics": [
-            ["AWS/DocDB", "CPUUtilization", "DBInstanceIdentifier"],
-            ["..."],
-            ["..."]
+            ["AWS/DocDB", "CPUUtilization", "DBInstanceIdentifier"]
         ],
         "view": "timeSeries",
                 "stacked": False,
@@ -137,9 +135,7 @@ IndexBufferCacheHitRatio = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [
-            ["AWS/DocDB", "IndexBufferCacheHitRatio", "DBInstanceIdentifier"],
-            ["..."],
-            ["..."]
+            ["AWS/DocDB", "IndexBufferCacheHitRatio", "DBInstanceIdentifier"]
         ],
         "period": 300,
         "yAxis": {
@@ -161,9 +157,7 @@ BufferCacheHitRatio = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [
-            ["AWS/DocDB", "BufferCacheHitRatio", "DBInstanceIdentifier"],
-            ["..."],
-            ["..."]
+            ["AWS/DocDB", "BufferCacheHitRatio", "DBInstanceIdentifier"]
         ],
         "period": 300,
         "yAxis": {
@@ -185,9 +179,7 @@ DatabaseCursors = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [
-            ["AWS/DocDB", "DatabaseCursors", "DBInstanceIdentifier"],
-            ["..."],
-            ["..."]
+            ["AWS/DocDB", "DatabaseCursors", "DBInstanceIdentifier"]
         ],
     }
 }
@@ -201,9 +193,7 @@ DatabaseConnections = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [
-            ["AWS/DocDB", "DatabaseConnections", "DBInstanceIdentifier"],
-            ["..."],
-            ["..."]
+            ["AWS/DocDB", "DatabaseConnections", "DBInstanceIdentifier"]
         ],
     }
 }
@@ -217,9 +207,7 @@ FreeableMemory = {
         "sparkline": True,
         "view": "timeSeries",
         "metrics": [
-            ["AWS/DocDB", "FreeableMemory", "DBInstanceIdentifier"],
-            ["..."],
-            ["..."]
+            ["AWS/DocDB", "FreeableMemory", "DBInstanceIdentifier"]
         ],
         "title": "Freeable Memory",
         "period": 300,
@@ -241,9 +229,7 @@ DocsInserted = {
                 "view": "timeSeries",
                 "stacked": False,
                 "metrics": [
-                    ["AWS/DocDB", "DocumentsInserted", "DBInstanceIdentifier"],
-                    ["..."],
-                    ["..."]
+                    ["AWS/DocDB", "DocumentsInserted", "DBInstanceIdentifier"]
                 ],
                 "title": "Documents Inserted"
             }
@@ -258,9 +244,7 @@ DocsDeleted = {
                 "view": "timeSeries",
                 "stacked": False,
                 "metrics": [
-                    ["AWS/DocDB", "DocumentsDeleted", "DBInstanceIdentifier"],
-                    ["..."],
-                    ["..."]
+                    ["AWS/DocDB", "DocumentsDeleted", "DBInstanceIdentifier"]
                 ],
                 "title": "Documents Deleted"
             }
@@ -275,9 +259,7 @@ DocsUpdated = {
                 "view": "timeSeries",
                 "stacked": False,
                 "metrics": [
-                    ["AWS/DocDB", "DocumentsUpdated", "DBInstanceIdentifier"],
-                    ["..."],
-                    ["..."]
+                    ["AWS/DocDB", "DocumentsUpdated", "DBInstanceIdentifier"]
                 ],
                 "title": "Documents Updated"
             }
@@ -292,9 +274,7 @@ DocsReturned = {
                 "view": "timeSeries",
                 "stacked": False,
                 "metrics": [
-                    ["AWS/DocDB", "DocumentsReturned", "DBInstanceIdentifier"],
-                    ["..."],
-                    ["..."]
+                    ["AWS/DocDB", "DocumentsReturned", "DBInstanceIdentifier"]
                 ],
                 "title": "Documents Returned"
             }

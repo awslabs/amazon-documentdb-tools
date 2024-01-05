@@ -10,9 +10,19 @@ def add_metric(widJson, widgets, region, instance, cluster):
     for widget in widgets:
         widget["properties"]['region'] = region
         if 'metrics' in widget["properties"]:
-            if 'DBInstanceIdentifier' in instance:
+            if 'DBInstanceIdentifier' in widget["properties"]["metrics"][0]:
                 for i, DBInstanceIdentifier in enumerate(instance):
-                    widget["properties"]["metrics"][i].append(DBInstanceIdentifier['DBInstanceIdentifier'])
+                    if DBInstanceIdentifier['IsClusterWriter']:
+                        instanceType = '|PRIMARY'
+                    else:
+                        instanceType = '|REPLICA'
+
+                    if (i == 0):
+                        widget["properties"]["metrics"][i].append(DBInstanceIdentifier['DBInstanceIdentifier'])
+                        widget["properties"]["metrics"][i].append({"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType})
+                    else:
+                        widget["properties"]["metrics"].append([".",".",".",DBInstanceIdentifier['DBInstanceIdentifier'],{"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType}])
+
             else:
                 widget["properties"]["metrics"][0].append(cluster)
 
