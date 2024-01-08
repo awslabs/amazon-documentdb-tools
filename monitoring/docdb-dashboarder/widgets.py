@@ -14,9 +14,32 @@ ClusterHeading = {
         "markdown": "# Cluster Level Metrics"
     }
 }
+
+# ADDITIONAL HELP METRICS
+metricHelp = {
+            "height": 2,
+            "width": 12,
+            "y": 1,
+            "x": 0,
+            "type": "text",
+            "properties": {
+                "markdown": "### Metrics Overview\nLearn more about metric information by visiting the Amazon DocumentDB Metrics section [here](https://docs.aws.amazon.com/documentdb/latest/developerguide/cloud_watch.html#cloud_watch-metrics_list)\n"
+            }
+        }
+bestPractices = {
+            "height": 2,
+            "width": 12,
+            "y": 1,
+            "x": 12,
+            "type": "text",
+            "properties": {
+                "markdown": "### DocumentDB Specialist Optimization Tips\nLearn how to optimize your workload by visiting the DocDB Specialist recommended guidelines [here](https://docs.aws.amazon.com/documentdb/latest/developerguide/best_practices.html)"
+            }
+        }
+
 DBClusterReplicaLagMaximum = {
     "height": 7,
-    "width": 12,
+    "width": 6,
     "y": 3,
     "x": 0,
     "type": "metric",
@@ -26,14 +49,15 @@ DBClusterReplicaLagMaximum = {
         "metrics": [
             ["AWS/DocDB", "DBClusterReplicaLagMaximum", "DBClusterIdentifier"]
         ],
+        "title": "DBClusterReplicaLagMaximum"
 
     }
 }
 DatabaseCursorsTimedOut = {
     "height": 7,
-    "width": 12,
+    "width": 6,
     "y": 3,
-    "x": 12,
+    "x": 6,
     "type": "metric",
     "properties": {
         "view": "timeSeries",
@@ -41,14 +65,15 @@ DatabaseCursorsTimedOut = {
         "metrics": [
             ["AWS/DocDB", "DatabaseCursorsTimedOut", "DBClusterIdentifier"]
         ],
-        "period": 300
+        "period": 300,
+        "title": "DatabaseCursorsTimedOut"
     }
 }
 VolumeWriteIOPS = {
     "height": 7,
     "width": 6,
-    "y": 12,
-    "x": 0,
+    "y": 3,
+    "x": 12,
     "type": "metric",
     "properties": {
         "view": "timeSeries",
@@ -56,13 +81,14 @@ VolumeWriteIOPS = {
         "metrics": [
             ["AWS/DocDB", "VolumeWriteIOPs", "DBClusterIdentifier"]
         ],
+        "title": "VolumeWriteIOPS"
     }
 }
 VolumeReadIOPS = {
     "height": 7,
     "width": 6,
-    "y": 12,
-    "x": 6,
+    "y": 3,
+    "x": 18,
     "type": "metric",
     "properties": {
         "view": "timeSeries",
@@ -70,27 +96,77 @@ VolumeReadIOPS = {
         "metrics": [
             ["AWS/DocDB", "VolumeReadIOPs", "DBClusterIdentifier"]
         ],
+        "title": "VolumeReadIOPS"
     }
 }
-Opscounter = {
+
+
+OpscountersInsert = {
     "height": 7,
-    "width": 12,
-    "y": 12,
+    "width": 6,
+    "y": 10,
+    "x": 0,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "OpcountersInsert", "DBClusterIdentifier"]
+        ],
+        "period": 300,
+        "title": "OpcountersInsert"
+    }
+}
+OpscountersUpdate = {
+    "height": 7,
+    "width": 6,
+    "y": 10,
+    "x": 6,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "OpcountersUpdate", "DBClusterIdentifier"]
+        ],
+        "period": 300,
+        "title": "OpcountersUpdate"
+    }
+}
+OpscountersDelete = {
+    "height": 7,
+    "width": 6,
+    "y": 10,
     "x": 12,
     "type": "metric",
     "properties": {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [
-            ["AWS/DocDB", "OpcountersInsert", "DBClusterIdentifier"],
-            [".", "OpcountersDelete", ".", "."],
-            [".", "OpcountersUpdate", ".", "."],
-            [".", "OpcountersQuery", ".", "."]
+            ["AWS/DocDB", "OpcountersDelete", "DBClusterIdentifier"]
         ],
         "period": 300,
-        "title": "Opcounters"
+        "title": "OpcountersDelete"
     }
 }
+OpscountersQuery = {
+    "height": 7,
+    "width": 6,
+    "y": 10,
+    "x": 18,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "OpcountersQuery", "DBClusterIdentifier"]
+        ],
+        "period": 300,
+        "title": "OpcountersQuery"
+    }
+}
+
+
 # INSTANCE LEVEL METRICS
 InstanceHeading = {
     "height": 1,
@@ -328,11 +404,57 @@ DocsReturned = {
             }
 }
 
+ReadLatency = {
+            "height": 6,
+            "width": 8,
+            "y": 52,
+            "x": 0,
+            "type": "metric",
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    ["AWS/DocDB", "ReadLatency", "DBInstanceIdentifier"]
+                ],
+                "title": "Read Latency"
+            }
+        }
+WriteLatency = {
+            "height": 6,
+            "width": 8,
+            "y": 52,
+            "x": 8,
+            "type": "metric",
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    ["AWS/DocDB", "WriteLatency", "DBInstanceIdentifier"]
+                ],
+                "title": "Write Latency"
+            }
+        }
+DiskQueueDepth = {
+            "height": 6,
+            "width": 8,
+            "y": 52,
+            "x": 16,
+            "type": "metric",
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    ["AWS/DocDB", "DiskQueueDepth", "DBInstanceIdentifier"]
+                ],
+                "title": "Disk Queue Depth"
+            }
+        }
+
 # BACKUP AND STORAGE METRICS
 BackupStorageHeading = {
     "height": 1,
     "width": 24,
-    "y": 52,
+    "y": 58,
     "x": 0,
     "type": "text",
     "properties": {
@@ -342,7 +464,7 @@ BackupStorageHeading = {
 BackupRetentionPeriodStorageUsed = {
     "height": 7,
     "width": 8,
-    "y": 53,
+    "y": 59,
     "x": 8,
     "type": "metric",
     "properties": {
@@ -351,12 +473,13 @@ BackupRetentionPeriodStorageUsed = {
         "metrics": [
             ["AWS/DocDB", "BackupRetentionPeriodStorageUsed", "DBClusterIdentifier"]
         ],
+        "title": "BackupRetentionPeriodStorageUsed"
     }
 }
 TotalBackupStorageBilled = {
     "height": 7,
     "width": 8,
-    "y": 53,
+    "y": 59,
     "x": 16,
     "type": "metric",
     "properties": {
@@ -365,12 +488,13 @@ TotalBackupStorageBilled = {
         "metrics": [
             ["AWS/DocDB", "TotalBackupStorageBilled", "DBClusterIdentifier"]
         ],
+        "title": "TotalBackupStorageBilled"
     }
 }
 VolumeBytesUsed = {
     "height": 7,
     "width": 8,
-    "y": 53,
+    "y": 59,
     "x": 0,
     "type": "metric",
     "properties": {
@@ -379,27 +503,7 @@ VolumeBytesUsed = {
         "metrics": [
             ["AWS/DocDB", "VolumeBytesUsed", "DBClusterIdentifier"]
         ],
+        "title": "VolumeBytesUsed"
     }
 }
 
-# ADDITIONAL HELP METRICS
-metricHelp = {
-            "height": 2,
-            "width": 12,
-            "y": 0,
-            "x": 0,
-            "type": "text",
-            "properties": {
-                "markdown": "### Metrics Overview\nLearn more about metric information by visiting the Amazon DocumentDB Metrics section [here](https://docs.aws.amazon.com/documentdb/latest/developerguide/cloud_watch.html#cloud_watch-metrics_list)\n"
-            }
-        }
-bestPractices = {
-            "height": 2,
-            "width": 12,
-            "y": 0,
-            "x": 12,
-            "type": "text",
-            "properties": {
-                "markdown": "### DocumentDB Specialist Optimization Tips\nLearn how to optimize your workload by visiting the DocDB Specialist recommended guidelines [here](https://docs.aws.amazon.com/documentdb/latest/developerguide/best_practices.html)"
-            }
-        }
