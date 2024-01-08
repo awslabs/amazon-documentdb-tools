@@ -69,6 +69,8 @@ def main():
         w.DatabaseCursors,
         w.DatabaseConnections,
         w.FreeableMemory,
+        w.NetworkReceiveThroughput,
+        w.NetworkTransmitThroughput,
         w.DocsInserted,
         w.DocsDeleted,
         w.DocsUpdated,

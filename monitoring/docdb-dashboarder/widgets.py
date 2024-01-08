@@ -102,6 +102,7 @@ InstanceHeading = {
         "markdown": "# Instance Level Metrics"
     }
 }
+
 CPUUtilization = {
     "height": 7,
     "width": 8,
@@ -125,6 +126,35 @@ CPUUtilization = {
                 }
             }
         }
+DatabaseConnections = {
+    "height": 7,
+    "width": 8,
+    "y": 21,
+    "x": 8,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "DatabaseConnections", "DBInstanceIdentifier"]
+        ],
+    }
+}
+DatabaseCursors = {
+    "height": 7,
+    "width": 8,
+    "y": 21,
+    "x": 16,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "DatabaseCursors", "DBInstanceIdentifier"]
+        ],
+    }
+}
+
 IndexBufferCacheHitRatio = {
     "height": 7,
     "width": 8,
@@ -169,34 +199,6 @@ BufferCacheHitRatio = {
                 "title": "Buffer Cache Hit Ratio"
             }
         }
-DatabaseCursors = {
-    "height": 7,
-    "width": 8,
-    "y": 21,
-    "x": 16,
-    "type": "metric",
-    "properties": {
-        "view": "timeSeries",
-        "stacked": False,
-        "metrics": [
-            ["AWS/DocDB", "DatabaseCursors", "DBInstanceIdentifier"]
-        ],
-    }
-}
-DatabaseConnections = {
-    "height": 7,
-    "width": 8,
-    "y": 21,
-    "x": 8,
-    "type": "metric",
-    "properties": {
-        "view": "timeSeries",
-        "stacked": False,
-        "metrics": [
-            ["AWS/DocDB", "DatabaseConnections", "DBInstanceIdentifier"]
-        ],
-    }
-}
 FreeableMemory = {
     "height": 7,
     "width": 8,
@@ -219,10 +221,56 @@ FreeableMemory = {
                 }
             }
         }
+
+NetworkReceiveThroughput = {
+    "height": 7,
+    "width": 12,
+    "y": 38,
+    "x": 12,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "NetworkReceiveThroughput", "DBInstanceIdentifier"]
+        ],
+        "period": 300,
+        "yAxis": {
+            "left": {
+                "max": 100,
+                "min": 0
+                    }
+                },
+        "title": "Network Receive Throughput"
+            }
+        }
+NetworkTransmitThroughput = {
+    "height": 7,
+    "width": 12,
+    "y": 38,
+    "x": 0,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "Network Transmit Throughput", "DBInstanceIdentifier"]
+        ],
+        "period": 300,
+        "yAxis": {
+            "left": {
+                "max": 100,
+                "min": 0
+                    }
+                },
+                "title": "Network Transmit Throughput"
+            }
+        }
+
 DocsInserted = {
             "height": 6,
             "width": 6,
-            "y": 38,
+            "y": 46,
             "x": 0,
             "type": "metric",
             "properties": {
@@ -237,7 +285,7 @@ DocsInserted = {
 DocsDeleted = {
             "height": 6,
             "width": 6,
-            "y": 38,
+            "y": 46,
             "x": 6,
             "type": "metric",
             "properties": {
@@ -252,7 +300,7 @@ DocsDeleted = {
 DocsUpdated = {
             "height": 6,
             "width": 6,
-            "y": 38,
+            "y": 46,
             "x": 12,
             "type": "metric",
             "properties": {
@@ -267,7 +315,7 @@ DocsUpdated = {
 DocsReturned = {
             "height": 6,
             "width": 6,
-            "y": 38,
+            "y": 46,
             "x": 18,
             "type": "metric",
             "properties": {
@@ -284,7 +332,7 @@ DocsReturned = {
 BackupStorageHeading = {
     "height": 1,
     "width": 24,
-    "y": 44,
+    "y": 52,
     "x": 0,
     "type": "text",
     "properties": {
@@ -294,7 +342,7 @@ BackupStorageHeading = {
 BackupRetentionPeriodStorageUsed = {
     "height": 7,
     "width": 8,
-    "y": 45,
+    "y": 53,
     "x": 8,
     "type": "metric",
     "properties": {
@@ -308,7 +356,7 @@ BackupRetentionPeriodStorageUsed = {
 TotalBackupStorageBilled = {
     "height": 7,
     "width": 8,
-    "y": 45,
+    "y": 53,
     "x": 16,
     "type": "metric",
     "properties": {
@@ -322,7 +370,7 @@ TotalBackupStorageBilled = {
 VolumeBytesUsed = {
     "height": 7,
     "width": 8,
-    "y": 45,
+    "y": 53,
     "x": 0,
     "type": "metric",
     "properties": {
