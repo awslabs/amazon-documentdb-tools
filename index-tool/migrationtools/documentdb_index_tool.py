@@ -20,11 +20,15 @@ import json
 import logging
 import os
 import sys
+import string
+import random
 
 from bson.json_util import dumps
 from pymongo import MongoClient
 from pymongo.errors import (ConnectionFailure, OperationFailure, ServerSelectionTimeoutError)
 from collections import OrderedDict
+
+alphabet = string.ascii_lowercase + string.digits 
 
 class AutovivifyDict(dict):
     """N depth defaultdict."""
@@ -379,7 +383,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                         collection_name, index_name)
                     if len(
                             collection_qualified_index_name
-                    ) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH:
+                    ) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH and self.args.shorten_index_name is False:
                         message = '<collection>$<index> greater than {} characters'.format(
                             DocumentDbLimits.
                             COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH)
@@ -392,7 +396,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                         collection_namespace, index_name)
                     if len(
                             fully_qualified_index_name
-                    ) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH:
+                    ) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH and self.args.shorten_index_name is False:
                         message = '<db>.<collection>$<index> greater than {} characters'.format(
                             DocumentDbLimits.
                             FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH)
@@ -456,8 +460,16 @@ class DocumentDbIndexTool(IndexToolConstants):
                         self.INDEXES][index_name][self.INDEX_KEY]
                     keys_to_create = []
                     index_options = OrderedDict()
-
-                    index_options[self.INDEX_NAME] = index_name
+                   
+                    if len(
+                            '{}${}'.format(collection_name, index_name)
+                    ) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH or len(
+                          '{}.{}${}'.format(db_name, collection_name, index_name)
+                    ) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH:  
+                        index_options[self.INDEX_NAME] = 'i_' +''.join(random.choices(alphabet, k=5))
+                    else:   
+                        index_options[self.INDEX_NAME] = index_name
+                  
                     for key in index_keys:
                         index_direction = index_keys[key]
 
@@ -473,6 +485,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     for k in metadata[db_name][collection_name][
                             self.INDEXES][index_name]:
                         if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
+                            
                             # this key is an additional index option
                             index_options[k] = metadata[db_name][
                                 collection_name][self.INDEXES][index_name][k]
@@ -633,6 +646,11 @@ def main():
                         required=False,
                         action='store_true',
                         help='Permit execution on Python 3.6 and prior')
+                        
+    parser.add_argument('--shorten-index-name',
+                        required=False,
+                        action='store_true',
+                        help='Shorten long index name to compatible length')
 
     args = parser.parse_args()
 
