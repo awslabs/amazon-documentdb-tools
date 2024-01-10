@@ -460,13 +460,17 @@ class DocumentDbIndexTool(IndexToolConstants):
                         self.INDEXES][index_name][self.INDEX_KEY]
                     keys_to_create = []
                     index_options = OrderedDict()
-                   
-                    if len(
-                            '{}${}'.format(collection_name, index_name)
-                    ) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH or len(
-                          '{}.{}${}'.format(db_name, collection_name, index_name)
-                    ) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH:  
-                        index_options[self.INDEX_NAME] = 'i_' +''.join(random.choices(alphabet, k=5))
+                    
+                    # <collection>$<index>
+                    collection_qualified_index_name = '{}${}'.format(collection_name, index_name)
+                    # <db>.<collection>.$<index><db>
+                    fully_qualified_index_name = '{}.{}.${}'.format(db_name, collection_name, index_name)
+                    
+                    if (len(collection_qualified_index_name) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH  or 
+                        len(fully_qualified_index_name) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH):
+                        short_index_name = index_name[:(DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH - 
+                            (len(collection_qualified_index_name)+5))] +''.join(random.choices(alphabet, k=5))
+                        index_options[self.INDEX_NAME] = short_index_name
                     else:   
                         index_options[self.INDEX_NAME] = index_name
                   
@@ -485,7 +489,6 @@ class DocumentDbIndexTool(IndexToolConstants):
                     for k in metadata[db_name][collection_name][
                             self.INDEXES][index_name]:
                         if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
-                            
                             # this key is an additional index option
                             index_options[k] = metadata[db_name][
                                 collection_name][self.INDEXES][index_name][k]
@@ -493,7 +496,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     if self.args.dry_run is True:
                         logging.info(
                             "(dry run) %s.%s: would attempt to add index: %s",
-                            db_name, collection_name, index_name)
+                            db_name, collection_name, index_options[self.INDEX_NAME] )
                         logging.info("  (dry run) index options: %s", index_options)
                         logging.info("  (dry run) index keys: %s", keys_to_create)
                     else:
@@ -504,7 +507,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                         collection.create_index(keys_to_create,
                                                 **index_options)
                         logging.info("%s.%s: added index: %s", db_name,
-                                     collection_name, index_name)
+                                     collection_name, index_options[self.INDEX_NAME] )
 
     def run(self):
         """Entry point
