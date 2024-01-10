@@ -469,7 +469,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     if (len(collection_qualified_index_name) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH  or 
                         len(fully_qualified_index_name) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH):
                         short_index_name = index_name[:(DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH - 
-                            (len(collection_qualified_index_name)+5))] +''.join(random.choices(alphabet, k=5))
+                            (len(collection_name)+6))] +''.join(random.choices(alphabet, k=5))
                         index_options[self.INDEX_NAME] = short_index_name
                     else:   
                         index_options[self.INDEX_NAME] = index_name
