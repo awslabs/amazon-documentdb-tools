@@ -20,11 +20,15 @@ import json
 import logging
 import os
 import sys
+import string
+import random
 
 from bson.json_util import dumps
 from pymongo import MongoClient
 from pymongo.errors import (ConnectionFailure, OperationFailure, ServerSelectionTimeoutError)
 from collections import OrderedDict
+
+alphabet = string.ascii_lowercase + string.digits 
 
 class AutovivifyDict(dict):
     """N depth defaultdict."""
@@ -379,7 +383,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                         collection_name, index_name)
                     if len(
                             collection_qualified_index_name
-                    ) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH:
+                    ) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH and self.args.shorten_index_name is False:
                         message = '<collection>$<index> greater than {} characters'.format(
                             DocumentDbLimits.
                             COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH)
@@ -392,7 +396,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                         collection_namespace, index_name)
                     if len(
                             fully_qualified_index_name
-                    ) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH:
+                    ) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH and self.args.shorten_index_name is False:
                         message = '<db>.<collection>$<index> greater than {} characters'.format(
                             DocumentDbLimits.
                             FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH)
@@ -456,8 +460,20 @@ class DocumentDbIndexTool(IndexToolConstants):
                         self.INDEXES][index_name][self.INDEX_KEY]
                     keys_to_create = []
                     index_options = OrderedDict()
-
-                    index_options[self.INDEX_NAME] = index_name
+                    
+                    # <collection>$<index>
+                    collection_qualified_index_name = '{}${}'.format(collection_name, index_name)
+                    # <db>.<collection>.$<index><db>
+                    fully_qualified_index_name = '{}.{}.${}'.format(db_name, collection_name, index_name)
+                    
+                    if (len(collection_qualified_index_name) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH  or 
+                        len(fully_qualified_index_name) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH):
+                        short_index_name = index_name[:(DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH - 
+                            (len(collection_name)+6))] +''.join(random.choices(alphabet, k=5))
+                        index_options[self.INDEX_NAME] = short_index_name
+                    else:   
+                        index_options[self.INDEX_NAME] = index_name
+                  
                     for key in index_keys:
                         index_direction = index_keys[key]
 
@@ -480,7 +496,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                     if self.args.dry_run is True:
                         logging.info(
                             "(dry run) %s.%s: would attempt to add index: %s",
-                            db_name, collection_name, index_name)
+                            db_name, collection_name, index_options[self.INDEX_NAME] )
                         logging.info("  (dry run) index options: %s", index_options)
                         logging.info("  (dry run) index keys: %s", keys_to_create)
                     else:
@@ -491,7 +507,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                         collection.create_index(keys_to_create,
                                                 **index_options)
                         logging.info("%s.%s: added index: %s", db_name,
-                                     collection_name, index_name)
+                                     collection_name, index_options[self.INDEX_NAME] )
 
     def run(self):
         """Entry point
@@ -633,6 +649,11 @@ def main():
                         required=False,
                         action='store_true',
                         help='Permit execution on Python 3.6 and prior')
+                        
+    parser.add_argument('--shorten-index-name',
+                        required=False,
+                        action='store_true',
+                        help='Shorten long index name to compatible length')
 
     args = parser.parse_args()
 
