@@ -83,7 +83,7 @@ class IndexToolConstants(object):
         pass
 
     DATABASES_TO_SKIP = ['admin', 'config', 'local', 'system']
-    METADATA_FILES_TO_SKIP = ['system.indexes.metadata.json', 'system.profile.metadata.json', 'system.views.metadata.json']
+    METADATA_FILES_TO_SKIP = ['system.indexes.metadata.json', 'system.profile.metadata.json', 'system.users.metadata.json', 'system.views.metadata.json']
     METADATA_FILE_SUFFIX_PATTERN = 'metadata.json'
     EXCEEDED_LIMITS = 'exceeded_limits'
     FILE_PATH = 'filepath'
