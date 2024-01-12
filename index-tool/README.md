@@ -47,6 +47,7 @@ The Index Tool accepts the following arguments:
 --skip-incompatible          Skip incompatible indexes when restoring metadata
 --support-2dsphere           Support 2dsphere indexes creation (collections must use GeoJSON Point type for indexing)
 --skip-python-version-check  Permit execution using Python 3.6 and prior
+--shorten-index-name         Shorten long index name to compatible length
 ```
 
 ### Export indexes from a MongoDB instance:
