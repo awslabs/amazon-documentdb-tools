@@ -17,6 +17,9 @@ def getData(appConfig):
     if appConfig['compressor'] == 'lz4-0':
         compressor='lz4'
         level=0
+    elif appConfig['compressor'] == 'lz4-3':
+        compressor='lz4'
+        level=3
     elif appConfig['compressor'] == 'lz4-16':
         compressor='lz4'
         level=16
@@ -44,7 +47,7 @@ def getData(appConfig):
     logFileName = "{}-{}-compression-review.csv".format(appConfig['serverAlias'],logTimeStamp)
     logFileHandle = open(logFileName, "w")
 
-    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minLz4','maxLz4','avgLz4','lz4Ratio','exceptions','time(ms)'))
+    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minComp','maxComp','avgComp','compRatio','exceptions','time(ms)'))
 
     # get databases - filter out admin, config, local, and system
     dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":['admin','config','local','system']}})['databases']
@@ -168,7 +171,7 @@ def main():
 
     parser.add_argument('--compressor',
                         required=False,
-                        choices=['lz4-0','lz4-16','bz2-1','bz2-9','lzma-0','lzma-6','lzma-9'],
+                        choices=['lz4-0','lz4-3','lz4-16','bz2-1','bz2-9','lzma-0','lzma-6','lzma-9'],
                         type=str,
                         default='lz4-0',
                         help='Compressor')
