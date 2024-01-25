@@ -185,9 +185,9 @@ def start_cardinality_check():
                 for index in indexes:
                     result_row = {}
                     if index['name'] != '_id_':
-                        
                         index_name = index['name']
-                   
+
+                        print("###     checking index - {} .... ".format(index_name)) 
                         
                         cardinality = 0
                         isLowCardinality = 'N'
