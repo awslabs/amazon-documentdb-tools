@@ -12,10 +12,10 @@ The MongoDB Ops tool gathers collection level query/insert/update/delete counter
 
 ## Using the MongoDB Ops Tool
 `python3 mongodb-ops.py --uri <mongodb-uri> --server-alias <server-alias> --collect`
-- produces an output file for comparison
+- Produces an output file for comparison
 
 `python3 mongodb-ops.py --compare --file1 <first-compare-file> --file2 <second-compare-file>`
-- compares the results of two executions to estimate the number of queries, inserts, updates, and deletes per second at the collection level.
+- Compares the results of two executions to estimate the number of queries, inserts, updates, and deletes per second at the collection level.
 
 ## Notes
 - Run on any instance in the replicaset (the larger the oplog the better)
