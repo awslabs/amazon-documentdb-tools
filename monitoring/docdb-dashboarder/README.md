@@ -1,15 +1,11 @@
 # DocumentDB Dashboarder Tool
-DocumentDB Dashboarder creates a CloudWatch monitoring dashboard for a DocumentDB cluster. Monitor your workload
-and easily identify problems when dealing with slow  performance and high cost consumption.
+DocumentDB Dashboarder creates a CloudWatch monitoring dashboard for a DocumentDB cluster.
 
 ------------------------------------------------------------------------------------------------------------------------
 ## Package Requirements 
 
-**boto3** - AWS SDK that allows management of aws resources through python
-
-**awscli** - Command line tools that allow access public APIs to manage AWS services
-
-**argparse** - Python library that allows for the use of command line arguments
+* boto3 - AWS SDK that allows management of aws resources through python
+* awscli - Command line tools that allow access public APIs to manage AWS services
 
 ------------------------------------------------------------------------------------------------------------------------
 ## Installing Packages
@@ -18,7 +14,6 @@ and easily identify problems when dealing with slow  performance and high cost c
 ```
 pip install boto3
 pip install awscli
-pip install argparse
 ```
 ------------------------------------------------------------------------------------------------------------------------
 ## IAM User Creation and Setup
@@ -26,21 +21,11 @@ pip install argparse
 **Note: If you already have an existing IAM user for DocDB, associate the roles in step 4 and can move on to the next
 section "Configure your AWS Credentials"**
 
-
 1. Open IAM Service in your AWS Management Console
-
-
 2. Select the "Users" tab using the toolbar on the left side of your screen
-
-
 3. Create a new user and under "Select AWS Access Type" choose "Access Key - Programmatic Access" and click next. Be sure to save this access key for later on.
-
-
 4. Associate the following permissions for your IAM User - CloudWatchFullAccess, AmazonDocDBReadOnlyAccess
-
-
 5. Complete the user creation and save the csv file with your access key and secret access key in a safe place
-
 
 _Congratulations you have successfully set up your IAM User to interact with CloudWatch and DocumentDB!_
 
