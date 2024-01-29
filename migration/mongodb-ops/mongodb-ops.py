@@ -268,7 +268,7 @@ def printTotals(thisLabel1,thisLabel2,thisTime,thisQuery,thisInsert,thisUpdate,t
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Dump and restore indexes from MongoDB to DocumentDB.')
+    parser = argparse.ArgumentParser(description='Gather collection level statistics to estimate query/insert/update/delete rates on a MongoDB server.')
         
     parser.add_argument('--skip-python-version-check',
                         required=False,
