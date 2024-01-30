@@ -22,8 +22,8 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     if appConfig['verboseLogging']:
         logIt(threadnum,'thread started')
 
-    sourceConnection = pymongo.MongoClient(appConfig["sourceUri"])
-    destConnection = pymongo.MongoClient(appConfig["targetUri"])
+    sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"],appname='mvutool')
+    destConnection = pymongo.MongoClient(host=appConfig["targetUri"],appname='mvutool')
     startTime = time.time()
     lastFeedback = time.time()
     lastBatch = time.time()
@@ -155,7 +155,7 @@ def change_stream_processor(threadnum, appConfig, perfQ):
 
 #Function to get the Change stream token
 def get_resume_token(appConfig):
-    sourceConnection = pymongo.MongoClient(appConfig["sourceUri"])
+    sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"],appname='mvutool')
     
     allDone = False
     if not appConfig["sourceDb"]:
