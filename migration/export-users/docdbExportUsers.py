@@ -4,7 +4,7 @@ import pymongo
 
 
 def exportUsers(appConfig):
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='userexp')
     listusers = client.admin.command('usersInfo', {'forAllDBs': True})
     with open(appConfig['usersFile'], "w+", encoding='utf-8') as f:
         print("use admin", file=f)
