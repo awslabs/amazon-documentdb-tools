@@ -33,7 +33,7 @@ def reportCollectionInfo(appConfig):
     logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
     logAndPrint(appConfig,"{} | {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s}".format(logTimeStamp,'collection','ins'+opsString,'upd'+opsString,'del'+opsString,'colBlkHit','colBlkRead','colRatio','idxBlkHit','idxBlkRead','idxRatio'))
     
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='ddbtop')
     db = client[appConfig['databaseName']]
     
     while True:
