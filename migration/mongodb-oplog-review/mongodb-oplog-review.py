@@ -18,7 +18,7 @@ def parseOplog(appConfig):
     fp = open(logFileName, 'w')
 
     printLog('connecting to MongoDB aliased as {}'.format(appConfig['serverAlias']),fp)
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='mdboplrv')
     oplog = client.local.oplog.rs
 
     secondsBehind = 999999
