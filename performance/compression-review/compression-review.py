@@ -12,7 +12,7 @@ import lzma
 
 def getData(appConfig):
     print('connecting to server')
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='comprevw')
     sampleSize = appConfig['sampleSize']
     if appConfig['compressor'] == 'lz4-0':
         compressor='lz4'
