@@ -30,7 +30,7 @@ def mongoCollect(appConfig):
     startTime = time.time()
     
     print('connecting to MongoDB aliased as {}'.format(appConfig['serverAlias']))
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='mdbops')
 
     startServerOpCounters = client.admin.command("serverStatus")['opcounters']
     startServerMetricsDocument = client.admin.command("serverStatus")['metrics']['document']
