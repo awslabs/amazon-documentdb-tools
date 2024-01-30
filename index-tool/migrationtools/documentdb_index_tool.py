@@ -137,7 +137,7 @@ class DocumentDbIndexTool(IndexToolConstants):
         """Connect to instance, returning a connection"""
         logging.info("Connecting to instance using provided URI")
 
-        mongodb_client = MongoClient(uri)
+        mongodb_client = MongoClient(host=uri,appname='indxtool')
 
         # force the client to actually connect
         mongodb_client.admin.command('ismaster')
