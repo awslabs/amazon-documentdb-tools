@@ -14,7 +14,7 @@ def via_skips(appConfig):
 
     numBoundaries = appConfig['numSegments'] - 1
 
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='segmentr')
     db = client[appConfig['database']]
     col = db[appConfig['collection']]
 
@@ -67,7 +67,7 @@ def via_cursor(appConfig):
     numBoundaries = appConfig['numSegments'] - 1
     boundaryList = []
 
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='segmentr')
     db = client[appConfig['database']]
     col = db[appConfig['collection']]
 
