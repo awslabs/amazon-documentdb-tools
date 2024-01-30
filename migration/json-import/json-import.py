@@ -27,14 +27,14 @@ def logAndPrint(appConfig,string):
 def setup(appConfig):
     if appConfig['dropCollection']:
         logAndPrint(appConfig,"  dropping the collection")
-        client = pymongo.MongoClient(appConfig['uri'])
+        client = pymongo.MongoClient(host=appConfig['uri'],appname='jsonimp')
         col = client[appConfig['databaseName']][appConfig['collectionName']]
         col.drop()
         client.close()
 
 
 def reportCollectionInfo(appConfig):
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='jsonimp')
     db = client[appConfig['databaseName']]
     
     collStats = db.command("collStats", appConfig['collectionName'])
@@ -147,7 +147,7 @@ def task_worker(workerNum,appConfig,perfQ):
     if appConfig['debugLevel'] >= 1:
         logAndPrint(appConfig,"worker {} - start {} end {} chunk {}".format(workerNum,myLineStart,myLineEnd,numChunks))
 
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='jsonimp')
     db = client[appConfig['databaseName']]
     col = db[appConfig['collectionName']]
     
