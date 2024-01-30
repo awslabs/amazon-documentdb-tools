@@ -20,11 +20,11 @@ def full_load_loader(threadnum, appConfig, perfQ):
     if appConfig['verboseLogging']:
         logIt(threadnum,'thread started')
 
-    sourceConnection = pymongo.MongoClient(appConfig["sourceUri"])
+    sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"],appname='migrfull')
     sourceDb = sourceConnection[appConfig["sourceNs"].split('.',1)[0]]
     sourceColl = sourceDb[appConfig["sourceNs"].split('.',1)[1]]
 
-    destConnection = pymongo.MongoClient(appConfig["targetUri"])
+    destConnection = pymongo.MongoClient(host=appConfig["targetUri"],appname='migrfull')
     destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
     destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
 
