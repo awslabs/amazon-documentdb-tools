@@ -17,7 +17,7 @@ def getData(appConfig):
     serverLocalTime = ''
 
     print('connecting to server')
-    client = pymongo.MongoClient(appConfig['connectionString'])
+    client = pymongo.MongoClient(host=appConfig['connectionString'],appname='indxrev')
 
     serverOpCounters = client.admin.command("serverStatus")['opcounters']
     serverMetricsDocument = client.admin.command("serverStatus")['metrics']['document']
@@ -184,7 +184,7 @@ def checkIfRedundant(idxName,idxKeyAsString,indexList):
 
 def checkReplicaSet(appConfig):
     print('connecting to server')
-    client = pymongo.MongoClient(appConfig['connectionString'])
+    client = pymongo.MongoClient(host=appConfig['connectionString'],appname='indxrev')
 
     rsStatus = client.admin.command("replSetGetStatus")
     print("  rs.status() = {}".format(rsStatus))
