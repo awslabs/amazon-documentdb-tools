@@ -8,7 +8,7 @@ from multiprocessing import Pool, cpu_count
 
 def connect_to_db(uri, pool_size):
     try:
-        client = MongoClient(uri, maxPoolSize=pool_size)
+        client = MongoClient(host=uri, maxPoolSize=pool_size, appname='datadiff')
         return client
     except Exception as e:
         print(f"Error connecting to database: {e}")
