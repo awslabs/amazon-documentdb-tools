@@ -15,7 +15,7 @@ def init_conn():
     """     
     global client
     try:
-        client = pymongo.MongoClient(args.uri)
+        client = pymongo.MongoClient(host=args.uri,appname='cardinal')
     except Exception as e:
         traceback.print_exception(*sys.exc_info())
         print(e)
