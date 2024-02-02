@@ -8,6 +8,30 @@ import os
 from collections import OrderedDict
 
 
+def ensureDirect(uri,appname):
+    # make sure we are directly connecting to the server requested, not via replicaSet
+
+    connInfo = {}
+    parsedUri = pymongo.uri_parser.parse_uri(uri)
+
+    for thisKey in sorted(parsedUri['options'].keys()):
+        if thisKey.lower() not in ['replicaset','readpreference']:
+            connInfo[thisKey] = parsedUri['options'][thisKey]
+
+    # make sure we are using directConnection=true
+    connInfo['directconnection'] = True
+
+    connInfo['username'] = parsedUri['username']
+    connInfo['password'] = parsedUri['password']
+    connInfo['host'] = parsedUri['nodelist'][0][0]
+    connInfo['port'] = parsedUri['nodelist'][0][1]
+    connInfo['appname'] = appname
+
+    print("{}".format(connInfo))
+
+    return connInfo
+
+
 def getData(appConfig):
     serverOpCounters = {}
     serverMetricsDocument = {}
@@ -17,7 +41,7 @@ def getData(appConfig):
     serverLocalTime = ''
 
     print('connecting to server')
-    client = pymongo.MongoClient(host=appConfig['connectionString'],appname='indxrev')
+    client = pymongo.MongoClient(**ensureDirect(appConfig['connectionString'],'indxrev'))
 
     serverOpCounters = client.admin.command("serverStatus")['opcounters']
     serverMetricsDocument = client.admin.command("serverStatus")['metrics']['document']
@@ -188,6 +212,10 @@ def checkReplicaSet(appConfig):
 
     rsStatus = client.admin.command("replSetGetStatus")
     print("  rs.status() = {}".format(rsStatus))
+    print("  replica set members")
+    for thisMember in rsStatus['members']:
+        print("    {}".format(pymongo.uri_parser.parse_host(thisMember['name'])))
+        print("    {}".format(thisMember))
 
     client.close()
 
@@ -225,37 +253,6 @@ def readOpsFile(appConfig):
 
 
 def main():
-    # v0
-    #    * single server
-    #    * add python 3.7 check
-    #    * save full set of data collected to filesystem
-    #    * find unused and redundant indexes
-    #    * add proper argument system
-    
-    # v1
-    #    * allow override of minimum Python version
-    #    * create CSV files - one for collections, one for indexes
-    #    filter by database and/or collection by name
-    #    filter by database and/or collection by regular expression
-    #    report server uptime with suggestions
-    #    clean up JSON - remove "start"
-    #    check for same index twice
-    #    ensure compatibility with MongoDB 3.2+
-    
-    # v2
-    #    multi-server (via command line arg)
-    #    compare host in JSON, look for duplicates
-    #    unit testing
-    
-    # v3
-    #    replicaSet discovery
-    
-    # v4
-    #    sharding support?
-    
-    # v5
-    #    diff across multiple runs, find unused
-    
     parser = argparse.ArgumentParser(description='Check for redundant and unused indexes.')
         
     parser.add_argument('--skip-python-version-check',
