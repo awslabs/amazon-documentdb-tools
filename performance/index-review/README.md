@@ -12,8 +12,7 @@ The index review tool catalogs all collections and their indexes (structure and 
 `python3 index-review.py --server-alias <server-alias> --uri <mongodb-uri>`
 
 - Execute on all instances (primary and all secondaries/read-replicas), this is critical to give a complete review of index usage.
-- Connect directly to all servers, not as replicaSet, by including &directConnection=true in your `<mongodb-uri>`
-- Use a different `<server-alias>` for each server, output files are named using `<server-alias>` as the starting portion
+- Use a different `<server-alias>` for each server, output files are named using `<server-alias>` as the starting portion of the filename
 - All `<mongodb-uri>` options can be found at https://www.mongodb.com/docs/manual/reference/connection-string/ 
 - For DocumentDB use the individual instance endpoints, not the cluster endpoint
 
