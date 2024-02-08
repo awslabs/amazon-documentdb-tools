@@ -38,6 +38,9 @@ def getData(appConfig):
     elif appConfig['compressor'] == 'lzma-9':
         compressor='lzma'
         level=9
+    elif appConfig['compressor'] == 'lz4-x':
+        compressor='lz4'
+        level=appConfig['lz4Level']
     else:
         print('Unknown compressor | {}'.format(appConfig['compressor']))
         sys.exit(1)
@@ -111,8 +114,8 @@ def getData(appConfig):
                             print('Unknown compressor | {}'.format('compressor'))
                             sys.exit(1)
 
-                        totTimeMs = time.time() - startTimeMs
-                        totTimeNs = time.time_ns() - startTimeNs
+                        totTimeMs += time.time() - startTimeMs
+                        totTimeNs += time.time_ns() - startTimeNs
 
                         lz4Bytes = len(compressed)
                         totLz4Bytes += lz4Bytes
@@ -171,10 +174,16 @@ def main():
 
     parser.add_argument('--compressor',
                         required=False,
-                        choices=['lz4-0','lz4-3','lz4-16','bz2-1','bz2-9','lzma-0','lzma-6','lzma-9'],
+                        choices=['lz4-0','lz4-3','lz4-16','lz4-x','bz2-1','bz2-9','lzma-0','lzma-6','lzma-9'],
                         type=str,
                         default='lz4-0',
                         help='Compressor')
+
+    parser.add_argument('--lz4-level',
+                        required=False,
+                        type=int,
+                        default=0,
+                        help='LZ4 level')
 
     args = parser.parse_args()
     
@@ -188,6 +197,7 @@ def main():
     appConfig['serverAlias'] = args.server_alias
     appConfig['sampleSize'] = int(args.sample_size)
     appConfig['compressor'] = args.compressor
+    appConfig['lz4Level'] = int(args.lz4_level)
     
     getData(appConfig)
 
