@@ -14,6 +14,8 @@ def ensureDirect(uri,appname):
     connInfo = {}
     parsedUri = pymongo.uri_parser.parse_uri(uri)
 
+    print("parsedUri | {}".format(parsedUri))
+
     for thisKey in sorted(parsedUri['options'].keys()):
         if thisKey.lower() not in ['replicaset','readpreference']:
             connInfo[thisKey] = parsedUri['options'][thisKey]
@@ -30,7 +32,7 @@ def ensureDirect(uri,appname):
     if parsedUri.get('database') is not None:
         connInfo['authSource'] = parsedUri['database']
 
-    #print("{}".format(connInfo))
+    print("connInfo | {}".format(connInfo))
 
     return connInfo
 
