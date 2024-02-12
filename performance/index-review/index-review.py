@@ -27,7 +27,10 @@ def ensureDirect(uri,appname):
     connInfo['port'] = parsedUri['nodelist'][0][1]
     connInfo['appname'] = appname
 
-    print("{}".format(connInfo))
+    if parsedUri.get('database') is not None:
+        connInfo['authSource'] = parsedUri['database']
+
+    #print("{}".format(connInfo))
 
     return connInfo
 
