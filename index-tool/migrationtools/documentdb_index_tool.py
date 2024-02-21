@@ -67,7 +67,7 @@ class DocumentDbUnsupportedFeatures(object):
     def __init__(self):
         pass
 
-    UNSUPPORTED_INDEX_TYPES = ['text', '2d', '2dsphere', 'geoHaystack', 'hashed']
+    UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
     UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion']
@@ -435,7 +435,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                                     self.UNSUPPORTED_INDEX_OPTIONS_KEY].append(
                                         key_name)
 
-                        # Check for unsupported index types like text
+                        # Check for unsupported index types
                         if key_name == self.INDEX_KEY:
                             for index_key_name in index[key_name]:
                                 key_value = index[key_name][index_key_name]
