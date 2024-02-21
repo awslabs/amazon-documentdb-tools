@@ -68,8 +68,7 @@ class DocumentDbUnsupportedFeatures(object):
         pass
 
     UNSUPPORTED_INDEX_TYPES = ['text', '2d', '2dsphere', 'geoHaystack', 'hashed']
-    UNSUPPORTED_INDEX_OPTIONS = ['partialFilterExpression', 'storageEngine', \
-                                'collation', 'dropDuplicates']
+    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion']
 
