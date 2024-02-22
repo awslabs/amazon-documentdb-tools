@@ -29,7 +29,7 @@ def add_metric(widJson, widgets, region, instanceList, clusterList):
                         widget["properties"]["metrics"][i].append(DBClusterIdentifier)
                         widget["properties"]["metrics"][i].append({"label":DBClusterIdentifier})
                     else:
-                        widget["properties"]["metrics"].append([".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
+                        widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
 
         widJson["widgets"].append(widget)
 
@@ -38,9 +38,9 @@ def add_metric(widJson, widgets, region, instanceList, clusterList):
 def main():
     # Command line arguments for user to pass
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, required=True)
-    parser.add_argument('--region', type=str, required=True)
-    parser.add_argument('--clusterID', type=str, required=True)
+    parser.add_argument('--name', type=str, required=True, help="Name of CloudWatch dashboard to create")
+    parser.add_argument('--region', type=str, required=True, help="Region of Amazon DocumentDB cluster(s)")
+    parser.add_argument('--clusterID', type=str, required=True, help="Single Amazon DocumentDB cluster ID or comma separated list of cluster IDs")
     args = parser.parse_args()
 
     # DocumentDB Configurations
@@ -113,7 +113,7 @@ def main():
     # Create dashboard
     client.put_dashboard(DashboardName=args.name, DashboardBody=dashBody)
 
-    print("Your dashboard has been deployed! Proceed to CloudWatch to view your dashboard")
+    print("Dashboard {} deployed to CloudWatch".format(args.name))
 
 
 if __name__ == "__main__":
