@@ -227,7 +227,7 @@ class DocumentDbIndexTool(IndexToolConstants):
 
         return metadata_files
 
-    def _dump_indexes_from_server(self, connection, output_dir, dry_run=False):
+    def _dump_indexes_from_server(self, connection, output_dir, dry_run=False, database_arg=None):
         """
         Discover all indexes in a mongodb server and dump them
         to files using the mongodump format
@@ -237,9 +237,14 @@ class DocumentDbIndexTool(IndexToolConstants):
         try:
             database_info = connection.admin.command({'listDatabases': 1})
 
+            databases_to_include = [x.strip() for x in database_arg.split(',') if x]
+
             for database_doc in database_info['databases']:
                 database_name = database_doc['name']
                 logging.debug("Database: %s", database_name)
+
+                if len(databases_to_include) > 0 and (database_name not in databases_to_include):
+                    continue
 
                 if database_name in self.DATABASES_TO_SKIP:
                     continue
@@ -527,7 +532,7 @@ class DocumentDbIndexTool(IndexToolConstants):
         # dump indexes from a MongoDB server
         if self.args.dump_indexes is True:
             self._dump_indexes_from_server(connection, self.args.dir,
-                                           self.args.dry_run)
+                                           self.args.dry_run, self.args.include_databases)
             sys.exit()
 
         # all non-dump operations require valid source metadata
@@ -643,6 +648,11 @@ def main():
                         required=False,
                         action='store_true',
                         help='Support 2dsphere indexes creation (collections data must use GeoJSON Point type for indexing)')
+
+    parser.add_argument('--include-databases',
+                        required=False,
+                        type=str,
+                        help='choose specific databases to migrate (comma-separated)')
 
     parser.add_argument('--skip-python-version-check',
                         required=False,
