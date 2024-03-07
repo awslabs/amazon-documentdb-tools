@@ -97,6 +97,11 @@ def main():
         w.WriteLatency,
         w.DiskQueueDepth,
 
+        w.WriteIops,
+        w.WriteThroughput,
+        w.ReadIops,
+        w.ReadThroughput,
+
         w.BackupStorageHeading,
 
         w.VolumeBytesUsed,

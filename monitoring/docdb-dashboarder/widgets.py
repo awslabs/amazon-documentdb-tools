@@ -450,11 +450,73 @@ DiskQueueDepth = {
             }
         }
 
+WriteIops = {
+            "height": 6,
+            "width": 6,
+            "y": 58,
+            "x": 0,
+            "type": "metric",
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    ["AWS/DocDB", "WriteIOPS", "DBInstanceIdentifier"]
+                ],
+                "title": "Write IOPs"
+            }
+        }
+WriteThroughput = {
+            "height": 6,
+            "width": 6,
+            "y": 58,
+            "x": 6,
+            "type": "metric",
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    ["AWS/DocDB", "WriteThroughput", "DBInstanceIdentifier"]
+                ],
+                "title": "Write Throughput"
+            }
+        }
+ReadIops = {
+            "height": 6,
+            "width": 6,
+            "y": 58,
+            "x": 12,
+            "type": "metric",
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    ["AWS/DocDB", "ReadIOPS", "DBInstanceIdentifier"]
+                ],
+                "title": "Read IOPs"
+            }
+        }
+ReadThroughput = {
+            "height": 6,
+            "width": 6,
+            "y": 58,
+            "x": 18,
+            "type": "metric",
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    ["AWS/DocDB", "ReadThroughput", "DBInstanceIdentifier"]
+                ],
+                "title": "Read Throughput"
+            }
+}
+
+
 # BACKUP AND STORAGE METRICS
 BackupStorageHeading = {
     "height": 1,
     "width": 24,
-    "y": 58,
+    "y": 64,
     "x": 0,
     "type": "text",
     "properties": {
@@ -464,7 +526,7 @@ BackupStorageHeading = {
 BackupRetentionPeriodStorageUsed = {
     "height": 7,
     "width": 8,
-    "y": 59,
+    "y": 65,
     "x": 8,
     "type": "metric",
     "properties": {
@@ -479,7 +541,7 @@ BackupRetentionPeriodStorageUsed = {
 TotalBackupStorageBilled = {
     "height": 7,
     "width": 8,
-    "y": 59,
+    "y": 65,
     "x": 16,
     "type": "metric",
     "properties": {
@@ -494,7 +556,7 @@ TotalBackupStorageBilled = {
 VolumeBytesUsed = {
     "height": 7,
     "width": 8,
-    "y": 59,
+    "y": 65,
     "x": 0,
     "type": "metric",
     "properties": {
