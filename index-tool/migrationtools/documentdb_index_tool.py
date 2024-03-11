@@ -493,20 +493,26 @@ class DocumentDbIndexTool(IndexToolConstants):
                                 collection_name][self.INDEXES][index_name][k]
 
                     if self.args.dry_run is True:
-                        logging.info(
-                            "(dry run) %s.%s: would attempt to add index: %s",
-                            db_name, collection_name, index_options[self.INDEX_NAME] )
-                        logging.info("  (dry run) index options: %s", index_options)
-                        logging.info("  (dry run) index keys: %s", keys_to_create)
+                        if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
+                            logging.info("(dry run) skipping _id index creation on %s.%s",db_name,collection_name)
+                        else:
+                            logging.info(
+                                "(dry run) %s.%s: would attempt to add index: %s",
+                                db_name, collection_name, index_options[self.INDEX_NAME] )
+                            logging.info("  (dry run) index options: %s", index_options)
+                            logging.info("  (dry run) index keys: %s", keys_to_create)
                     else:
-                        logging.debug("Adding index %s -> %s", keys_to_create,
-                                      index_options)
-                        database = connection[db_name]
-                        collection = database[collection_name]
-                        collection.create_index(keys_to_create,
-                                                **index_options)
-                        logging.info("%s.%s: added index: %s", db_name,
-                                     collection_name, index_options[self.INDEX_NAME] )
+                        if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
+                            logging.info("Skipping _id index creation on %s.%s",db_name,collection_name)
+                        else:
+                            logging.debug("Adding index %s -> %s", keys_to_create,
+                                          index_options)
+                            database = connection[db_name]
+                            collection = database[collection_name]
+                            collection.create_index(keys_to_create,
+                                                    **index_options)
+                            logging.info("%s.%s: added index: %s", db_name,
+                                         collection_name, index_options[self.INDEX_NAME] )
 
     def run(self):
         """Entry point
@@ -582,77 +588,21 @@ class DocumentDbIndexTool(IndexToolConstants):
 
 
 def main():
-    """
-    parse command line arguments and
-    """
-    parser = argparse.ArgumentParser(
-        description='Dump and restore indexes from MongoDB to DocumentDB.')
+    parser = argparse.ArgumentParser(description='Dump and restore indexes from MongoDB to DocumentDB.')
 
-    parser.add_argument('--debug',
-                        required=False,
-                        action='store_true',
-                        help='Output debugging information')
-
-    parser.add_argument(
-        '--dry-run',
-        required=False,
-        action='store_true',
-        help='Perform processing, but do not actually export or restore indexes')
-
-    parser.add_argument('--uri',
-                        required=False,
-                        type=str,
-                        help='URI to connect to MongoDB or Amazon DocumentDB')
-
-    parser.add_argument('--dir',
-                        required=True,
-                        type=str,
-                        help='Specify the folder to export to or restore from (required)')
-
-    parser.add_argument('--show-compatible',
-                        required=False,
-                        action='store_true',
-                        dest='show_compatible',
-                        help='Output all compatible indexes with Amazon DocumentDB (no change is applied)')
-
-    parser.add_argument(
-        '--show-issues',
-        required=False,
-        action='store_true',
-        dest='show_issues',
-        help='Output a report of compatibility issues found')
-
-    parser.add_argument('--dump-indexes',
-                        required=False,
-                        action='store_true',
-                        help='Perform index export from the specified server')
-
-    parser.add_argument(
-        '--restore-indexes',
-        required=False,
-        action='store_true',
-        help='Restore indexes found in metadata to the specified server')
-
-    parser.add_argument(
-        '--skip-incompatible',
-        required=False,
-        action='store_true',
-        help='Skip incompatible indexes when restoring metadata')
-
-    parser.add_argument('--support-2dsphere',
-                        required=False,
-                        action='store_true',
-                        help='Support 2dsphere indexes creation (collections data must use GeoJSON Point type for indexing)')
-
-    parser.add_argument('--skip-python-version-check',
-                        required=False,
-                        action='store_true',
-                        help='Permit execution on Python 3.6 and prior')
-                        
-    parser.add_argument('--shorten-index-name',
-                        required=False,
-                        action='store_true',
-                        help='Shorten long index name to compatible length')
+    parser.add_argument('--debug',required=False,action='store_true',help='Output debugging information')
+    parser.add_argument('--dry-run',required=False,action='store_true',help='Perform processing, but do not actually export or restore indexes')
+    parser.add_argument('--uri',required=False,type=str,help='URI to connect to MongoDB or Amazon DocumentDB')
+    parser.add_argument('--dir',required=True,type=str,help='Specify the folder to export to or restore from (required)')
+    parser.add_argument('--show-compatible',required=False,action='store_true',dest='show_compatible',help='Output all compatible indexes with Amazon DocumentDB (no change is applied)')
+    parser.add_argument('--show-issues',required=False,action='store_true',dest='show_issues',help='Output a report of compatibility issues found')
+    parser.add_argument('--dump-indexes',required=False,action='store_true',help='Perform index export from the specified server')
+    parser.add_argument('--restore-indexes',required=False,action='store_true',help='Restore indexes found in metadata to the specified server')
+    parser.add_argument('--skip-incompatible',required=False,action='store_true',help='Skip incompatible indexes when restoring metadata')
+    parser.add_argument('--support-2dsphere',required=False,action='store_true',help='Support 2dsphere indexes creation (collections data must use GeoJSON Point type for indexing)')
+    parser.add_argument('--skip-python-version-check',required=False,action='store_true',help='Permit execution on Python 3.6 and prior')
+    parser.add_argument('--shorten-index-name',required=False,action='store_true',help='Shorten long index name to compatible length')
+    parser.add_argument('--skip-id-indexes',required=False,action='store_true',help='Do not create _id indexes')
 
     args = parser.parse_args()
 
