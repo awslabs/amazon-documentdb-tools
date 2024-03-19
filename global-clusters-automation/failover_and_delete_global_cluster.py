@@ -148,7 +148,8 @@ def delete_global_cluster(global_cluster_id, secondary_cluster_arn, secondary_cl
         if each_secondary_cluster != secondary_cluster_arn:
             print('Removing secondary cluster ', each_secondary_cluster, ' from global cluster ', global_cluster_id)
             remove_from_global_cluster(each_secondary_cluster, global_cluster_id)
-            # Wait until all standalone clusters are promoted to stand alone clusters and removed from global cluster
+            # Wait until all clusters in the global cluster are promoted to standalone clusters
+            # and removed from global cluster
             print('Waiting till all secondary clusters are removed from global cluster ', global_cluster_id)
             wait_for_promotion_to_complete(global_cluster_id, each_secondary_cluster)
 
