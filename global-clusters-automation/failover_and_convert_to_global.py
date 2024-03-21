@@ -95,7 +95,6 @@ def get_cluster_details(cluster):
             "number_of_instances": len(cluster_response['DBClusterMembers']),
             "subnet_group": cluster_response['DBSubnetGroup'],
             "security_group_id": vpc_group_ids,
-            "kms_key_id": cluster_response['KmsKeyId'],
             "backup_retention_period": cluster_response['BackupRetentionPeriod'],
             "cluster_parameter_group": cluster_response['DBClusterParameterGroup'],
             "preferred_back_up_window": cluster_response['PreferredBackupWindow'],
@@ -104,7 +103,9 @@ def get_cluster_details(cluster):
             "deletion_protection": cluster_response['DeletionProtection'],
             "engine_version": cluster_response['EngineVersion']
         }
-
+        # add KmsKeyId to cluster_details dictionary only if it exists in the deleted cluster
+        if 'KmsKeyId' in cluster_response:
+            cluster_details["kms_key_id"] = cluster_response['KmsKeyId']
         return cluster_details
 
     except ClientError as e:

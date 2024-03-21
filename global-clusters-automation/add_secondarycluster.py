@@ -95,25 +95,35 @@ def add_instance_to_cluster(each_item, instance_class, instance_count, client_lo
 def create_secondary_cluster(each_item, global_cluster_id, client_local):
     try:
         response = client_local.create_db_cluster(
-            GlobalClusterIdentifier=global_cluster_id,
-            SourceRegion=each_item['region'],
-            DBClusterIdentifier=each_item['secondary_cluster_id'],
-            DBSubnetGroupName=each_item['subnet_group'],
-            VpcSecurityGroupIds=each_item['security_group_id'],
-            KmsKeyId=each_item['kms_key_id'],
-            Engine='docdb',
-            EngineVersion=each_item['engine_version'],
-            DBClusterParameterGroupName=each_item['cluster_parameter_group'],
-            BackupRetentionPeriod=each_item['backup_retention_period'],
-            PreferredBackupWindow=each_item['preferred_back_up_window'],
-            PreferredMaintenanceWindow=each_item['preferred_maintenance_window'],
-            StorageEncrypted=each_item['storage_encryption'],
-            DeletionProtection=each_item['deletion_protection'])
+            **{k: v for k, v in get_cluster_args.items() if v is not None})
     except ClientError as e:
         print('ERROR OCCURRED WHILE PROCESSING: ', e)
         print('PROCESSING WILL STOP')
         raise ClientError
 
+def get_cluster_args(global_cluster_id, each_item):
+    cluster_map = {}
+    cluster_map['GlobalClusterIdentifier']=global_cluster_id
+    cluster_map['SourceRegion']=each_item['region']
+    cluster_map['DBClusterIdentifier']=each_item['secondary_cluster_id']
+    cluster_map['DBSubnetGroupName']=each_item['subnet_group']
+    cluster_map['VpcSecurityGroupIds']=each_item['security_group_id']
+    cluster_map['KmsKeyId']=fetch_kms_key(each_item)
+    cluster_map['Engine']='docdb'
+    cluster_map['EngineVersion']=each_item['engine_version']
+    cluster_map['DBClusterParameterGroupName']=each_item['cluster_parameter_group']
+    cluster_map['BackupRetentionPeriod']=each_item['backup_retention_period']
+    cluster_map['PreferredBackupWindow']=each_item['preferred_back_up_window']
+    cluster_map['PreferredMaintenanceWindow']=each_item['preferred_maintenance_window']
+    cluster_map['StorageEncrypted']=each_item['storage_encryption']
+    cluster_map['DeletionProtection']=each_item['deletion_protection']
+    return cluster_map
+
+def fetch_kms_key(each_item):  
+    if 'kms_key_id' in each_item:
+        KmsKeyId=each_item['kms_key_id']
+    else:
+        return None
 
 def create_global_cluster(global_cluster_id, primary_cluster_arn):
     try:
