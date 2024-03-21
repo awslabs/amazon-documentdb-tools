@@ -94,6 +94,86 @@ The following 9 supported operators were found
   - $sum | found 1 time(s)
 ```
 
+### Example 3:
+Check for compatibility with Amazon DocumentDB, files from the folder called test, excluding the ones with extension `.txt` and excluding directories `exclude1` and `exclude2`:
+
+```
+python3 compat.py --version 5.0 --directory test --excluded-extensions txt --excluded-directories exclude1,exclude2
+
+processing file test/mongod.log.2020-11-10T19-33-14
+processing file test/mongodb.log
+processing file test/sample-5-0-features.py
+processing file test/sample-python-1.py
+processing file test/sample-python-2.py
+
+Processed 5 files, skipped 3 files
+
+The following 5 unsupported operators were found:
+  $facet | found 2 time(s)
+  $sortByCount | found 2 time(s)
+  $bucket | found 1 time(s)
+  $bucketAuto | found 1 time(s)
+  $expr | found 1 time(s)
+
+Unsupported operators by filename and line number:
+  $facet | lines = found 2 time(s)
+    test/mongodb.log | lines = [80, 82]
+  $sortByCount | lines = found 2 time(s)
+    test/mongod.log.2020-11-10T19-33-14 | lines = [83]
+    test/sample-python-2.py | lines = [29]
+  $bucket | lines = found 1 time(s)
+    test/mongodb.log | lines = [80]
+  $bucketAuto | lines = found 1 time(s)
+    test/mongodb.log | lines = [82]
+  $expr | lines = found 1 time(s)
+    test/mongod.log.2020-11-10T19-33-14 | lines = [107]
+
+The following 34 supported operators were found:
+  - $match | found 34 time(s)
+  - $gt | found 15 time(s)
+  - $project | found 15 time(s)
+  - $lte | found 14 time(s)
+  - $group | found 13 time(s)
+  - $gte | found 13 time(s)
+  - $sum | found 11 time(s)
+  - $in | found 10 time(s)
+  - $count | found 7 time(s)
+  - $ne | found 7 time(s)
+  - $lookup | found 6 time(s)
+  - $unwind | found 4 time(s)
+  - $eq | found 3 time(s)
+  - $sort | found 3 time(s)
+  - $nin | found 2 time(s)
+  - $nor | found 2 time(s)
+  - $set | found 2 time(s)
+  - $skip | found 2 time(s)
+  - $addToSet | found 1 time(s)
+  - $and | found 1 time(s)
+  - $arrayElemAt | found 1 time(s)
+  - $avg | found 1 time(s)
+  - $dateAdd | found 1 time(s)
+  - $dateSubtract | found 1 time(s)
+  - $elemMatch | found 1 time(s)
+  - $first | found 1 time(s)
+  - $inc | found 1 time(s)
+  - $last | found 1 time(s)
+  - $limit | found 1 time(s)
+  - $lt | found 1 time(s)
+  - $max | found 1 time(s)
+  - $min | found 1 time(s)
+  - $not | found 1 time(s)
+  - $or | found 1 time(s)
+
+List of skipped files - excluded extensions
+  test/not_a_log_file.txt
+  test/testlog.txt
+  test/testlog2.txt
+
+List of skipped directories - excluded directories
+  test/exclude1
+  test/exclude2
+  
+```
 #### NOTES:
 * All files scanned by this utility are opened read-only and scanned in memory. For large files, make sure you have enough available RAM or split the files accordingly.
 * With the exception of operators used, there is no logging of the file contents.
