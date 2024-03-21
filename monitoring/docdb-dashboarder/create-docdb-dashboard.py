@@ -96,6 +96,7 @@ def main():
         w.ReadLatency,
         w.WriteLatency,
         w.DiskQueueDepth,
+        w.DBInstanceReplicaLag,
 
         w.WriteIops,
         w.WriteThroughput,

@@ -406,7 +406,7 @@ DocsReturned = {
 
 ReadLatency = {
             "height": 6,
-            "width": 8,
+            "width": 6,
             "y": 52,
             "x": 0,
             "type": "metric",
@@ -421,9 +421,9 @@ ReadLatency = {
         }
 WriteLatency = {
             "height": 6,
-            "width": 8,
+            "width": 6,
             "y": 52,
-            "x": 8,
+            "x": 6,
             "type": "metric",
             "properties": {
                 "view": "timeSeries",
@@ -436,9 +436,9 @@ WriteLatency = {
         }
 DiskQueueDepth = {
             "height": 6,
-            "width": 8,
+            "width": 6,
             "y": 52,
-            "x": 16,
+            "x": 12,
             "type": "metric",
             "properties": {
                 "view": "timeSeries",
@@ -447,6 +447,21 @@ DiskQueueDepth = {
                     ["AWS/DocDB", "DiskQueueDepth", "DBInstanceIdentifier"]
                 ],
                 "title": "Disk Queue Depth"
+            }
+        }
+DBInstanceReplicaLag = {
+            "height": 6,
+            "width": 6,
+            "y": 52,
+            "x": 18,
+            "type": "metric",
+            "properties": {
+                "view": "timeSeries",
+                "stacked": False,
+                "metrics": [
+                    ["AWS/DocDB", "DBInstanceReplicaLag", "DBInstanceIdentifier"]
+                ],
+                "title": "Replica Lag"
             }
         }
 
