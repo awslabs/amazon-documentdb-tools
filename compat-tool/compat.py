@@ -15,6 +15,7 @@ supportedDict = {}
 skippedFileList = []
 exceptionFileList = []
 numProcessedFiles = 0
+skippedDirectories = []
 
 
 def double_check(checkOperator, checkLine, checkLineLength):
@@ -29,7 +30,7 @@ def double_check(checkOperator, checkLine, checkLineLength):
 
 
 def scan_code(args, keywords):
-    global numProcessedFiles, issuesDict, detailedIssuesDict, supportedDict, skippedFileList, exceptionFileList
+    global numProcessedFiles, issuesDict, detailedIssuesDict, supportedDict, skippedFileList, exceptionFileList, skippedDirectories
     
     ver = args.version
 
@@ -48,19 +49,26 @@ def scan_code(args, keywords):
     if args.includedExtensions != "NONE":
         excludedExtensions = args.excludedExtensions.lower().split(",")
     
+    excludedDirectories = []
+    if args.excludedDirectories != "NONE":
+        excludedDirectories = args.excludedDirectories.lower().split(",")
     if args.scanFile is not None:
         fileArray.append(args.scanFile)
         numProcessedFiles += 1
     else:
         for filename in glob.iglob("{}/**".format(args.scanDir), recursive=True):
-            if os.path.isfile(filename):
-                if ((pathlib.Path(filename).suffix[1:].lower() not in excludedExtensions) and
-                     ((args.includedExtensions == "ALL") or 
-                      (pathlib.Path(filename).suffix[1:].lower() in includedExtensions))):
-                    fileArray.append(filename)
-                    numProcessedFiles += 1
-                else:
-                    skippedFileList.append(filename)
+            if os.path.isdir(filename) and os.path.basename(filename) in excludedDirectories:
+                skippedDirectories.append(filename) 
+            else:
+                if os.path.isfile(filename):
+                    if ((pathlib.Path(filename).suffix[1:].lower() not in excludedExtensions) and
+                         ((args.includedExtensions == "ALL") or 
+                          (pathlib.Path(filename).suffix[1:].lower() in includedExtensions))):
+                        fileArray.append(filename)
+                        numProcessedFiles += 1
+                    else:
+                        skippedFileList.append(filename)
+                   
                     
     for thisFile in fileArray:
         print("processing file {}".format(thisFile))
@@ -121,6 +129,7 @@ def main(args):
     parser.add_argument("--file", dest="scanFile", action="store", help="Specific file to scan for compatibility", required=False)
     parser.add_argument("--excluded-extensions", dest="excludedExtensions", action="store", default="NONE", help="Filename extensions to exclude from scanning, comma separated", required=False)
     parser.add_argument("--included-extensions", dest="includedExtensions", action="store", default="ALL", help="Filename extensions to include in scanning, comma separated", required=False)
+    parser.add_argument("--excluded-directories", dest="excludedDirectories", action="store", default="NONE", help="directories to exclude from scanning, comma separated", required=False)
     args = parser.parse_args()
     
     if args.scanDir is None and args.scanFile is None:
@@ -176,6 +185,12 @@ def main(args):
         print("List of skipped files - unsupported file type/content")
         for exceptionFile in exceptionFileList:
             print("  {}".format(exceptionFile))
+    
+    if len(skippedDirectories) > 0:
+        print("")
+        print("List of skipped directories - excluded directories")
+        for skippedDirectory in skippedDirectories:
+            print("  {}".format(skippedDirectory))
 
     print("")
 
