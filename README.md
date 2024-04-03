@@ -1,6 +1,6 @@
 # Amazon DocumentDB Tools
 
-This repository contains several tools to help users with Amazon DocumentDB including migration, monitoring, and performance. A few of the most popular tools are listed below but there are additional tools in the [migration](./migration), [monitoring](./monitoring), and [performance](./performance) folders.
+This repository contains several tools to help users with Amazon DocumentDB including migration, monitoring, and performance. A few of the most popular tools are listed below but there are additional tools in the [migration](./migration), [monitoring](./monitoring), [operations](./operations), and [performance](./performance) folders.
 
 ## Amazon DocumentDB Index Tool 
 
