@@ -22,7 +22,7 @@ def get_global_cluster_members(global_cluster_id):
     return global_cluster_members
 
 
-def prepare_to_convert(global_cluster_members, global_cluster_id, secondary_cluster_arn):
+def prepare_to_convert(global_cluster_members, global_cluster_id, secondary_cluster_arn, io_optimized_storage, enable_performance_insights):
     try:
         # populate the list of clusters in the global cluster and remove the secondary cluster to be promoted from
         # the list
@@ -35,12 +35,17 @@ def prepare_to_convert(global_cluster_members, global_cluster_id, secondary_clus
 
         secondary_clusters = []
         for each_cluster in regional_clusters:
-            secondary_clusters.append(get_cluster_details(each_cluster))
+            cluster_details = get_cluster_details(each_cluster)
+            if io_optimized_storage:
+                cluster_details["StorageType"] = "iopt1"
+            secondary_clusters.append(cluster_details)
 
         convert_to_global_request = {
             "global_cluster_id": global_cluster_id,
             "primary_cluster_arn": new_primary_cluster_arn,
-            "secondary_clusters": secondary_clusters
+            "secondary_clusters": secondary_clusters,
+            "io_optimized_storage": io_optimized_storage,
+            "enable_performance_insights": enable_performance_insights
         }
     except ClientError as e:
         print('ERROR OCCURRED WHILE PROCESSING: ', e)

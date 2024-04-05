@@ -55,7 +55,9 @@ def lambda_handler(event, context):
         print('Begin process to create request to convert regional cluster to global cluster ')
         convert_to_global_request = prepare_to_convert(global_cluster_members,
                                                        global_cluster_id=event['global_cluster_id'],
-                                                       secondary_cluster_arn=event['secondary_cluster_arn'])
+                                                       secondary_cluster_arn=event['secondary_cluster_arn'],
+                                                       io_optimized_storage=event['io_optimized_storage'],
+                                                       enable_performance_insights=event['enable_performance_insights'])
         print('Created request to convert back to global cluster.')
         print('Starting process to failover')
         failover_function = os.environ['FAILOVER_FUNCTION']

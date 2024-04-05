@@ -71,11 +71,13 @@ Global cluster with a primary cluster and secondary cluster(s) in the provided r
   "global_cluster_id": "global-demo",
   "secondary_cluster_arn": "arn:aws:rds:us-west-2:123456789123:cluster:cluster-1",
   "primary_cluster_cname": "primary.sample.com",
-  "hosted_zone_id": "Z005XXXXYYYYZZZZDOHSB"
+  "hosted_zone_id": "Z005XXXXYYYYZZZZDOHSB",
+  "io_optimized_storage": true,
+  "enable_performance_insights": true
 }
 ```
 #### Action
-This function will trigger the lambda function *failoverToSecondary* to remove and promote the provided secondary cluster `secondary_cluster_arn`. The boolean to delete old global cluster is set to True by this function. After successful promotion of secondary cluster, this lambda function will trigger the *failoverAndConvertToGlobal* lambda function to recreate the global cluster with secondary clusters in regions that existed in prior to failover.The secondary clusters will use VPC ID and security group ID that were used prior to failover and the cluster ID will be defined based on the current time stamp and prior cluster ID. The instance size and number of instances will also be the same as before (failover).
+This function will trigger the lambda function *failoverToSecondary* to remove and promote the provided secondary cluster `secondary_cluster_arn`. The boolean to delete old global cluster is set to True by this function. After successful promotion of secondary cluster, this lambda function will trigger the *failoverAndConvertToGlobal* lambda function to recreate the global cluster with secondary clusters in regions that existed in prior to failover.The secondary clusters will use VPC ID and security group ID that were used prior to failover and the cluster ID will be defined based on the current time stamp and prior cluster ID. The instance size and number of instances will also be the same as before (failover). Additionally you can change the storage type of the secondary cluster by setting 'io_optimized_storage' in the payload to true. if you want to eanble PerformanceInsights in the newly created secondary cluster instances, please set 'enable_performance_insights' to true. 
 
 Note: During failover to secondary cluster, there will be a brief window of time where the writes to the original primary cluster is not replicated to the newly promoted cluster. Hence, it is always recommended to perform BCP testing during non peak hours when the write traffic is minimum if not zero.
 
