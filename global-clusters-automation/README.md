@@ -52,11 +52,13 @@ Note: During a DR scenario, the writes to the cluster will fail until the promot
       "storage_encryption": true,
       "deletion_protection": false
     }
-  ]
+  ],
+  "io_optimized_storage": true,
+  "enable_performance_insights": true 
 }
 ```
 #### Action
-This function will convert the regional cluster provided via input as `primary_cluster_arn` to a global cluster. The cluster indicated by `primary_cluster_arn` will become the primary cluster. The array of secondary clusters provided as input will be created with appropriate number of instances indicated by `number_of_instances`.The instance class for this instance will be the same as the instance class of primary instance in the primary cluster.
+This function will convert the regional cluster provided via input as `primary_cluster_arn` to a global cluster. The cluster indicated by `primary_cluster_arn` will become the primary cluster. The array of secondary clusters provided as input will be created with appropriate number of instances indicated by `number_of_instances`.The instance class for this instance will be the same as the instance class of primary instance in the primary cluster. Additionally you can change the storage type of the secondary cluster by setting 'io_optimized_storage' in the payload to true. if you want to eanble PerformanceInsights in the newly created secondary cluster instances, please set 'enable_performance_insights' to true. 
 
 #### Output
 Global cluster with a primary cluster and secondary cluster(s) in the provided region(s) and subnet(s) 
