@@ -111,7 +111,8 @@ def lambda_handler(event, context):
             add_secondarycluster.convert_regional_to_global(primary_cluster_arn=event['primary_cluster_arn'],
                                                             global_cluster_id=event['global_cluster_id'],
                                                             secondary_clusters=event['secondary_clusters'],
-                                                            enable_performance_insights=event['enable_performance_insights'])
+                                                            enable_performance_insights=event['enable_performance_insights'],
+                                                            io_optimized_storage=event['io_optimized_storage'])
 
             end_time = time.time()
 

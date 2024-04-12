@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 session = boto3.Session()
 
 
-def convert_regional_to_global(primary_cluster_arn, global_cluster_id, secondary_clusters,enable_performance_insights):
+def convert_regional_to_global(primary_cluster_arn, global_cluster_id, secondary_clusters,enable_performance_insights, io_optimized_storage):
     try:
         start_time = time.time()
         primary_cluster_id = primary_cluster_arn.split(":")[-1]
@@ -36,7 +36,7 @@ def convert_regional_to_global(primary_cluster_arn, global_cluster_id, secondary
         print('Begin STEP 2 of 2 in convert to global cluster: Create Secondary Clusters')
         for each_item in secondary_clusters:
             client_local = session.client('docdb', region_name=each_item['region'])
-            create_secondary_cluster(each_item, global_cluster_id, client_local)
+            create_secondary_cluster(each_item, global_cluster_id, client_local, io_optimized_storage)
             print('Created secondary cluster with id ', each_item['secondary_cluster_id'])
             # For each secondary cluster in the global cluster, add instances as indicated in the input and use
             # instance class identified earlier from primary
@@ -91,10 +91,13 @@ def add_instance_to_cluster(each_item, instance_class, instance_count, client_lo
 
 # create secondary cluster using create_db_cluster API and pass a unpacked dictioanry as parameters
 # omit values that are None
-def create_secondary_cluster(each_item, global_cluster_id, client_local):
+def create_secondary_cluster(each_item, global_cluster_id, client_local, io_optimized_storage):
     try:
+        cluster_map = get_cluster_args(global_cluster_id, each_item)
+        if io_optimized_storage:
+                cluster_map["StorageType"] = "iopt1"
         response = client_local.create_db_cluster(
-            **{k: v for k, v in get_cluster_args(global_cluster_id, each_item).items() if v is not None})
+            **{k: v for k, v in cluster_map.items() if v is not None})
     except ClientError as e:
         print('ERROR OCCURRED WHILE PROCESSING: ', e)
         print('PROCESSING WILL STOP')
