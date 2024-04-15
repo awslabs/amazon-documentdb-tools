@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 session = boto3.Session()
 
 
-def convert_regional_to_global(primary_cluster_arn, global_cluster_id, secondary_clusters):
+def convert_regional_to_global(primary_cluster_arn, global_cluster_id, secondary_clusters,enable_performance_insights, io_optimized_storage):
     try:
         start_time = time.time()
         primary_cluster_id = primary_cluster_arn.split(":")[-1]
@@ -24,9 +24,6 @@ def convert_regional_to_global(primary_cluster_arn, global_cluster_id, secondary
             print('Checking for cluster and instance status before converting to global cluster...')
             cluster_status = get_cluster_status(primary_cluster_arn)
             time.sleep(1)
-
-        # Start the conversion process by converting the regional cluster indicated by the primary cluster ARN to a
-        # global cluster.
         print('Cluster and instances for primary cluster ', primary_cluster_arn, ' is in available status. '
                                                                                  'Start conversion process')
         print('Begin STEP 1 of 2 in convert to global cluster: Create global cluster ', global_cluster_id)
@@ -39,12 +36,12 @@ def convert_regional_to_global(primary_cluster_arn, global_cluster_id, secondary
         print('Begin STEP 2 of 2 in convert to global cluster: Create Secondary Clusters')
         for each_item in secondary_clusters:
             client_local = session.client('docdb', region_name=each_item['region'])
-            create_secondary_cluster(each_item, global_cluster_id, client_local)
+            create_secondary_cluster(each_item, global_cluster_id, client_local, io_optimized_storage)
             print('Created secondary cluster with id ', each_item['secondary_cluster_id'])
             # For each secondary cluster in the global cluster, add instances as indicated in the input and use
             # instance class identified earlier from primary
             for instance_count in range(0, each_item['number_of_instances']):
-                add_instance_to_cluster(each_item, instance_class, instance_count, client_local)
+                add_instance_to_cluster(each_item, instance_class, instance_count, client_local, enable_performance_insights)
                 print('Created instance ', each_item['secondary_cluster_id'] + str(instance_count),
                       'for secondary cluster ', each_item['secondary_cluster_id'])
         current_time = time.time()
@@ -78,29 +75,35 @@ def identify_instance_class(primary_cluster_id, client_local):
     return instance_class
 
 
-def add_instance_to_cluster(each_item, instance_class, instance_count, client_local):
+def add_instance_to_cluster(each_item, instance_class, instance_count, client_local, enable_performance_insights):
     try:
         response = client_local.create_db_instance(
             DBClusterIdentifier=each_item['secondary_cluster_id'],
             DBInstanceIdentifier=each_item['secondary_cluster_id'] + str(instance_count),
             DBInstanceClass=instance_class,
-            Engine='docdb'
+            Engine='docdb',
+            EnablePerformanceInsights=enable_performance_insights
         )
     except ClientError as e:
         print('ERROR OCCURRED WHILE PROCESSING: ', e)
         print('PROCESSING WILL STOP')
         raise ClientError
 
-
-def create_secondary_cluster(each_item, global_cluster_id, client_local):
+# create secondary cluster using create_db_cluster API and pass a unpacked dictioanry as parameters
+# omit values that are None
+def create_secondary_cluster(each_item, global_cluster_id, client_local, io_optimized_storage):
     try:
+        cluster_map = get_cluster_args(global_cluster_id, each_item)
+        if io_optimized_storage:
+                cluster_map["StorageType"] = "iopt1"
         response = client_local.create_db_cluster(
-            **{k: v for k, v in get_cluster_args.items() if v is not None})
+            **{k: v for k, v in cluster_map.items() if v is not None})
     except ClientError as e:
         print('ERROR OCCURRED WHILE PROCESSING: ', e)
         print('PROCESSING WILL STOP')
         raise ClientError
 
+# creating a dictionary of args to be used with create_db_cluster API
 def get_cluster_args(global_cluster_id, each_item):
     cluster_map = {}
     cluster_map['GlobalClusterIdentifier']=global_cluster_id
@@ -117,11 +120,20 @@ def get_cluster_args(global_cluster_id, each_item):
     cluster_map['PreferredMaintenanceWindow']=each_item['preferred_maintenance_window']
     cluster_map['StorageEncrypted']=each_item['storage_encryption']
     cluster_map['DeletionProtection']=each_item['deletion_protection']
+    cluster_map['StorageType'] = fetch_storage_type(each_item)
     return cluster_map
 
+# retrieve KMS key if exists else return None
 def fetch_kms_key(each_item):  
     if 'kms_key_id' in each_item:
         KmsKeyId=each_item['kms_key_id']
+        return KmsKeyId
+    else:
+        return None
+
+def fetch_storage_type(each_item):
+    if 'StorageType' in each_item:
+        return each_item['StorageType']
     else:
         return None
 
