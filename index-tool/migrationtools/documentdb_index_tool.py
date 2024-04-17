@@ -82,6 +82,7 @@ class IndexToolConstants(object):
         pass
 
     DATABASES_TO_SKIP = ['admin', 'config', 'local', 'system']
+    SYSTEM_OBJECTS_TO_SKIP = ['system.buckets','system.namespaces','system.indexes','system.profile','system.js','system.views']
     METADATA_FILES_TO_SKIP = ['system.indexes.metadata.json', 'system.profile.metadata.json', 'system.users.metadata.json', 'system.views.metadata.json']
     METADATA_FILE_SUFFIX_PATTERN = 'metadata.json'
     EXCEEDED_LIMITS = 'exceeded_limits'
@@ -258,6 +259,11 @@ class DocumentDbIndexTool(IndexToolConstants):
                         database_name][collection_name].options()
                     if 'viewOn' in collection_metadata[self.OPTIONS]:
                         # views cannot have indexes, skip to next collection
+                        logging.debug("  skipping, view not collection")
+                        continue
+                    if collection_name in self.SYSTEM_OBJECTS_TO_SKIP:
+                        # system objects, skip to next collection
+                        logging.debug("  skipping, system object")
                         continue
                     collection_indexes = connection[database_name][
                         collection_name].list_indexes()
