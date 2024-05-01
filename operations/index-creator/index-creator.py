@@ -123,6 +123,7 @@ def task_worker(appConfig):
     unique = appConfig['unique']
     indexKeys = appConfig['indexKeys']
     workers = appConfig['workers']
+    dropIndex = appConfig['dropIndex']
     
     indexList = []
     for thisKey in indexKeys.split(','):
@@ -141,6 +142,10 @@ def task_worker(appConfig):
     client = pymongo.MongoClient(host=uri,appname='indxcrtr')
     db = client[databaseName]
     col = db[collectionName]
+
+    if dropIndex and (indexName in col.index_information()):
+        printLog("Dropping index {} on {}.{}".format(indexName,databaseName,collectionName),appConfig)
+        col.drop_index(indexName)
     
     # output what we are doing before we do it
     printLog("Creating index {} on {}.{}, unique={}, background={}, workers={}, keys={}".format(indexName,databaseName,collectionName,unique,background,workers,indexList),appConfig)
@@ -166,6 +171,7 @@ def main():
     parser.add_argument('--background',required=False,action='store_true',help='Create index in the background')
     parser.add_argument('--foreground',required=False,action='store_true',help='Create index in the foreground')
     parser.add_argument('--unique',required=False,action='store_true',help='Create unique index')
+    parser.add_argument('--drop-index',required=False,action='store_true',help='Drop the index (if it exists)')
     args = parser.parse_args()
     
     # fail if not --background or --foreground
@@ -184,6 +190,7 @@ def main():
     appConfig['logFileName'] = args.log_file_name
     appConfig['unique'] = args.unique
     appConfig['background'] = args.background
+    appConfig['dropIndex'] = args.drop_index
     
     deleteLog(appConfig)
     

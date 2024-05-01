@@ -23,6 +23,7 @@ Index Creator accepts the following arguments:
 --unique                              Create unique index
 --foreground                          Create index in the foreground (must provide this or --background)
 --background                          Create index in the background (must provide this or --foreground)
+--drop-index                          Drop index (if exists)
 --update-frequency-seconds SECONDS    Number of seconds between progress updates (default 15)
 --log-file-name LOG_FILE_NAME         Name of file for output logging (default index-creator.log)
 ```
