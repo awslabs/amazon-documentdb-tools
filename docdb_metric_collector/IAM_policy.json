@@ -1,0 +1,26 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "rds:DescribeDBInstances",
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "rds:DatabaseEngine": "docdb"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "rds:DescribeDBClusterParameters",
+                "cloudwatch:GetMetricData",
+                "cloudwatch:GetMetricStatistics",
+                "rds:DescribeDBClusters",
+                "rds:DescribeDBClusterParameterGroups"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
