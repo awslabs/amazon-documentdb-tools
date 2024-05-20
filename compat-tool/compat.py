@@ -274,7 +274,7 @@ def load_keywords():
         "$eq":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$exists":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$exp":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"No"},
-        "$expr":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$expr":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"No"},
         "$facet":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$fill":{"mongodbversion":"5.3","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$filter":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
