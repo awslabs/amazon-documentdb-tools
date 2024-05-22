@@ -1,5 +1,5 @@
 # Custom Metrics Tool
-There are Amazon DocumentDB cluster limits that are not currently exposed as Amazon CloudWatch metrics. The **custom-metrics** tool connects to an Amazon DocumentDB cluster, collects the speficied metrics, and publishes them as custom CloudWatch metrics. The followine metrics can be collected by the **custom-metrics** tool:
+There are Amazon DocumentDB cluster limits that are not currently exposed as Amazon CloudWatch metrics. The **custom-metrics** tool connects to an Amazon DocumentDB cluster, collects the specified metrics, and publishes them as custom CloudWatch metrics. The following metrics can be collected by the **custom-metrics** tool:
 
 1. collection count (per cluster)
 2. collection size (per collection)
@@ -19,7 +19,7 @@ CloudWatch metrics will be published to the following dimensions in the **Custom
 ------------------------------------------------------------------------------------------------------------------------
 ## Requirements 
 
-Python 3.x with modues: 
+Python 3.x with modules: 
 
 * boto3 - AWS SDK that allows management of AWS resources through Python
 * pymongo - MongoDB driver for Python applications
