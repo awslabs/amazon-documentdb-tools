@@ -41,13 +41,16 @@ The tool accepts the following arguments:
 
 ```
 python3 custom-metrics.py --help
-usage: custom-metrics.py [-h] --cluster_name CLUSTER_NAME --uri URI
-                         --namespaces NAMESPACES [--collection_count]
-                         [--database_count] [--user_count] [--collection_size]
-                         [--index_count] [--index_size]
+usage: custom-metrics.py [-h] [--skip-python-version-check] --cluster_name
+                         CLUSTER_NAME --uri URI --namespaces NAMESPACES
+                         [--collection_count] [--database_count]
+                         [--user_count] [--collection_size] [--index_count]
+                         [--index_size]
 
 optional arguments:
   -h, --help            show this help message and exit
+  --skip-python-version-check
+                        Permit execution on Python 3.6 and prior
   --cluster_name CLUSTER_NAME
                         Name of cluster for Amazon CloudWatch custom metric
   --uri URI             Amazon DocumentDB Connection URI

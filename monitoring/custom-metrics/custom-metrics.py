@@ -1,4 +1,5 @@
 """Python script to publish custom Amazon DocumentDB CloudWatch metrics."""
+import sys
 import re
 import logging
 import argparse
@@ -25,7 +26,6 @@ def connect_to_docdb(app_config):
 
 def log_collection_size_metric(cluster_name, database_name, collection_name, collection_size):
     """Create custom metric for collection size."""
-    print("cluster_name = %s, database_name = %s collection_name = %s collection_size = %s", cluster_name, database_name, collection_name, collection_size)
     cloudWatchClient.put_metric_data(
         Namespace='CustomDocDB',
         MetricData=[
@@ -54,7 +54,6 @@ def log_collection_size_metric(cluster_name, database_name, collection_name, col
 
 def log_index_count_metric(cluster_name, database_name, collection_name, index_count):
     """Create custom metric for number of indexes in collection."""
-    print("cluster_name = %s, database_name = %s, collection_name = %s, index_count = %s", cluster_name, database_name, collection_name, index_count)
     cloudWatchClient.put_metric_data(
         Namespace='CustomDocDB',
         MetricData=[
@@ -82,7 +81,6 @@ def log_index_count_metric(cluster_name, database_name, collection_name, index_c
 
 def log_index_size_metric(cluster_name, database_name, collection_name, index_name, index_size):
     """Create custom metric for index size."""
-    print("cluster_name = %s, database_name = %s, collection_name = %s, index_name = %s, index_size = %s", cluster_name, database_name, collection_name, index_name, index_size)
     cloudWatchClient.put_metric_data(
         Namespace='CustomDocDB',
         MetricData=[
@@ -115,7 +113,6 @@ def log_index_size_metric(cluster_name, database_name, collection_name, index_na
 
 def log_number_of_databases_metric(cluster_name, number_of_databases):
     """Create custom metric for number of databases in cluster."""
-    print("cluster_name = %s, number_of_databases = %s", cluster_name, number_of_databases)
     cloudWatchClient.put_metric_data(
         Namespace='CustomDocDB',
         MetricData=[
@@ -135,7 +132,6 @@ def log_number_of_databases_metric(cluster_name, number_of_databases):
 
 def log_number_of_collections_metric(cluster_name, collection_count):
     """Create custom metric for number of collections in cluster."""
-    print("cluster_name = %s, collection_count = %s", cluster_name, collection_count)
     cloudWatchClient.put_metric_data(
         Namespace='CustomDocDB',
         MetricData=[
@@ -155,7 +151,6 @@ def log_number_of_collections_metric(cluster_name, collection_count):
 
 def log_number_of_users_metric(cluster_name, number_of_users):
     """Create custom metric for number of users in cluster."""
-    print("cluster_name = %s, number_of_users = %s", cluster_name, number_of_users)
     cloudWatchClient.put_metric_data(
         Namespace='CustomDocDB',
         MetricData=[
@@ -271,6 +266,11 @@ def log_custom_metrics(parameters):
 def main():
     """custom_metrics script entry point."""
     parser = argparse.ArgumentParser()
+    parser.add_argument('--skip-python-version-check',
+                        required=False,
+                        action='store_true',
+                        help='Permit execution on Python 3.6 and prior')
+    
     parser.add_argument('--cluster_name',
                         required=True,
                         type=str,
@@ -311,6 +311,11 @@ def main():
                         help="log collection index size")
 
     args = parser.parse_args()
+
+    MIN_PYTHON = (3, 7)
+    if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
+        sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
+
     if (args.collection_count is False and
         args.database_count is False and
         args.user_count is False and
