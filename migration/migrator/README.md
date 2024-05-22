@@ -1,5 +1,5 @@
-# Amazon DocumentDB Change Data Capture (CDC) Synchronization Tool
-This synchronization tool enables high-speed CDC from a MongoDB source database to an Amazon DocumentDB target database.
+# Amazon DocumentDB Full Load and Change Data Capture (CDC) Synchronization Tool
+This synchronization tool enables high-speed Full Load and CDC from a MongoDB/DocumentDB source database to an Amazon DocumentDB target database.
 
 ## Installation
 Clone the repository.
