@@ -407,7 +407,7 @@ def load_keywords():
         "$substrCP":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$subtract":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$sum":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
-        "$switch":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$switch":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"No"},
         "$tan":{"mongodbversion":"4.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$tanh":{"mongodbversion":"4.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$text":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"Yes","EC5.0":"No"},
