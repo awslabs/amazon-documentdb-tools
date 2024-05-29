@@ -176,6 +176,7 @@ def oplog_processor(threadnum, appConfig, perfQ):
         numTotalBatches += 1
 
     c.close()
+    destConnection.close()
 
     perfQ.put({"name":"processCompleted","processNum":threadnum})
 
@@ -325,7 +326,8 @@ def change_stream_processor(threadnum, appConfig, perfQ):
         numCurrentBulkOps = 0
         numTotalBatches += 1
 
-    c.close()
+    sourceConnection.close()
+    destConnection.close()
 
     perfQ.put({"name":"processCompleted","processNum":threadnum})
 
