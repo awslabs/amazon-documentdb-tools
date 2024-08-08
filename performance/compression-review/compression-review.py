@@ -92,7 +92,7 @@ def getData(appConfig):
                     sampleDocs = client[thisDbName][thisCollName].aggregate([{"$sample":{"size":sampleSize}}])
                     for thisDoc in sampleDocs:
                         totDocs += 1
-                        docAsString = str(thisDoc)
+                        docAsString = json.dumps(thisDoc,default=str)
                         docBytes = len(docAsString)
                         totDocBytes += docBytes
                         if (docBytes < minDocBytes):
