@@ -125,7 +125,7 @@ def getData(appConfig):
                             maxLz4Bytes = lz4Bytes
 
                 except:
-                    numExceptions = 0
+                    numExceptions += 0
 
                 if (totDocs == 0):
                     avgDocBytes = 0
