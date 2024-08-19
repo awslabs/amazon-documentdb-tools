@@ -14,6 +14,10 @@ The [DocumentDB Compatibility Tool](./compat-tool) examines log files from Mongo
 
 The [global-clusters-automation](./global-clusters-automation) automates the global cluster failover process for Disaster Recovery (DR) and Business Continuity Planning (BCP) use cases.
 
+## Support
+
+The contents of this repository are maintained by Amazon DocumentDB Specialist SAs and are not officially supported by AWS. Please file a [Github Issue](https://github.com/awslabs/amazon-documentdb-tools/issues) if you experience any problems.
+
 ## License
 
 This library is licensed under the Apache 2.0 License. 
