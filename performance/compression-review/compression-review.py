@@ -4,53 +4,53 @@ import sys
 import json
 import pymongo
 import time
-import os
-import lz4.frame
+import lz4.block
 import bz2
 import lzma
+import zstandard as zstd
+import zlib
+
+
+def createDictionary(appConfig, databaseName, collectionName):
+    dictionarySampleSize = appConfig['dictionarySampleSize']
+    dictionarySize = appConfig['dictionarySize']
+
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='comprevw')
+    col = client[databaseName][collectionName]
+
+    print("creating dictionary for {}.{} of {:d} bytes using {:d} samples".format(databaseName,collectionName,dictionarySize,dictionarySampleSize))
+    dictTrainingDocs = []
+    dictSampleDocs = col.aggregate([{"$sample":{"size":dictionarySampleSize}}])
+    for thisDoc in dictSampleDocs:
+        docAsString = json.dumps(thisDoc,default=str)
+        docAsBytes = str.encode(docAsString)
+        dictTrainingDocs.append(docAsBytes)
+    dict_data = zstd.train_dictionary(dictionarySize,dictTrainingDocs)
+
+    client.close()
+
+    return dict_data
 
 
 def getData(appConfig):
     print('connecting to server')
     client = pymongo.MongoClient(host=appConfig['uri'],appname='comprevw')
+
+    compressor = appConfig['compressor']
     sampleSize = appConfig['sampleSize']
-    if appConfig['compressor'] == 'lz4-0':
-        compressor='lz4'
-        level=0
-    elif appConfig['compressor'] == 'lz4-3':
-        compressor='lz4'
-        level=3
-    elif appConfig['compressor'] == 'lz4-16':
-        compressor='lz4'
-        level=16
-    elif appConfig['compressor'] == 'bz2-1':
-        compressor='bz2'
-        level=1
-    elif appConfig['compressor'] == 'bz2-9':
-        compressor='bz2'
-        level=9
-    elif appConfig['compressor'] == 'lzma-0':
-        compressor='lzma'
-        level=0
-    elif appConfig['compressor'] == 'lzma-6':
-        compressor='lzma'
-        level=6
-    elif appConfig['compressor'] == 'lzma-9':
-        compressor='lzma'
-        level=9
-    elif appConfig['compressor'] == 'lz4-x':
-        compressor='lz4'
-        level=appConfig['lz4Level']
-    else:
-        print('Unknown compressor | {}'.format(appConfig['compressor']))
-        sys.exit(1)
 
     # log output to file
     logTimeStamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
     logFileName = "{}-{}-compression-review.csv".format(appConfig['serverAlias'],logTimeStamp)
     logFileHandle = open(logFileName, "w")
 
-    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minComp','maxComp','avgComp','compRatio','exceptions','time(ms)'))
+    # output miscellaneos parameters to csv
+    logFileHandle.write("{},{},{},{}\n".format('compressor','docsSampled','dictDocsSampled','dictBytes'))
+    logFileHandle.write("{},{:d},{:d},{:d}\n".format(compressor,sampleSize,appConfig['dictionarySampleSize'],appConfig['dictionarySize']))
+    logFileHandle.write("\n")
+
+    # output header to csv
+    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minComp','maxComp','avgComp','compRatio','exceptions','compTime(ms)'))
 
     # get databases - filter out admin, config, local, and system
     dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":['admin','config','local','system']}})['databases']
@@ -88,6 +88,20 @@ def getData(appConfig):
                 totTimeMs = 0
                 totTimeNs = 0
 
+                # build the dictionary if needed
+                if compressor in ['lz4-fast-dict','lz4-high-dict','zstd-1-dict','zstd-5-dict']:
+                    zstdDict = createDictionary(appConfig, thisDbName, thisCollName)
+
+                # instantiate the compressor for zstandard (it doesn't support 1-shot compress)
+                if compressor == 'zstd-1':
+                    zstdCompressor = zstd.ZstdCompressor(level=1,dict_data=None)
+                if compressor == 'zstd-5':
+                    zstdCompressor = zstd.ZstdCompressor(level=5,dict_data=None)
+                elif compressor == 'zstd-1-dict':
+                    zstdCompressor = zstd.ZstdCompressor(level=1,dict_data=zstdDict)
+                elif compressor == 'zstd-5-dict':
+                    zstdCompressor = zstd.ZstdCompressor(level=5,dict_data=zstdDict)
+
                 try:
                     sampleDocs = client[thisDbName][thisCollName].aggregate([{"$sample":{"size":sampleSize}}])
                     for thisDoc in sampleDocs:
@@ -104,12 +118,22 @@ def getData(appConfig):
                         startTimeNs = time.time_ns()
 
                         # compress it
-                        if compressor == 'lz4':
-                            compressed = lz4.frame.compress(docAsString.encode(),compression_level=level)
-                        elif compressor == 'bz2':
-                            compressed = bz2.compress(docAsString.encode(),compresslevel=level)
-                        elif compressor == 'lzma':
-                            compressed = lzma.compress(docAsString.encode(),preset=level)
+                        if compressor == 'lz4-fast':
+                            compressed = lz4.block.compress(docAsString.encode(),mode='fast',acceleration=1)
+                        elif compressor == 'lz4-high':
+                            compressed = lz4.block.compress(docAsString.encode(),mode='high_compression',compression=1)
+                        elif compressor == 'lz4-fast-dict':
+                            compressed = lz4.block.compress(docAsString.encode(),mode='fast',acceleration=1,dict=zstdDict.as_bytes())
+                        elif compressor == 'lz4-high-dict':
+                            compressed = lz4.block.compress(docAsString.encode(),mode='high_compression',compression=1,dict=zstdDict.as_bytes())
+                        elif compressor in ['zstd-1','zstd-5','zstd-1-dict','zstd-5-dict']:
+                            compressed = zstdCompressor.compress(docAsString.encode())
+                        elif compressor == 'bz2-1':
+                            compressed = bz2.compress(docAsString.encode(),compresslevel=1)
+                        elif compressor == 'lzma-0':
+                            compressed = lzma.compress(docAsString.encode(),format=lzma.FORMAT_XZ,preset=0)
+                        elif compressor == 'zlib-1':
+                            compressed = zlib.compress(docAsString.encode(),level=1)
                         else:
                             print('Unknown compressor | {}'.format('compressor'))
                             sys.exit(1)
@@ -125,7 +149,7 @@ def getData(appConfig):
                             maxLz4Bytes = lz4Bytes
 
                 except:
-                    numExceptions += 0
+                    numExceptions += 1
 
                 if (totDocs == 0):
                     avgDocBytes = 0
@@ -174,16 +198,22 @@ def main():
 
     parser.add_argument('--compressor',
                         required=False,
-                        choices=['lz4-0','lz4-3','lz4-16','lz4-x','bz2-1','bz2-9','lzma-0','lzma-6','lzma-9'],
+                        choices=['lz4-fast','lz4-high','lz4-fast-dict','lz4-high-dict','zstd-1','zstd-5','zstd-1-dict','zstd-5-dict','bz2-1','lzma-0','zlib-1'],
                         type=str,
-                        default='lz4-0',
+                        default='lz4-fast',
                         help='Compressor')
-
-    parser.add_argument('--lz4-level',
+    
+    parser.add_argument('--dictionary-sample-size',
                         required=False,
                         type=int,
-                        default=0,
-                        help='LZ4 level')
+                        default=100,
+                        help='Number of documents to sample for dictionary creation')
+    
+    parser.add_argument('--dictionary-size',
+                        required=False,
+                        type=int,
+                        default=2048,
+                        help='Size of dictionary (bytes)')
 
     args = parser.parse_args()
     
@@ -197,7 +227,8 @@ def main():
     appConfig['serverAlias'] = args.server_alias
     appConfig['sampleSize'] = int(args.sample_size)
     appConfig['compressor'] = args.compressor
-    appConfig['lz4Level'] = int(args.lz4_level)
+    appConfig['dictionarySampleSize'] = int(args.dictionary_sample_size)
+    appConfig['dictionarySize'] = int(args.dictionary_size)
     
     getData(appConfig)
 

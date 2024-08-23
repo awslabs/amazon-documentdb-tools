@@ -12,9 +12,28 @@ The compression review tool samples 1000 documents in each collection to determi
    - If not installed - "$ pip3 install pymongo"
  - lz4 Python package
    - If not installed - "$ pip3 install lz4"
+ - zstandard Python package
+   - If not installed - "$ pip3 install zstandard"
 
 ## Using the Compression Review Tool
 `python3 compression-review.py --uri <server-uri> --server-alias <server-alias>`
+
+- Default compression tested is lz4/fast/level 1
+- To test other compression techniques provide --compressor \<compression-type> with one of the following for \<compression-type>
+
+| compression | description |
+| ----------- | ----------- |
+| lz4-fast | lz4/fast/level 1 |
+| lz4-fast-dict | lz4/fast/level 1/dictionary-provided (trained by sampling documents) |
+| lz4-high | lz4/high/level 1 |
+| lz4-high-dict | lz4/high/level 1/dictionary-provided (trained by sampling documents) |
+| zstd-1 | zstandard/level 1 |
+| zstd-1-dict | zstandard/level 1/dictionary-provided (trained by sampling documents) |
+| zstd-5 | zstandard/level 5 |
+| zstd-5-dict | zstandard/level 5/dictionary-provided (trained by sampling documents) |
+| bz2-1 | bzip/level 1 |
+| lzma-0 | lzma/level 0 |
+| zlib-1 | zlib/level 1 |
 
 - Run on any instance in the replica set
 - Use a different \<server-alias> for each server analyzed, output file is named using \<server-alias> as the starting portion
