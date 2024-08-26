@@ -70,6 +70,10 @@ def getData(appConfig):
                 print("analyzing collection {}.{}".format(thisDbName,thisCollName))
                 collStats = client[thisDbName].command("collStats",thisCollName)
 
+                if collStats['count'] == 0:
+                    # exclude collections with no documents
+                    continue
+
                 collectionCompressionRatio = collStats['size'] / collStats['storageSize']
                 gbDivisor = 1024*1024*1024
                 collectionCount = collStats['count']
@@ -88,14 +92,15 @@ def getData(appConfig):
                 totTimeMs = 0
                 totTimeNs = 0
 
-                # build the dictionary if needed
+                # build the dictionary if needed (and there are enough documents)
                 if compressor in ['lz4-fast-dict','lz4-high-dict','zstd-1-dict','zstd-5-dict']:
-                    zstdDict = createDictionary(appConfig, thisDbName, thisCollName)
+                    if collectionCount >= 100:
+                        zstdDict = createDictionary(appConfig, thisDbName, thisCollName)
 
                 # instantiate the compressor for zstandard (it doesn't support 1-shot compress)
-                if compressor == 'zstd-1':
+                if compressor == 'zstd-1' or (compressor == 'zstd-1-dict' and collectionCount < 100):
                     zstdCompressor = zstd.ZstdCompressor(level=1,dict_data=None)
-                if compressor == 'zstd-5':
+                if compressor == 'zstd-5' or (compressor == 'zstd-5-dict' and collectionCount < 100):
                     zstdCompressor = zstd.ZstdCompressor(level=5,dict_data=None)
                 elif compressor == 'zstd-1-dict':
                     zstdCompressor = zstd.ZstdCompressor(level=1,dict_data=zstdDict)
@@ -118,9 +123,9 @@ def getData(appConfig):
                         startTimeNs = time.time_ns()
 
                         # compress it
-                        if compressor == 'lz4-fast':
+                        if compressor == 'lz4-fast' or (compressor == 'lz4-fast-dict' and collectionCount < 100):
                             compressed = lz4.block.compress(docAsString.encode(),mode='fast',acceleration=1)
-                        elif compressor == 'lz4-high':
+                        elif compressor == 'lz4-high' or (compressor == 'lz4-high-dict' and collectionCount < 100):
                             compressed = lz4.block.compress(docAsString.encode(),mode='high_compression',compression=1)
                         elif compressor == 'lz4-fast-dict':
                             compressed = lz4.block.compress(docAsString.encode(),mode='fast',acceleration=1,dict=zstdDict.as_bytes())
