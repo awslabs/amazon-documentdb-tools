@@ -100,7 +100,7 @@ def getData(appConfig):
                 # instantiate the compressor for zstandard (it doesn't support 1-shot compress)
                 if compressor == 'zstd-1' or (compressor == 'zstd-1-dict' and collectionCount < 100):
                     zstdCompressor = zstd.ZstdCompressor(level=1,dict_data=None)
-                if compressor == 'zstd-5' or (compressor == 'zstd-5-dict' and collectionCount < 100):
+                elif compressor == 'zstd-5' or (compressor == 'zstd-5-dict' and collectionCount < 100):
                     zstdCompressor = zstd.ZstdCompressor(level=5,dict_data=None)
                 elif compressor == 'zstd-1-dict':
                     zstdCompressor = zstd.ZstdCompressor(level=1,dict_data=zstdDict)
