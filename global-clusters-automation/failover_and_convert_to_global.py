@@ -89,6 +89,12 @@ def get_cluster_details(cluster):
         vpc_group_ids = []
         for each_item in cluster_response['VpcSecurityGroups']:
             vpc_group_ids.append(each_item['VpcSecurityGroupId'])
+        
+        if "-flipped" in cluster_id:
+            last_index = cluster_id.rfind("-")
+            cluster_id = cluster_id[:last_index]
+        else:
+            cluster_id = cluster_id + "-flipped"
 
         cluster_details = {
             # When converting the cluster to global cluster and adding clusters from the prior global
