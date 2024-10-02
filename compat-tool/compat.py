@@ -366,6 +366,7 @@ def load_keywords():
         "$pull":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$pullAll":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$push":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
+        "$queryStats":{"mongodbversion":"7.1","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$radiansToDegrees":{"mongodbversion":"4.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$rand":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$range":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
