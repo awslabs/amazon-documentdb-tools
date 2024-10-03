@@ -1,6 +1,8 @@
 # Amazon DocumentDB Full Load and Change Data Capture (CDC) Synchronization Tool
 This synchronization tool enables high-speed Full Load and CDC from a MongoDB/DocumentDB source database to an Amazon DocumentDB target database.
 
+The full load script requires "boundaries" for parallelism, you can run the [dms-segments tool](https://github.com/awslabs/amazon-documentdb-tools/tree/master/migration/dms-segments) to calculate them.
+
 ## Installation
 Clone the repository.
 
