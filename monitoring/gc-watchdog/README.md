@@ -7,6 +7,7 @@ Clone the repository
 ## Requirements
 * Python 3.7+
 * PyMongo, boto3
+  * IAM permission "cloudwatch:PutMetricData" is required to create CloudWatch metrics 
 
 ## Using the garbage collection watchdog
 ```
