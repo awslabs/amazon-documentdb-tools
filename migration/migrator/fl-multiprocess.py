@@ -46,13 +46,13 @@ def full_load_loader(threadnum, appConfig, perfQ):
 
     if (threadnum == 0):
         # thread 0 = $lte only
-        cursor = sourceColl.find({'_id': {'$lte': ObjectId(appConfig['boundaries'][threadnum])}})
+        cursor = sourceColl.find({'_id': {'$lte': appConfig['boundaries'][threadnum]}})
     elif (threadnum == appConfig['numProcessingThreads'] - 1):
         # last processor = $gt only
-        cursor = sourceColl.find({'_id': {'$gt': ObjectId(appConfig['boundaries'][threadnum-1])}})
+        cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1]}})
     else:
         # last processor = $gt prior, $lte next
-        cursor = sourceColl.find({'_id': {'$gt': ObjectId(appConfig['boundaries'][threadnum-1]), '$lte': ObjectId(appConfig['boundaries'][threadnum])}})
+        cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1], '$lte': appConfig['boundaries'][threadnum]}})
 
     for doc in cursor:
         myCollectionOps += 1
@@ -190,6 +190,13 @@ def main():
                         type=str,
                         help='Boundaries for segmenting')
 
+    parser.add_argument('--boundary-datatype',
+                        required=False,
+                        type=str,
+                        default='objectid',
+                        choices=['objectid','string','int'],
+                        help='Boundaries for segmenting')
+
 
     args = parser.parse_args()
 
@@ -209,7 +216,18 @@ def main():
     else:
         appConfig['targetNs'] = args.target_namespace
     appConfig['verboseLogging'] = args.verbose
-    appConfig['boundaries'] = args.boundaries.split(',')
+    appConfig['boundaryDatatype'] = args.boundary_datatype
+
+    boundaryList = args.boundaries.split(',')
+    appConfig['boundaries'] = []
+    for thisBoundary in boundaryList:
+        if appConfig['boundaryDatatype'] == 'objectid':
+            appConfig['boundaries'].append(ObjectId(thisBoundary))
+        elif appConfig['boundaryDatatype'] == 'string':
+            appConfig['boundaries'].append(thisBoundary)
+        else:
+            appConfig['boundaries'].append(int(thisBoundary))
+
     appConfig['numProcessingThreads'] = len(appConfig['boundaries'])+1
     
     logIt(-1,"processing using {} threads".format(appConfig['numProcessingThreads']))

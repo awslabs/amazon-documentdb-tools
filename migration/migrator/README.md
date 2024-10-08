@@ -10,7 +10,7 @@ Clone the repository.
 * Python 3.7+
 * PyMongo
 
-## Using the tool
+## Using the change data capture tool
 ```
 python3 cdc-multiprocess.py --source-uri <source-uri> --target-uri <target-uri> --source-namespace <database.collection> --start-position [0 or YYYY-MM-DD+HH:MM:SS in UTC] --use-[oplog|change-stream]
 ```
@@ -20,4 +20,14 @@ python3 cdc-multiprocess.py --source-uri <source-uri> --target-uri <target-uri> 
 * start-position either 0 (process entire oplog) or specific oplog position as YYYY-MM-DD+HH:MM:SS in UTC
 * must pass either --use-oplog for oplog to be source (MongoDB only) or --use-change-stream to use change streams for source (MongoDB or DocumentDB)
 * optionally pass 2+ for the --threads option to process the oplog with concurrent processes
+* several other optional parameters as supported, execute the script with -h for a full listing
+
+## Using the full load tool
+```
+python3 fl-multiprocess.py --source-uri <source-uri> --target-uri <target-uri> --source-namespace <database.collection> --boundaries <comma-separated-boundary-list>
+```
+
+* source-uri and target-uri follow the [MongoDB Connection String URI Format](https://www.mongodb.com/docs/manual/reference/connection-string/)
+* source-namespace and target-namespace in database.collection format (i.e. "database1.collection2")
+* pass --boundary-datatype for string or int for _id boundaries that are not objectid type
 * several other optional parameters as supported, execute the script with -h for a full listing
