@@ -5,8 +5,8 @@ The deployment scanner reviews DocumentDB clusters for possible cost optimizatio
 - Estimate the monthly cost for each cluster in a region in both standard storage and IO optimized storage configurations
 
 ## Requirements
-Python 3.7 or greater, boto3, urllib3
-IAM privileges in https://github.com/awslabs/amazon-documentdb-tools/blob/master/performance/deployment-scanner/iam-policy.json
+- Python 3.7 or greater, boto3, urllib3
+- IAM privileges in https://github.com/awslabs/amazon-documentdb-tools/blob/master/performance/deployment-scanner/iam-policy.json
 
 ## Installation
 Clone the repository and install the requirements:
