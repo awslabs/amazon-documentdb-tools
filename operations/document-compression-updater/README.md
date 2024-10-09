@@ -30,7 +30,6 @@ The application has the following arguments:
 ```
 Required parameters
   --uri URI                                      URI (connection string)
-  --processes PROCESSES                          Degree of concurrency
   --database DATABASE                            Database
   --collection COLLECTION                        Collection
 
