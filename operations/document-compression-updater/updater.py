@@ -21,9 +21,9 @@ def printLog(thisMessage,appConfig):
     with open(appConfig['logFileName'], 'a') as fp:
         fp.write("{}\n".format(thisMessage))
 
-
-
 def setup(appConfig):
+    if sys.version_info < (3,7):
+        sys.exit('Sorry, Python < 3.7 is not supported')
 
     databaseName = appConfig['databaseName']
     collectionName = appConfig['collectionName']
@@ -39,7 +39,7 @@ def setup(appConfig):
     # database and collection for tracking
 
     tracker_db=client['tracker_db']
-    trackerCollectionName = collectionName+'_tracker_col'
+    trackerCollectionName = databaseName+'_'+collectionName+'_tracker_col'
     tracker_col=tracker_db[trackerCollectionName]
     
     list_of_collections = tracker_db.list_collection_names()  # Return a list of collections in 'tracker_db'
@@ -62,14 +62,14 @@ def setup(appConfig):
     
         # create first entry in tracker db  for collection
         result = col.find({},{ "_id" :1}).sort({ "_id" :-1}).limit(1)
+        
         for id in result :
             print("result {}".format(result))
             maxObjectIdToTouch = id["_id"]
+            
         lastScannedObjectId = 0
         numDocumentsUpdated = 0
-           
         numExistingDocuments = col.estimated_document_count()
-        
             
         first_entry = {
             "collection_name": appConfig['collectionName'],
@@ -80,7 +80,6 @@ def setup(appConfig):
             "numDocumentsUpdated" : numDocumentsUpdated
             # scan fields in future, for now we use  _id
             }   
-            
         tracker_col.insert_one(first_entry)
 
         printLog("create first entry in tracker db  for collection {}".format(first_entry),appConfig)
@@ -93,79 +92,58 @@ def setup(appConfig):
     returnData["lastScannedObjectId"] = lastScannedObjectId
     returnData["numDocumentsUpdated"] = numDocumentsUpdated
     
-    print(returnData)
-
     return returnData
 
-
 def task_worker(threadNum,perfQ,appConfig):
-
-
     maxObjectIdToTouch = appConfig['maxObjectIdToTouch']
     lastScannedObjectId = appConfig['lastScannedObjectId']
     numInsertProcesses = appConfig['numInsertProcesses']
 
-    
     numExistingDocuments = appConfig["numExistingDocuments"]
     maxObjectIdToTouch = appConfig["maxObjectIdToTouch"]
     lastScannedObjectId = appConfig["lastScannedObjectId"]
     numDocumentsUpdated = appConfig["numDocumentsUpdated"]
 
     client = pymongo.MongoClient(appConfig['uri'])
+    
     myDatabaseName = appConfig['databaseName']
     db = client[myDatabaseName]
     myCollectionName = appConfig['collectionName']
     col = db[myCollectionName]
-    
-    
     tracker_db=client['tracker_db']
-    trackerCollectionName = myCollectionName+'_tracker_col'
+    trackerCollectionName = myDatabaseName+'_'+myCollectionName+'_tracker_col'
     tracker_col=tracker_db[trackerCollectionName]
     
-    
     allDone = False
-
     tempLastScannedObjectId = lastScannedObjectId
     
-    print(appConfig)
-
     while not allDone:
 
         #start and go through all the docs using _id 
         
         if lastScannedObjectId != 0 :
-       
             batch =  col.find({"_id" : { "$gt" : lastScannedObjectId   }},{ "_id" :1}).sort({"_id" :1}).limit(appConfig['batchSize'])
         else :
-            
             batch =  col.find({},{ "_id" :1}).sort({ "_id" :1}).limit(appConfig['batchSize'])
             
-            
         batch_count = 0
-        
+        updateList = []
 
         for id in batch : 
-
             if id["_id"]<=maxObjectIdToTouch:
-                
                 # print("found id {} lesser than maxObjectIdToTouch {}.".format(str(id["_id"]),str(maxObjectIdToTouch)))
-                col.update_one({ "_id" : id["_id"] } , { "$set": { appConfig['updateField']: 1 } } )
+                updateList.append(pymongo.UpdateOne({ "_id" : id["_id"] } , { "$set": { appConfig['updateField']: 1 } } ))
                 tempLastScannedObjectId = id["_id"]
                 batch_count = batch_count + 1
-                
             else:
-                
                 allDone = True
                 print("found id {} higher than maxObjectIdToTouch {}. all done .stopping)".format(str(id["_id"]),str(maxObjectIdToTouch)))
                 break
             
-        
-
-        
         if  batch_count > 0 :
-        
+            result = col.bulk_write(updateList)
             numDocumentsUpdated = numDocumentsUpdated + batch_count
-        
+            
             tracker_entry = {
                 "collection_name": appConfig['collectionName'],
                 "lastScannedObjectId" : tempLastScannedObjectId,
@@ -175,9 +153,10 @@ def task_worker(threadNum,perfQ,appConfig):
                 "numDocumentsUpdated" : numDocumentsUpdated
                 # scan fields in future, for now we use  _id
                 }   
-            
             tracker_col.insert_one(tracker_entry)
+            
             printLog( " Last updates applied : {}".format(str(tracker_entry)),appConfig)
+            
             lastScannedObjectId = tempLastScannedObjectId
         
             printLog("sleeping for {} seconds".format(appConfig['waitPeriod']),appConfig)
@@ -186,25 +165,18 @@ def task_worker(threadNum,perfQ,appConfig):
             print("No updates in batch")
             allDone = True
             break
-        
-
                 
     client.close()
-    
-
 
 def main():
     parser = argparse.ArgumentParser(description='Data Generator')
-
     parser.add_argument('--uri',required=True,type=str,help='URI (connection string)')
     parser.add_argument('--database',required=True,type=str,help='Database')
     parser.add_argument('--collection',required=True,type=str,help='Collection')
     parser.add_argument('--file-name',required=False,type=str,default='compressor',help='Starting name of the created log files')
-    parser.add_argument('--update-field',required=False,type=str,default='temp_field_for_compressor',help='Field used for updating an existing document. This should not conflict with any fieldname you are already using ')
+    parser.add_argument('--update-field',required=False,type=str,default='6nh63',help='Field used for updating an existing document. This should not conflict with any fieldname you are already using ')
     parser.add_argument('--wait-period',required=False,type=int,default=60,help='Number of seconds to wait between each batch')
     parser.add_argument('--batch-size',required=False,type=int,default=5000,help='Number of documents to update in a single batch')
-
-    
 
     args = parser.parse_args()
     
@@ -218,8 +190,6 @@ def main():
     appConfig['waitPeriod'] = int(args.wait_period)
     appConfig['logFileName'] = "{}.log".format(args.file_name)
 
-    
-
     setUpdata = setup(appConfig)
     
     appConfig['numExistingDocuments'] = setUpdata["numExistingDocuments"]  
@@ -227,7 +197,6 @@ def main():
     appConfig['lastScannedObjectId'] = setUpdata["lastScannedObjectId"]     
     appConfig['numDocumentsUpdated'] = setUpdata["numDocumentsUpdated"]   
 
-    
     deleteLog(appConfig)
     
     printLog('---------------------------------------------------------------------------------------',appConfig)
@@ -247,25 +216,17 @@ def main():
     mp.set_start_method('spawn')
     q = mp.Manager().Queue()
 
-
     processList = []
     for loop in range(appConfig['numInsertProcesses']):
-        #time.sleep(1)
         p = mp.Process(target=task_worker,args=(loop,q,appConfig))
         processList.append(p)
-        
     for process in processList:
         process.start()
         
     for process in processList:
         process.join()
         
-    # t.join()
-    
-
-    
     printLog("Created {}  with results".format(appConfig['logFileName']),appConfig)
-
 
 if __name__ == "__main__":
     main()

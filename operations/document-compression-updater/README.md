@@ -7,10 +7,12 @@ Status of the updates are maintained in database **tracker_db** - for each colle
 
 The application can be restarted if it crashes and it will pick up from last successful _round_ based on data in **<< collection >>__tracker_col**.
 
-The update statements use field **temp_field_for_compressor** (controlled by argument --update-field), for triggering compression on existing records.
+The update statements use field **6nh63** (controlled by argument --update-field), for triggering compression on existing records.
+
+The application uses **_id** field for tracking and updating existing documents. If you are using a custom value _id, the value should be sort-able.
 
 ## Requirements
-Python 3.6 or later, pymongo
+Python 3.7 or later, pymongo
 
 ## Installation
 Clone the repository and go to the application folder:
