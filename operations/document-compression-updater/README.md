@@ -24,7 +24,7 @@ cd amazon-documentdb-tools/operations/document-compression-updater
 ## Usage/Examples
 
 ```
- python3 updater.py --uri "<<documentdb_uri>>"  --database <<database>>   --collection <<collection>> --update-field << field_name >> --wait-period << int >>> --batch-size << int >>
+ python3 update_apply_compression.py --uri "<<documentdb_uri>>"  --database <<database>>   --collection <<collection>> --update-field << field_name >> --wait-period << int >>> --batch-size << int >>
 ```
 
 The application has the following arguments:
