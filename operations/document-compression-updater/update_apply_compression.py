@@ -169,7 +169,7 @@ def task_worker(threadNum,perfQ,appConfig):
     client.close()
 
 def main():
-    parser = argparse.ArgumentParser(description='Data Generator')
+    parser = argparse.ArgumentParser(description='Update and Apply Compression')
     parser.add_argument('--uri',required=True,type=str,help='URI (connection string)')
     parser.add_argument('--database',required=True,type=str,help='Database')
     parser.add_argument('--collection',required=True,type=str,help='Collection')
