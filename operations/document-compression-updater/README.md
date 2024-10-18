@@ -39,5 +39,5 @@ Optional parameters
  --file-name                                    Starting name of the created log files
  --update-field                                 Field used for updating an existing document. This should not conflict with any fieldname you are already using
  --wait-period                                  Number of seconds to wait between each batch
- --batch-size'                                  Number of documents to update in a single batch
+ --batch-size                                   Number of documents to update in a single batch
 ```
