@@ -236,9 +236,9 @@ def get_pricing(appConfig):
             thisRegion = thisProduct["attributes"]["regionCode"]
             thisInstanceType = thisProduct["attributes"]["instanceType"]
             thisPrice = terms[thisSku]
-            if thisProduct["attributes"]["volumeType"] == "IO-Optimized-DocDB":
+            if thisProduct["attributes"]["volumeType"] in ["IO-Optimized-DocDB","NVMe SSD IO-Optimized"]:
                 volumeType = 'iopt1'
-            elif thisProduct["attributes"]["volumeType"] == "General Purpose":
+            elif thisProduct["attributes"]["volumeType"] in ["General Purpose","NVMe SSD"]:
                 volumeType = 'standard'
             else:
                 print("*** Unknown volumeType {}, exiting".format(thisProduct["attributes"]["volumeType"]))
@@ -250,12 +250,12 @@ def get_pricing(appConfig):
             # Database Storage
             # volumeType in ['General Purpose','IO-Optimized-DocDB']
             # skip elastic clusters storage
-            if thisProduct["attributes"].get('volumeType','UNKNOWN') in ['General Purpose','IO-Optimized-DocDB']:
+            if thisProduct["attributes"].get('volumeType','UNKNOWN') in ['General Purpose','IO-Optimized-DocDB','NVMe SSD','NVMe SSD IO-Optimized']:
                 thisSku = thisProduct['sku']
                 thisRegion = thisProduct["attributes"]["regionCode"]
-                if thisProduct["attributes"]["volumeType"] == "IO-Optimized-DocDB":
+                if thisProduct["attributes"]["volumeType"] in ["IO-Optimized-DocDB","NVMe SSD IO-Optimized"]:
                     thisIoType = 'iopt1'
-                elif thisProduct["attributes"]["volumeType"] == "General Purpose":
+                elif thisProduct["attributes"]["volumeType"] in ["General Purpose","NVMe SSD"]:
                     thisIoType = 'standard'
                 thisPrice = terms[thisSku]
                 thisPricingDictKey = "{}|{}|{}".format('storage',thisRegion,thisIoType)
