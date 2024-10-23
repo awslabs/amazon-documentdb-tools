@@ -11,7 +11,6 @@ import argparse
 import string
 import math
 
-
 def deleteLog(appConfig):
     if os.path.exists(appConfig['logFileName']):
         os.remove(appConfig['logFileName'])
