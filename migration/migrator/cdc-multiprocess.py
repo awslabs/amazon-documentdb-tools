@@ -409,7 +409,7 @@ def reporter(appConfig, perfQ):
         totSecondsBehind = 0
         numSecondsBehindEntries = 0
         for thisDt in dtDict:
-            totSecondsBehind = (dtUtcNow - dtDict[thisDt].replace(tzinfo=None)).total_seconds()
+            totSecondsBehind += (dtUtcNow - dtDict[thisDt].replace(tzinfo=None)).total_seconds()
             numSecondsBehindEntries += 1
 
         avgSecondsBehind = int(totSecondsBehind / max(numSecondsBehindEntries,1))
