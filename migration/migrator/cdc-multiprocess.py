@@ -199,6 +199,8 @@ def change_stream_processor(threadnum, appConfig, perfQ):
 
     allDone = False
     threadOplogEntries = 0
+    perfReportInterval = 1
+    nextPerfReportTime = time.time() + perfReportInterval
 
     bulkOpList = []
 
@@ -296,6 +298,11 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     print(change)
                     sys.exit(1)
 
+            if time.time() > nextPerfReportTime:
+                nextPerfReportTime = time.time() + perfReportInterval
+                perfQ.put({"name":"batchCompleted","operations":numReportBulkOps,"endts":endTs,"processNum":threadnum,"resumeToken":resumeToken})
+                numReportBulkOps = 0
+
             if ((numCurrentBulkOps >= appConfig["maxOperationsPerBatch"]) or (time.time() >= (lastBatch + appConfig["maxSecondsBetweenBatches"]))) and (numCurrentBulkOps > 0):
                 if not appConfig['dryRun']:
                     try:
@@ -303,9 +310,10 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     except:
                         # replace inserts as replaces
                         result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
-                perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum,"resumeToken":resumeToken})
+
                 bulkOpList = []
                 bulkOpListReplace = []
+                numReportBulkOps += numCurrentBulkOps
                 numCurrentBulkOps = 0
                 numTotalBatches += 1
                 lastBatch = time.time()
