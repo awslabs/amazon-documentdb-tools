@@ -207,6 +207,7 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     # list with replace, not insert, in case document already exists (replaying old oplog)
     bulkOpListReplace = []
     numCurrentBulkOps = 0
+    numReportBulkOps = 0
 
     numTotalBatches = 0
 
