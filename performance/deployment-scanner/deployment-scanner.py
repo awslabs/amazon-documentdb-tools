@@ -144,17 +144,17 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
         estimatedMonthlySavings = 0.00
         if (ioType == "standard") and (monthlyIoOptimized < monthlyStandard) and (engineVersionMajor < 5):
             estimatedMonthlySavings = monthlyStandard-monthlyIoOptimized
-            recommendationString = "  **** recommendation - consider switching to IO optimized to potentially save ${:,.0f} per month, requires upgrading to DocumentDB v5+".format(estimatedMonthlySavings)
+            recommendationString = "  **** recommendation - consider switching to IO optimized to potentially save ${:.0f} per month but requires upgrading to DocumentDB v5+".format(estimatedMonthlySavings)
             print("")
             print(recommendationString)
         elif (ioType == "standard") and (monthlyIoOptimized < monthlyStandard):
             estimatedMonthlySavings = monthlyStandard-monthlyIoOptimized
-            recommendationString = "  **** recommendation - consider switching to IO optimized to potentially save ${:,.0f} per month".format(estimatedMonthlySavings)
+            recommendationString = "  **** recommendation - consider switching to IO optimized to potentially save ${:.0f} per month".format(estimatedMonthlySavings)
             print("")
             print(recommendationString)
         elif (ioType != "standard") and (monthlyStandard < monthlyIoOptimized):
             estimatedMonthlySavings = monthlyIoOptimized-monthlyStandard
-            recommendationString = "  **** recommendation - consider switching to standard IO to potentially save ${:,.0f} per month".format(estimatedMonthlySavings)
+            recommendationString = "  **** recommendation - consider switching to standard IO to potentially save ${:.0f} per month".format(estimatedMonthlySavings)
             print("")
             print(recommendationString)
         else:
