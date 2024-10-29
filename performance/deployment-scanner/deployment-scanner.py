@@ -260,7 +260,6 @@ def get_pricing(appConfig):
                 thisPrice = terms[thisSku]
                 thisPricingDictKey = "{}|{}|{}".format('storage',thisRegion,thisIoType)
                 pd[thisPricingDictKey] = {'type':'storage','region':thisRegion,'ioType':thisIoType,'price':thisPrice}
-                print("{}".format(thisPricingDictKey))
             elif thisProduct["attributes"].get('volumeType','UNKNOWN') not in ['General Purpose','IO-Optimized-DocDB','NVMe SSD','NVMe SSD IO-Optimized']:
                 print("*** Unknown volumeType {}, exiting".format(thisProduct["attributes"].get('volumeType','UNKNOWN')))
                 sys.exit(1)
