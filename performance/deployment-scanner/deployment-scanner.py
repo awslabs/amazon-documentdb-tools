@@ -250,7 +250,7 @@ def get_pricing(appConfig):
             # Database Storage
             # volumeType in ['General Purpose','IO-Optimized-DocDB']
             # skip elastic clusters storage
-            if thisProduct["attributes"].get('volumeType','UNKNOWN') in ['General Purpose','IO-Optimized-DocDB','NVMe SSD','NVMe SSD IO-Optimized'] and thisProduct["attributes"].get('usagetype','UNKNOWN') in ['StorageUsage','IO-OptimizedStorageUsage']:
+            if (thisProduct["attributes"].get('volumeType','UNKNOWN') in ['General Purpose','IO-Optimized-DocDB','NVMe SSD','NVMe SSD IO-Optimized']) and ('StorageUsage' in thisProduct["attributes"].get('usagetype','UNKNOWN')):
                 thisSku = thisProduct['sku']
                 thisRegion = thisProduct["attributes"]["regionCode"]
                 if thisProduct["attributes"]["volumeType"] in ["IO-Optimized-DocDB","NVMe SSD IO-Optimized"]:
@@ -260,6 +260,7 @@ def get_pricing(appConfig):
                 thisPrice = terms[thisSku]
                 thisPricingDictKey = "{}|{}|{}".format('storage',thisRegion,thisIoType)
                 pd[thisPricingDictKey] = {'type':'storage','region':thisRegion,'ioType':thisIoType,'price':thisPrice}
+                print("{}".format(thisPricingDictKey))
             elif thisProduct["attributes"].get('volumeType','UNKNOWN') not in ['General Purpose','IO-Optimized-DocDB','NVMe SSD','NVMe SSD IO-Optimized']:
                 print("*** Unknown volumeType {}, exiting".format(thisProduct["attributes"].get('volumeType','UNKNOWN')))
                 sys.exit(1)
