@@ -173,7 +173,7 @@ def mongoEvaluate(appConfig):
         for thisDb in dict1Start['collstats']:
             for thisColl in dict1Start['collstats'][thisDb]:
                 thisCollDict = dict1Start['collstats'][thisDb][thisColl]['wiredTiger']['cursor']
-                printEval(thisDb,thisColl,f1UptimeSeconds,thisCollDict['search calls'],thisCollDict['insert calls'],thisCollDict['update calls'],thisCollDict['remove calls'],appConfig,totalDict)
+                printEval(thisDb,thisColl,f1UptimeSeconds,thisCollDict['search calls'],thisCollDict['insert calls'],thisCollDict.get('modify',0),thisCollDict['remove calls'],appConfig,totalDict)
 
     if appConfig['numFiles'] == 2:
         with open(appConfig['file2'], 'r') as fp:
@@ -228,7 +228,7 @@ def mongoEvaluate(appConfig):
                 printEval(thisDb,thisColl,useTime,endCollDict['search calls'] - startCollDict['search calls'],
                                                   endCollDict['insert calls'] - startCollDict['insert calls'],
                                                   #endCollDict['update calls'] - startCollDict['update calls'],
-                                                  endCollDict.get('modify calls',0) - startCollDict.get('modify calls',0),
+                                                  endCollDict.get('modify',0) - startCollDict.get('modify',0),
                                                   endCollDict['remove calls'] - startCollDict['remove calls'],
                                                   dbColumnWidth,collColumnWidth,appConfig,totalDict)
                                                   
