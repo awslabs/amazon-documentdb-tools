@@ -9,12 +9,12 @@ import boto3
 
 
 def initializeLogFile(appConfig):
-    with open(appConfig['logFileName'], "w") as logFile:
+    with open(appConfig['logFileName'], mode="w", buffering=1) as logFile:
         logFile.write("")
 
 
 def logAndPrint(appConfig,string):
-    with open(appConfig['logFileName'], "a") as logFile:
+    with open(appConfig['logFileName'], mode="a", buffering=1) as logFile:
         logFile.write(string+"\n")
     print(string)
 
