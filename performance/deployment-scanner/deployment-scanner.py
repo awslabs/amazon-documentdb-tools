@@ -76,6 +76,7 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
         monthlyIoOptimized = 0.00
         
         ioType = thisCluster.get('StorageType','standard')
+        #print("{}".format(thisCluster.get('StorageType','missing')))
         thisMonthlyStandardIoCompute = 0.00
         thisMonthlyOptimizedIoCompute = 0.00
         numInstances = 0
