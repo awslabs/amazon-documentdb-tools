@@ -88,6 +88,9 @@ def main():
         w.NetworkTransmitThroughput,
         w.NetworkReceiveThroughput,
 
+        w.StorageNetworkTransmitThroughput,
+        w.StorageNetworkReceiveThroughput,
+
         w.DocsInserted,
         w.DocsDeleted,
         w.DocsUpdated,

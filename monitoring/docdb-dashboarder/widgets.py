@@ -313,7 +313,6 @@ NetworkReceiveThroughput = {
         "period": 300,
         "yAxis": {
             "left": {
-                "max": 100,
                 "min": 0
                     }
                 },
@@ -330,23 +329,66 @@ NetworkTransmitThroughput = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [
-            ["AWS/DocDB", "Network Transmit Throughput", "DBInstanceIdentifier"]
+            ["AWS/DocDB", "NetworkTransmitThroughput", "DBInstanceIdentifier"]
         ],
         "period": 300,
         "yAxis": {
             "left": {
-                "max": 100,
                 "min": 0
                     }
                 },
-                "title": "Network Transmit Throughput"
+        "title": "Network Transmit Throughput"
             }
         }
+
+StorageNetworkReceiveThroughput = {
+    "height": 7,
+    "width": 12,
+    "y": 45,
+    "x": 12,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "StorageNetworkReceiveThroughput", "DBInstanceIdentifier"]
+        ],
+        "period": 300,
+        "yAxis": {
+            "left": {
+                "min": 0
+                    }
+                },
+        "title": "Storage Network Receive Throughput"
+            }
+        }
+StorageNetworkTransmitThroughput = {
+    "height": 7,
+    "width": 12,
+    "y": 45,
+    "x": 0,
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [
+            ["AWS/DocDB", "StorageNetworkTransmitThroughput", "DBInstanceIdentifier"]
+        ],
+        "period": 300,
+        "yAxis": {
+            "left": {
+                "min": 0
+                    }
+                },
+                "title": "Storage Network Transmit Throughput"
+            }
+        }
+
 
 DocsInserted = {
             "height": 6,
             "width": 6,
-            "y": 46,
+            "y": 52,
             "x": 0,
             "type": "metric",
             "properties": {
@@ -361,7 +403,7 @@ DocsInserted = {
 DocsDeleted = {
             "height": 6,
             "width": 6,
-            "y": 46,
+            "y": 52,
             "x": 6,
             "type": "metric",
             "properties": {
@@ -376,7 +418,7 @@ DocsDeleted = {
 DocsUpdated = {
             "height": 6,
             "width": 6,
-            "y": 46,
+            "y": 52,
             "x": 12,
             "type": "metric",
             "properties": {
@@ -391,7 +433,7 @@ DocsUpdated = {
 DocsReturned = {
             "height": 6,
             "width": 6,
-            "y": 46,
+            "y": 52,
             "x": 18,
             "type": "metric",
             "properties": {
@@ -407,7 +449,7 @@ DocsReturned = {
 ReadLatency = {
             "height": 6,
             "width": 6,
-            "y": 52,
+            "y": 58,
             "x": 0,
             "type": "metric",
             "properties": {
@@ -422,7 +464,7 @@ ReadLatency = {
 WriteLatency = {
             "height": 6,
             "width": 6,
-            "y": 52,
+            "y": 58,
             "x": 6,
             "type": "metric",
             "properties": {
@@ -437,7 +479,7 @@ WriteLatency = {
 DiskQueueDepth = {
             "height": 6,
             "width": 6,
-            "y": 52,
+            "y": 58,
             "x": 12,
             "type": "metric",
             "properties": {
@@ -452,7 +494,7 @@ DiskQueueDepth = {
 DBInstanceReplicaLag = {
             "height": 6,
             "width": 6,
-            "y": 52,
+            "y": 58,
             "x": 18,
             "type": "metric",
             "properties": {
@@ -468,7 +510,7 @@ DBInstanceReplicaLag = {
 WriteIops = {
             "height": 6,
             "width": 6,
-            "y": 58,
+            "y": 64,
             "x": 0,
             "type": "metric",
             "properties": {
@@ -483,7 +525,7 @@ WriteIops = {
 WriteThroughput = {
             "height": 6,
             "width": 6,
-            "y": 58,
+            "y": 64,
             "x": 6,
             "type": "metric",
             "properties": {
@@ -498,7 +540,7 @@ WriteThroughput = {
 ReadIops = {
             "height": 6,
             "width": 6,
-            "y": 58,
+            "y": 64,
             "x": 12,
             "type": "metric",
             "properties": {
@@ -513,7 +555,7 @@ ReadIops = {
 ReadThroughput = {
             "height": 6,
             "width": 6,
-            "y": 58,
+            "y": 64,
             "x": 18,
             "type": "metric",
             "properties": {
@@ -531,7 +573,7 @@ ReadThroughput = {
 BackupStorageHeading = {
     "height": 1,
     "width": 24,
-    "y": 64,
+    "y": 70,
     "x": 0,
     "type": "text",
     "properties": {
@@ -541,7 +583,7 @@ BackupStorageHeading = {
 BackupRetentionPeriodStorageUsed = {
     "height": 7,
     "width": 8,
-    "y": 65,
+    "y": 71,
     "x": 8,
     "type": "metric",
     "properties": {
@@ -556,7 +598,7 @@ BackupRetentionPeriodStorageUsed = {
 TotalBackupStorageBilled = {
     "height": 7,
     "width": 8,
-    "y": 65,
+    "y": 71,
     "x": 16,
     "type": "metric",
     "properties": {
@@ -571,7 +613,7 @@ TotalBackupStorageBilled = {
 VolumeBytesUsed = {
     "height": 7,
     "width": 8,
-    "y": 65,
+    "y": 71,
     "x": 0,
     "type": "metric",
     "properties": {
