@@ -49,17 +49,24 @@ def full_load_loader(threadnum, appConfig, perfQ):
     if (threadnum == 0):
         # thread 0 = $lte only
         #cursor = sourceColl.find({'_id': {'$lte': appConfig['boundaries'][threadnum]}})
-        cursor = sourceColl.find({'_id': {'$lte': appConfig['boundaries'][threadnum]},"ttl":{"$gt":ttlDateTime}},hint=[('_id',pymongo.ASCENDING)])
+        #cursor = sourceColl.find({'_id': {'$lte': appConfig['boundaries'][threadnum]},"ttl":{"$gt":ttlDateTime}},hint=[('_id',pymongo.ASCENDING)])
+        cursor = sourceColl.find({'_id': {'$lte': appConfig['boundaries'][threadnum]}},hint=[('_id',pymongo.ASCENDING)])
     elif (threadnum == appConfig['numProcessingThreads'] - 1):
         # last processor = $gt only
         #cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1]}})
-        cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1]},"ttl":{"$gt":ttlDateTime}},hint=[('_id',pymongo.ASCENDING)])
+        #cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1]},"ttl":{"$gt":ttlDateTime}},hint=[('_id',pymongo.ASCENDING)])
+        cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1]}},hint=[('_id',pymongo.ASCENDING)])
     else:
         # last processor = $gt prior, $lte next
         #cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1], '$lte': appConfig['boundaries'][threadnum]}})
-        cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1], '$lte': appConfig['boundaries'][threadnum]},"ttl":{"$gt":ttlDateTime}},hint=[('_id',pymongo.ASCENDING)])
+        #cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1], '$lte': appConfig['boundaries'][threadnum]},"ttl":{"$gt":ttlDateTime}},hint=[('_id',pymongo.ASCENDING)])
+        cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1], '$lte': appConfig['boundaries'][threadnum]}},hint=[('_id',pymongo.ASCENDING)])
 
     for doc in cursor:
+        if ('ttl' in doc) and (doc['ttl'] < ttlDateTime):
+            # skip old documents
+            continue
+
         myCollectionOps += 1
         bulkOpList.append(pymongo.InsertOne(doc))
         # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
