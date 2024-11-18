@@ -31,7 +31,7 @@ If --start-date and --end-date are not provided, the last 30 days are used for h
 
 ### Review Amazon DocumentDB clusters in us-east-1 for November 2023:
 ```
-python3 deployment-scanner.py --log-file-name nov-23-us-east-1 --start-date 20231101 --end-date 20231130
+python3 deployment-scanner.py --log-file-name nov-23-us-east-1 --start-date 20231101 --end-date 20231130 --region us-east-1
 ```
 
 
