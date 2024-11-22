@@ -29,6 +29,17 @@ def double_check(checkOperator, checkLine, checkLineLength):
     return foundOperator
 
 
+def check_all_parents(fileName, excludedDirectories):
+    retVal = False
+
+    for thisExcludedDirectory in excludedDirectories:
+        if fileName.startswith(thisExcludedDirectory+'/'):
+            retVal = True
+            break
+
+    return retVal
+
+
 def scan_code(args, keywords):
     global numProcessedFiles, issuesDict, detailedIssuesDict, supportedDict, skippedFileList, exceptionFileList, skippedDirectories
     
@@ -57,8 +68,12 @@ def scan_code(args, keywords):
         numProcessedFiles += 1
     else:
         for filename in glob.iglob("{}/**".format(args.scanDir), recursive=True):
-            if os.path.isdir(filename) and os.path.basename(filename) in excludedDirectories:
+            if os.path.isdir(filename) and filename in excludedDirectories:
+                # add to skipped directory list
                 skippedDirectories.append(filename) 
+            elif check_all_parents(filename, excludedDirectories): 
+                # move on
+                continue
             else:
                 if os.path.isfile(filename):
                     if ((pathlib.Path(filename).suffix[1:].lower() not in excludedExtensions) and
