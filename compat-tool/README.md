@@ -19,6 +19,7 @@ This tool supports examining compatibility with either the 3.6, 4.0, 5.0, or Ela
 --file SCANFILE               -> Specific file to scan for compatibility
 --excluded-extensions EXCLUDEDEXTENSIONS -> Filename extensions to exclude from scanning, comma separated
 --included-extensions INCLUDEDEXTENSIONS -> Filename extensions to include in scanning, comma separated
+--excluded-directories EXCLUDEDDIRECTORIES -> directories to exclude from scanning, comma separated
 ```
 
 #### Example 1:
