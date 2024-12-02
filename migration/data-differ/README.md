@@ -64,7 +64,7 @@ Connect to a standalone MongoDB instance as source and to a Amazon DocumentDB cl
 From the source uri, compare the collection *mysourcecollection* from database *mysource*, against the collection *mytargetcollection* from database *mytargetdb* in the target uri.
 
 ```
-python3 data-differ-args.py \
+python3 data-differ.py \
 --source-uri "mongodb://user:password@mongodb-instance-hostname:27017/admin?directConnection=true" \
 --target-uri "mongodb://user:password@target.cluster.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=rds-combined-ca-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false" \
 --source-db mysourcedb \
