@@ -41,10 +41,16 @@ def main():
     print("")
     print("DocumentDB EC Compat Check")
     for thisKeyword in sorted(keywords.keys()):
-        #print("  {} supported by DocumentDB version {} ({:.1f}%)".format(numOpsSupported[thisVersion],thisVersion,numOpsSupported[thisVersion]/totOps*100))
         if keywords[thisKeyword]["5.0"] == "Yes" and keywords[thisKeyword]["EC5.0"] == "No":
             print("  {}".format(thisKeyword))
     print("")
+
+    #print("")
+    #print("DocumentDB 5.0 Check")
+    #for thisKeyword in sorted(keywords.keys()):
+    #    if keywords[thisKeyword]["5.0"] == "No":
+    #        print("  {} from MongoDB {}".format(thisKeyword,keywords[thisKeyword]["mongodbversion"]))
+    #print("")
 
     
 if __name__ == '__main__':
