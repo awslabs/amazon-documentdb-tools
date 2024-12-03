@@ -138,17 +138,17 @@ def compare_collections(srcCollection, tgtCollection, batch_size, output_file, c
 
 def main():
     parser = argparse.ArgumentParser(description='Compare two collections and report differences.')
-    parser.add_argument('--batch_size', type=int, default=100, help='Batch size for bulk reads (optional, default: 100)')
-    parser.add_argument('--output_file', type=str, default='differences.txt', help='Output file path (optional, default: differences.txt)')
-    parser.add_argument('--check_target', type=str, default=False, help='optional, Check if extra documents exist in target database')
+    parser.add_argument('--batch-size', type=int, default=100, help='Batch size for bulk reads (optional, default: 100)')
+    parser.add_argument('--output-file', type=str, default='differences.txt', help='Output file path (optional, default: differences.txt)')
+    parser.add_argument('--check-target', type=str, default=False, help='optional, Check if extra documents exist in target database')
     parser.add_argument('--source-uri', type=str, required=True, help='Source cluster URI (required)')
     parser.add_argument('--target-uri', type=str, required=True, help='Target cluster URI (required)')
     parser.add_argument('--source-db', type=str, required=True, help='Source database name (required)')
     parser.add_argument('--target-db', type=str, required=True, help='Target database name (required)')
     parser.add_argument('--source-coll', type=str, required=True, help='Source collection name (required)')
     parser.add_argument('--target-coll', type=str, required=True, help='Target collection name (required)')
-    parser.add_argument('--sample_size_percent', type=int, required=False, help='optional, if set only samples a percentage of the documents')
-    parser.add_argument('--sampling_timeout_ms', type=int, default=500, required=False, help='optional, override the timeout for returning a sample of documents when using the --sample_size_percent argument')
+    parser.add_argument('--sample-size-percent', type=int, required=False, help='optional, if set only samples a percentage of the documents')
+    parser.add_argument('--sampling-timeout-ms', type=int, default=500, required=False, help='optional, override the timeout for returning a sample of documents when using the --sample-size-percent argument')
     args = parser.parse_args()
 
     # Connect to the source database cluster
