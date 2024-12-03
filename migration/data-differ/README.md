@@ -52,9 +52,9 @@ options:
                         Source collection name (required)
   --target-coll TARGET_COLL
                         Target collection name (required)
-  --sample-size-percent 
+  --sample-size-percent SAMPLE_SIZE_PERCENT
                         optional, if set only samples a percentage of the documents
-  --sampling-timeout-ms 
+  --sampling-timeout-ms SAMPLING_TIMEOUT_MS
                         optional, override the timeout for returning a sample of documents when using the --sample-size-percent argument
 ```
 
