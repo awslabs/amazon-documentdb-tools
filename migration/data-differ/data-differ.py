@@ -125,14 +125,15 @@ def compare_collections(srcCollection, tgtCollection, batch_size, output_file, c
         print("No documents found in the target collection, please re-check you selected the right target collection.")
         return
     if src_count < trg_count:
-        print(f"Warning: There are more documents in target collection than the source collection, {trg_count} vs. {src_count}. Use --check-target to identify the missing docs in the source collection. ")
+        if not check_target:
+            print(f"Warning: There are more documents in target collection than the source collection, {trg_count} vs. {src_count}. Use --check-target to identify the missing docs in the source collection. ")
     write_difference_to_file(output_file, "Count of documents in source:" + str(src_count) )
     write_difference_to_file(output_file, "Count of documents in target:" + str(trg_count) )
 
     print(f"Starting data differ at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} , output is saved to {output_file}")
     compare_document_data(srcCollection, tgtCollection, batch_size, output_file, src_count, sample_size_percent, sampling_timeout_ms)
     compare_indexes(srcCollection, tgtCollection, output_file)
-    if check_target :
+    if check_target:
         check_target_for_extra_documents(srcCollection, tgtCollection, output_file)
 
 
@@ -140,7 +141,7 @@ def main():
     parser = argparse.ArgumentParser(description='Compare two collections and report differences.')
     parser.add_argument('--batch-size', type=int, default=100, help='Batch size for bulk reads (optional, default: 100)')
     parser.add_argument('--output-file', type=str, default='differences.txt', help='Output file path (optional, default: differences.txt)')
-    parser.add_argument('--check-target', type=str, default=False, help='optional, Check if extra documents exist in target database')
+    parser.add_argument('--check-target', action='store_true', default=False, help='optional, Check if extra documents exist in target database')
     parser.add_argument('--source-uri', type=str, required=True, help='Source cluster URI (required)')
     parser.add_argument('--target-uri', type=str, required=True, help='Target cluster URI (required)')
     parser.add_argument('--source-db', type=str, required=True, help='Source database name (required)')
