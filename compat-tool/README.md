@@ -14,11 +14,12 @@ cd amazon-documentdb-tools/compat-tool/
 ## Usage/Examples
 This tool supports examining compatibility with either the 3.6, 4.0, 5.0, or Elastic Clusters 5.0 versions of Amazon DocumentDB. The script has the following arguments:
 ```
---version {3.6,4.0,5.0,EC5.0} -> Check for DocumentDB version compatibility (default is 5.0)
---directory SCANDIR           -> Directory containing files to scan for compatibility
---file SCANFILE               -> Specific file to scan for compatibility
---excluded-extensions EXCLUDEDEXTENSIONS -> Filename extensions to exclude from scanning, comma separated
---included-extensions INCLUDEDEXTENSIONS -> Filename extensions to include in scanning, comma separated
+--version {3.6,4.0,5.0,EC5.0}               -> Check for DocumentDB version compatibility (default is 5.0)
+--directory SCANDIR                         -> Directory containing files to scan for compatibility
+--file SCANFILE                             -> Specific file to scan for compatibility
+--excluded-extensions EXCLUDEDEXTENSIONS    -> Filename extensions to exclude from scanning, comma separated
+--excluded-directories EXCLUDEDDIRECTORIES  -> Fully qualified path to directory to exclude, comma separated
+--included-extensions INCLUDEDEXTENSIONS    -> Filename extensions to include in scanning, comma separated
 ```
 
 #### Example 1:
@@ -98,7 +99,7 @@ The following 9 supported operators were found
 Check for compatibility with Amazon DocumentDB, files from the folder called test, excluding the ones with extension `.txt` and excluding directories `exclude1` and `exclude2`:
 
 ```
-python3 compat.py --version 5.0 --directory test --excluded-extensions txt --excluded-directories exclude1,exclude2
+python3 compat.py --version 5.0 --directory test --excluded-extensions txt --excluded-directories /path/to/directory/exclude1,/path/do/directory/exclude2
 
 processing file test/mongod.log.2020-11-10T19-33-14
 processing file test/mongodb.log
