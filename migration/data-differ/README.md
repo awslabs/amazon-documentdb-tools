@@ -28,7 +28,7 @@ cd amazon-documentdb-tools/migration/data-differ/
 
 ```
 python3 data-differ.py --help
-usage: data-differ.py [-h] [--batch-size BATCH_SIZE] [--output_-ile OUTPUT_FILE] [--check-target CHECK_TARGET] --source-uri SOURCE_URI --target-uri TARGET_URI --source-db SOURCE_DB --target-db TARGET_DB --source-coll SOURCE_COLL --target-coll TARGET_COLL [--sample-size_percent SAMPLE_SIZE_PERCENT] [--sampling-timeout-ms SAMPLING_TIMEOUT_MS]
+usage: data-differ.py [-h] [--batch-size BATCH_SIZE] [--output-file OUTPUT_FILE] [--check-target] --source-uri SOURCE_URI --target-uri TARGET_URI --source-db SOURCE_DB --target-db TARGET_DB --source-coll SOURCE_COLL --target-coll TARGET_COLL [--sample-size_percent SAMPLE_SIZE_PERCENT] [--sampling-timeout-ms SAMPLING_TIMEOUT_MS]
 
 Compare two collections and report differences.
 
@@ -38,7 +38,7 @@ options:
                         Batch size for bulk reads (optional, default: 100)
   --output-file OUTPUT_FILE
                         Output file path (optional, default: differences.txt)
-  --check-target CHECK_TARGET
+  --check-target
                         optional, Check if extra documents exist in target database
   --source-uri SOURCE_URI
                         Source cluster URI (required)
