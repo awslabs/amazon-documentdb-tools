@@ -125,7 +125,7 @@ def compare_collections(srcCollection, tgtCollection, batch_size, output_file, c
         print("No documents found in the target collection, please re-check you selected the right target collection.")
         return
     if src_count < trg_count:
-        print(f"Warning: There are more documents in target collection than the source collection, {trg_count} vs. {src_count}. Use --check_target to identify the missing docs in the source collection. ")
+        print(f"Warning: There are more documents in target collection than the source collection, {trg_count} vs. {src_count}. Use --check-target to identify the missing docs in the source collection. ")
     write_difference_to_file(output_file, "Count of documents in source:" + str(src_count) )
     write_difference_to_file(output_file, "Count of documents in target:" + str(trg_count) )
 
