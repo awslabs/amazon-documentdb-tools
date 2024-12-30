@@ -168,6 +168,8 @@ def main():
     # Converting python to json
     dashBody = json.dumps({"widgets":dashboardWidgets})
 
+    print("{}".format(dashBody))
+
     # Create dashboard
     client.put_dashboard(DashboardName=args.name, DashboardBody=dashBody)
 
