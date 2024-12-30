@@ -108,65 +108,25 @@ def main():
     widgets = [
         {"height":1,"panels":[w.ClusterHeading]},
         {"height":2,"panels":[w.metricHelp,w.bestPractices]},
-        {"height":7,"panels":[w.DBClusterReplicaLagMaximum,w.DatabaseCursorsTimedOut,w.VolumeWriteIOPS,w.VolumeReadIOPS]}
+        {"height":7,"panels":[w.DBClusterReplicaLagMaximum,w.DatabaseCursorsTimedOut,w.VolumeWriteIOPS,w.VolumeReadIOPS]},
+        {"height":7,"panels":[w.OpscountersInsert,w.OpscountersUpdate,w.OpscountersDelete,w.OpscountersQuery]},
+        {"height":1,"panels":[w.InstanceHeading]},
+        {"height":7,"panels":[w.CPUUtilization,w.DatabaseConnections,w.DatabaseCursors]},
+        {"height":7,"panels":[w.BufferCacheHitRatio,w.IndexBufferCacheHitRatio,w.FreeableMemory]},
+        {"height":7,"panels":[w.NetworkTransmitThroughput,w.NetworkReceiveThroughput]},
+        {"height":7,"panels":[w.StorageNetworkTransmitThroughput,w.StorageNetworkReceiveThroughput]},
+        {"height":7,"panels":[w.DocsInserted,w.DocsDeleted,w.DocsUpdated,w.DocsReturned]},
+        {"height":7,"panels":[w.ReadLatency,w.WriteLatency,w.DiskQueueDepth,w.DBInstanceReplicaLag]},
+        {"height":7,"panels":[w.WriteIops,w.WriteThroughput,w.ReadIops,w.ReadThroughput]},
+        {"height":1,"panels":[w.BackupStorageHeading]},
+        {"height":7,"panels":[w.VolumeBytesUsed,w.BackupRetentionPeriodStorageUsed,w.TotalBackupStorageBilled]},
     ]
 
-    '''
-
-
-        w.OpscountersInsert,
-        w.OpscountersUpdate,
-        w.OpscountersDelete,
-        w.OpscountersQuery,
-
-        w.InstanceHeading,
-
-        w.CPUUtilization,
-        w.DatabaseConnections,
-        w.DatabaseCursors,
-
-        w.BufferCacheHitRatio,
-        w.IndexBufferCacheHitRatio,
-        w.FreeableMemory,
-
-        w.NetworkTransmitThroughput,
-        w.NetworkReceiveThroughput,
-
-        w.StorageNetworkTransmitThroughput,
-        w.StorageNetworkReceiveThroughput,
-
-        w.DocsInserted,
-        w.DocsDeleted,
-        w.DocsUpdated,
-        w.DocsReturned,
-
-        w.ReadLatency,
-        w.WriteLatency,
-        w.DiskQueueDepth,
-        w.DBInstanceReplicaLag,
-
-        w.WriteIops,
-        w.WriteThroughput,
-        w.ReadIops,
-        w.ReadThroughput,
-
-        w.BackupStorageHeading,
-
-        w.VolumeBytesUsed,
-        w.BackupRetentionPeriodStorageUsed,
-        w.TotalBackupStorageBilled
-    ]
-    '''
-
+    # Create the CW data
     dashboardWidgets = create_dashboard(widgets, args.region, instanceList, clusterList)
 
-    # Deploy metrics
-    #add_metric(w.widget_json, widgets, args.region, instanceList, clusterList)
-
-    # Converting python to json
+    # Converting to json
     dashBody = json.dumps({"widgets":dashboardWidgets})
-
-    print("{}".format(dashBody))
 
     # Create dashboard
     client.put_dashboard(DashboardName=args.name, DashboardBody=dashBody)
