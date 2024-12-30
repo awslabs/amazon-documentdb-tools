@@ -4,38 +4,6 @@ import argparse
 import widgets as w
 
 
-# Checking to see if widget metric requires are cluster level or instance level.
-# If the metric is instance level, associate all instances for instance level metrics
-def add_metric(widJson, widgets, region, instanceList, clusterList):
-    for widget in widgets:
-        widget["properties"]['region'] = region
-        if 'metrics' in widget["properties"]:
-            if 'DBInstanceIdentifier' in widget["properties"]["metrics"][0]:
-                for i, DBInstanceIdentifier in enumerate(instanceList):
-                    if DBInstanceIdentifier['IsClusterWriter']:
-                        instanceType = '|PRIMARY'
-                    else:
-                        instanceType = '|REPLICA'
-
-                    if (i == 0):
-                        widget["properties"]["metrics"][i].append(DBInstanceIdentifier['DBInstanceIdentifier'])
-                        widget["properties"]["metrics"][i].append({"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType})
-                    else:
-                        widget["properties"]["metrics"].append([".",".",".",DBInstanceIdentifier['DBInstanceIdentifier'],{"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType}])
-
-            else:
-                for i, DBClusterIdentifier in enumerate(clusterList):
-                    if (i == 0):
-                        widget["properties"]["metrics"][i].append(DBClusterIdentifier)
-                        widget["properties"]["metrics"][i].append({"label":DBClusterIdentifier})
-                    else:
-                        widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
-
-        widJson["widgets"].append(widget)
-
-
-# Checking to see if widget metric requires are cluster level or instance level.
-# If the metric is instance level, associate all instances for instance level metrics
 def create_dashboard(widgets, region, instanceList, clusterList):
     tempWidgets = []
     widthX = 24
