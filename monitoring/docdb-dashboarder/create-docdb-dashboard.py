@@ -77,7 +77,7 @@ def create_dashboard(widgets, region, instanceList, clusterList):
             dashboardX += incrementX                
 
         tempWidgets.append(widget)
-        dashboard += thisRow["height"]
+        dashboardY += thisRow["height"]
 
 
 # Main method
