@@ -8,20 +8,12 @@ ClusterHeading = {
 
 # ADDITIONAL HELP METRICS
 metricHelp = {
-            "height": 2,
-            "width": 12,
-            "y": 1,
-            "x": 0,
             "type": "text",
             "properties": {
                 "markdown": "### Metrics Overview\nLearn more about metric information by visiting the Amazon DocumentDB Metrics section [here](https://docs.aws.amazon.com/documentdb/latest/developerguide/cloud_watch.html#cloud_watch-metrics_list)\n"
             }
         }
 bestPractices = {
-            "height": 2,
-            "width": 12,
-            "y": 1,
-            "x": 12,
             "type": "text",
             "properties": {
                 "markdown": "### DocumentDB Specialist Optimization Tips\nLearn how to optimize your workload by visiting the DocDB Specialist recommended guidelines [here](https://docs.aws.amazon.com/documentdb/latest/developerguide/best_practices.html)"
@@ -29,10 +21,6 @@ bestPractices = {
         }
 
 DBClusterReplicaLagMaximum = {
-    "height": 7,
-    "width": 6,
-    "y": 3,
-    "x": 0,
     "type": "metric",
     "properties": {
         "view": "timeSeries",
@@ -44,10 +32,6 @@ DBClusterReplicaLagMaximum = {
     }
 }
 DatabaseCursorsTimedOut = {
-    "height": 7,
-    "width": 6,
-    "y": 3,
-    "x": 6,
     "type": "metric",
     "properties": {
         "view": "timeSeries",
@@ -60,10 +44,6 @@ DatabaseCursorsTimedOut = {
     }
 }
 VolumeWriteIOPS = {
-    "height": 7,
-    "width": 6,
-    "y": 3,
-    "x": 12,
     "type": "metric",
     "properties": {
         "view": "timeSeries",
@@ -75,10 +55,6 @@ VolumeWriteIOPS = {
     }
 }
 VolumeReadIOPS = {
-    "height": 7,
-    "width": 6,
-    "y": 3,
-    "x": 18,
     "type": "metric",
     "properties": {
         "view": "timeSeries",

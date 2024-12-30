@@ -108,14 +108,11 @@ def main():
     widgets = [
         {"height":1,"panels":[w.ClusterHeading]},
         {"height":2,"panels":[w.metricHelp,w.bestPractices]}
+        {"height":7,"panels":[w.DBClusterReplicaLagMaximum,w.DatabaseCursorsTimedOut,w.VolumeWriteIOPS,w.VolumeReadIOPS]}
     ]
 
     '''
 
-        w.DBClusterReplicaLagMaximum,
-        w.DatabaseCursorsTimedOut,
-        w.VolumeWriteIOPS,
-        w.VolumeReadIOPS,
 
         w.OpscountersInsert,
         w.OpscountersUpdate,
