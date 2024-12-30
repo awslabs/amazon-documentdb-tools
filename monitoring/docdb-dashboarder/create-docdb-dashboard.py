@@ -4,34 +4,50 @@ import argparse
 import widgets as w
 
 
-# Checking to see if widget metric requires are cluster level or instance level.
-# If the metric is instance level, associate all instances for instance level metrics
-def add_metric(widJson, widgets, region, instanceList, clusterList):
-    for widget in widgets:
-        widget["properties"]['region'] = region
-        if 'metrics' in widget["properties"]:
-            if 'DBInstanceIdentifier' in widget["properties"]["metrics"][0]:
-                for i, DBInstanceIdentifier in enumerate(instanceList):
-                    if DBInstanceIdentifier['IsClusterWriter']:
-                        instanceType = '|PRIMARY'
-                    else:
-                        instanceType = '|REPLICA'
+def create_dashboard(widgets, region, instanceList, clusterList):
+    tempWidgets = []
+    widthX = 24
 
-                    if (i == 0):
-                        widget["properties"]["metrics"][i].append(DBInstanceIdentifier['DBInstanceIdentifier'])
-                        widget["properties"]["metrics"][i].append({"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType})
-                    else:
-                        widget["properties"]["metrics"].append([".",".",".",DBInstanceIdentifier['DBInstanceIdentifier'],{"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType}])
+    dashboardY = 0
+    for thisRow in widgets:
+        dashboardX = 0
+        incrementX = widthX // len(thisRow['panels'])
 
-            else:
-                for i, DBClusterIdentifier in enumerate(clusterList):
-                    if (i == 0):
-                        widget["properties"]["metrics"][i].append(DBClusterIdentifier)
-                        widget["properties"]["metrics"][i].append({"label":DBClusterIdentifier})
-                    else:
-                        widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
+        for widget in thisRow['panels']:
+            widget["properties"]['region'] = region
+            widget["height"] = thisRow["height"]
+            widget["width"] = incrementX
+            widget["x"] = dashboardX
+            widget["y"] = dashboardY
 
-        widJson["widgets"].append(widget)
+            if 'metrics' in widget["properties"]:
+                if 'DBInstanceIdentifier' in widget["properties"]["metrics"][0]:
+                    for i, DBInstanceIdentifier in enumerate(instanceList):
+                        if DBInstanceIdentifier['IsClusterWriter']:
+                            instanceType = '|PRIMARY'
+                        else:
+                            instanceType = '|REPLICA'
+
+                        if (i == 0):
+                            widget["properties"]["metrics"][i].append(DBInstanceIdentifier['DBInstanceIdentifier'])
+                            widget["properties"]["metrics"][i].append({"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType})
+                        else:
+                            widget["properties"]["metrics"].append([".",".",".",DBInstanceIdentifier['DBInstanceIdentifier'],{"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType}])
+
+                else:
+                    for i, DBClusterIdentifier in enumerate(clusterList):
+                        if (i == 0):
+                            widget["properties"]["metrics"][i].append(DBClusterIdentifier)
+                            widget["properties"]["metrics"][i].append({"label":DBClusterIdentifier})
+                        else:
+                            widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
+
+            tempWidgets.append(widget)
+            dashboardX += incrementX                
+
+        dashboardY += thisRow["height"]
+
+    return tempWidgets
 
 
 # Main method
@@ -53,71 +69,32 @@ def main():
         for thisInstance in response["DBClusters"][0]["DBClusterMembers"]:
             instanceList.append(thisInstance)
 
-    #instanceID = response["DBClusters"][0]["DBClusterMembers"]
-
     # CloudWatch client
     client = boto3.client('cloudwatch', region_name=args.region)
 
     # All widgets to be displayed on the dashboard
     widgets = [
-        w.ClusterHeading,
-
-        w.metricHelp,
-        w.bestPractices,
-
-        w.DBClusterReplicaLagMaximum,
-        w.DatabaseCursorsTimedOut,
-        w.VolumeWriteIOPS,
-        w.VolumeReadIOPS,
-
-        w.OpscountersInsert,
-        w.OpscountersUpdate,
-        w.OpscountersDelete,
-        w.OpscountersQuery,
-
-        w.InstanceHeading,
-
-        w.CPUUtilization,
-        w.DatabaseConnections,
-        w.DatabaseCursors,
-
-        w.BufferCacheHitRatio,
-        w.IndexBufferCacheHitRatio,
-        w.FreeableMemory,
-
-        w.NetworkTransmitThroughput,
-        w.NetworkReceiveThroughput,
-
-        w.StorageNetworkTransmitThroughput,
-        w.StorageNetworkReceiveThroughput,
-
-        w.DocsInserted,
-        w.DocsDeleted,
-        w.DocsUpdated,
-        w.DocsReturned,
-
-        w.ReadLatency,
-        w.WriteLatency,
-        w.DiskQueueDepth,
-        w.DBInstanceReplicaLag,
-
-        w.WriteIops,
-        w.WriteThroughput,
-        w.ReadIops,
-        w.ReadThroughput,
-
-        w.BackupStorageHeading,
-
-        w.VolumeBytesUsed,
-        w.BackupRetentionPeriodStorageUsed,
-        w.TotalBackupStorageBilled
+        {"height":1,"panels":[w.ClusterHeading]},
+        {"height":2,"panels":[w.metricHelp,w.bestPractices]},
+        {"height":7,"panels":[w.DBClusterReplicaLagMaximum,w.DatabaseCursorsTimedOut,w.VolumeWriteIOPS,w.VolumeReadIOPS]},
+        {"height":7,"panels":[w.OpscountersInsert,w.OpscountersUpdate,w.OpscountersDelete,w.OpscountersQuery]},
+        {"height":1,"panels":[w.InstanceHeading]},
+        {"height":7,"panels":[w.CPUUtilization,w.DatabaseConnections,w.DatabaseCursors]},
+        {"height":7,"panels":[w.BufferCacheHitRatio,w.IndexBufferCacheHitRatio,w.FreeableMemory]},
+        {"height":7,"panels":[w.NetworkTransmitThroughput,w.NetworkReceiveThroughput]},
+        {"height":7,"panels":[w.StorageNetworkTransmitThroughput,w.StorageNetworkReceiveThroughput]},
+        {"height":7,"panels":[w.DocsInserted,w.DocsDeleted,w.DocsUpdated,w.DocsReturned]},
+        {"height":7,"panels":[w.ReadLatency,w.WriteLatency,w.DiskQueueDepth,w.DBInstanceReplicaLag]},
+        {"height":7,"panels":[w.WriteIops,w.WriteThroughput,w.ReadIops,w.ReadThroughput]},
+        {"height":1,"panels":[w.BackupStorageHeading]},
+        {"height":7,"panels":[w.VolumeBytesUsed,w.BackupRetentionPeriodStorageUsed,w.TotalBackupStorageBilled]},
     ]
 
-    # Deploy metrics
-    add_metric(w.widget_json, widgets, args.region, instanceList, clusterList)
+    # Create the CW data
+    dashboardWidgets = create_dashboard(widgets, args.region, instanceList, clusterList)
 
-    # Converting python to json
-    dashBody = json.dumps(w.widget_json)
+    # Converting to json
+    dashBody = json.dumps({"widgets":dashboardWidgets})
 
     # Create dashboard
     client.put_dashboard(DashboardName=args.name, DashboardBody=dashBody)
