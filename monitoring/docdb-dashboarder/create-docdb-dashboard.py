@@ -106,12 +106,11 @@ def main():
 
     # All widgets to be displayed on the dashboard
     widgets = [
-        {"height":1,"panels":[w.ClusterHeading]}
+        {"height":1,"panels":[w.ClusterHeading]},
+        {"height":2,"panels":[w.metricHelp,w.bestPractices]}
     ]
 
     '''
-        w.metricHelp,
-        w.bestPractices,
 
         w.DBClusterReplicaLagMaximum,
         w.DatabaseCursorsTimedOut,
