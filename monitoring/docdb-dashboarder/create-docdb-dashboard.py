@@ -38,31 +38,46 @@ def add_metric(widJson, widgets, region, instanceList, clusterList):
 # If the metric is instance level, associate all instances for instance level metrics
 def create_dashboard(widgets, region, instanceList, clusterList):
     tempWidgets = []
-    for widget in widgets:
-        widget["properties"]['region'] = region
-        if 'metrics' in widget["properties"]:
-            if 'DBInstanceIdentifier' in widget["properties"]["metrics"][0]:
-                for i, DBInstanceIdentifier in enumerate(instanceList):
-                    if DBInstanceIdentifier['IsClusterWriter']:
-                        instanceType = '|PRIMARY'
-                    else:
-                        instanceType = '|REPLICA'
+    widthX = 24
 
-                    if (i == 0):
-                        widget["properties"]["metrics"][i].append(DBInstanceIdentifier['DBInstanceIdentifier'])
-                        widget["properties"]["metrics"][i].append({"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType})
-                    else:
-                        widget["properties"]["metrics"].append([".",".",".",DBInstanceIdentifier['DBInstanceIdentifier'],{"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType}])
+    dashboardY = 0
+    for thisRow in widgets:
+        dashboardX = 0
+        incrementX = widthX // len(thisRow['panels'])
 
-            else:
-                for i, DBClusterIdentifier in enumerate(clusterList):
-                    if (i == 0):
-                        widget["properties"]["metrics"][i].append(DBClusterIdentifier)
-                        widget["properties"]["metrics"][i].append({"label":DBClusterIdentifier})
-                    else:
-                        widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
+        for widget in thisRow['panels']:
+            widget["properties"]['region'] = region
+            widget["height"] = thisRow["height"]
+            widget["width"] = incrementX
+            widget["x"] = dashboardX
+            widget["y"] = dashboardY
+
+            if 'metrics' in widget["properties"]:
+                if 'DBInstanceIdentifier' in widget["properties"]["metrics"][0]:
+                    for i, DBInstanceIdentifier in enumerate(instanceList):
+                        if DBInstanceIdentifier['IsClusterWriter']:
+                            instanceType = '|PRIMARY'
+                        else:
+                            instanceType = '|REPLICA'
+
+                        if (i == 0):
+                            widget["properties"]["metrics"][i].append(DBInstanceIdentifier['DBInstanceIdentifier'])
+                            widget["properties"]["metrics"][i].append({"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType})
+                        else:
+                            widget["properties"]["metrics"].append([".",".",".",DBInstanceIdentifier['DBInstanceIdentifier'],{"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType}])
+
+                else:
+                    for i, DBClusterIdentifier in enumerate(clusterList):
+                        if (i == 0):
+                            widget["properties"]["metrics"][i].append(DBClusterIdentifier)
+                            widget["properties"]["metrics"][i].append({"label":DBClusterIdentifier})
+                        else:
+                            widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
+
+            dashboardX += incrementX                
 
         tempWidgets.append(widget)
+        dashboard += thisRow["height"]
 
 
 # Main method
