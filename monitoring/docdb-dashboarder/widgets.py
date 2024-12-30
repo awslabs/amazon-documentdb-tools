@@ -1,14 +1,5 @@
-# Widget Dictionary
-widget_json = {
-    "widgets": []
-}
-
 # CLUSTER LEVEL METRICS
 ClusterHeading = {
-    "height": 1,
-    "width": 24,
-    "y": 0,
-    "x": 0,
     "type": "text",
     "properties": {
         "markdown": "# Cluster Level Metrics"
@@ -50,7 +41,6 @@ DBClusterReplicaLagMaximum = {
             ["AWS/DocDB", "DBClusterReplicaLagMaximum", "DBClusterIdentifier"]
         ],
         "title": "DBClusterReplicaLagMaximum"
-
     }
 }
 DatabaseCursorsTimedOut = {
