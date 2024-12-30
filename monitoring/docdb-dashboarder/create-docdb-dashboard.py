@@ -79,6 +79,8 @@ def create_dashboard(widgets, region, instanceList, clusterList):
         tempWidgets.append(widget)
         dashboardY += thisRow["height"]
 
+    return tempWidgets
+
 
 # Main method
 def main():
