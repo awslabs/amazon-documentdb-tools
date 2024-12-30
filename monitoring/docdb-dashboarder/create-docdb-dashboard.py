@@ -74,9 +74,9 @@ def create_dashboard(widgets, region, instanceList, clusterList):
                         else:
                             widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
 
+            tempWidgets.append(widget)
             dashboardX += incrementX                
 
-        tempWidgets.append(widget)
         dashboardY += thisRow["height"]
 
     return tempWidgets
