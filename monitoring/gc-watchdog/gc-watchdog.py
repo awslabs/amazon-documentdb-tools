@@ -24,7 +24,7 @@ def watchGc(appConfig):
     checkFrequencySeconds = appConfig['checkFrequencySeconds']
     createCloudwatchMetrics = appConfig['createCloudwatchMetrics']
     clusterName = appConfig['clusterName']
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='gcwatch')
     watchStartTime = time.time()
     
     # number of seconds between posting metrics to cloudwatch
