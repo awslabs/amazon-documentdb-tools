@@ -27,7 +27,7 @@ def setup(appConfig):
     databaseName = appConfig['databaseName']
     collectionName = appConfig['collectionName']
 
-    client = pymongo.MongoClient(appConfig['uri'])
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='compupd')
     
     # database and collection for compression
 
