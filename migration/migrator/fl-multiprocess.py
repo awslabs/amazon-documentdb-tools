@@ -54,6 +54,8 @@ def full_load_loader(threadnum, appConfig, perfQ):
         # last processor = $gt prior, $lte next
         cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1], '$lte': appConfig['boundaries'][threadnum]}})
 
+    perfQ.put({"name":"findCompleted","processNum":threadnum})
+
     for doc in cursor:
         myCollectionOps += 1
         bulkOpList.append(pymongo.InsertOne(doc))
@@ -101,6 +103,7 @@ def reporter(appConfig, perfQ):
     nextReportTime = startTime + appConfig["feedbackSeconds"]
     
     numWorkersCompleted = 0
+    numWorkersLoading = 0
     numProcessedOplogEntries = 0
     
     while (numWorkersCompleted < appConfig["numProcessingThreads"]):
@@ -113,6 +116,9 @@ def reporter(appConfig, perfQ):
                 numProcessedOplogEntries += qMessage['operations']
             elif qMessage['name'] == "processCompleted":
                 numWorkersCompleted += 1
+                numWorkersLoading -= 1
+            elif qMessage['name'] == "findCompleted":
+                numWorkersLoading += 1
 
         # total total
         elapsedSeconds = nowTime - startTime
@@ -128,7 +134,7 @@ def reporter(appConfig, perfQ):
         intervalOpsPerSecond = (numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds
 
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
-        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot ops {4:16,d}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries))
+        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot ops {4:16,d} | loading {5:5d}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,numWorkersLoading))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
         
         lastTime = nowTime
