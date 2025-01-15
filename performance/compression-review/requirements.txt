@@ -1,3 +1,5 @@
 pymongo
 lz4
 zstandard
+python-snappy
+
