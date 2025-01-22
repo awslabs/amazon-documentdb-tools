@@ -182,6 +182,22 @@ FreeableMemory = {
                 }
             }
         }
+FreeLocalStorage = {
+    "type": "metric",
+    "properties": {
+        "sparkline": True,
+        "view": "timeSeries",
+        "metrics": [["AWS/DocDB", "FreeLocalStorage", "DBInstanceIdentifier"]],
+        "title": "Free Local Storage",
+        "period": 300,
+        "stacked": False,
+        "yAxis": {
+            "left": {
+                "min": 0
+                    }
+                }
+            }
+        }
 
 # ----------------------------------------------
 NetworkTransmitThroughput = {
@@ -395,5 +411,86 @@ TotalBackupStorageBilled = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "TotalBackupStorageBilled", "DBClusterIdentifier"]],
         "title": "TotalBackupStorageBilled"
+    }
+}
+
+# NVME 1 ----------------------------------------------
+NVMeHeading = {
+    "type": "text",
+    "properties": {"markdown": "# NVMe-Backed Instances"}
+}
+# NVME 2 ----------------------------------------------
+FreeNVMeStorage = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "FreeNVMeStorage", "DBInstanceIdentifier"]],
+        "title": "Free NVMe Storage"
+    }
+}
+NVMeStorageCacheHitRatio = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "NVMeStorageCacheHitRatio", "DBInstanceIdentifier"]],
+        "title": "NVMe Storage Cache Hit Ratio"
+    }
+}
+# NVME 3 ----------------------------------------------
+ReadIopsNVMeStorage = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "ReadIOPSNVMeStorage", "DBInstanceIdentifier"]],
+        "title": "Read IOPs NVMe Storage"
+    }
+}
+ReadLatencyNVMeStorage = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "ReadLatencyNVMeStorage", "DBInstanceIdentifier"]],
+        "title": "Read Latency NVMe Storage"
+    }
+}
+ReadThroughputNVMeStorage = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "ReadThroughputNVMeStorage", "DBInstanceIdentifier"]],
+        "title": "Read Throughput NVMe Storage"
+    }
+}
+# NVME 4 ----------------------------------------------
+WriteIopsNVMeStorage = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "WriteIOPSNVMeStorage", "DBInstanceIdentifier"]],
+        "title": "Write IOPs NVMe Storage"
+    }
+}
+WriteLatencyNVMeStorage = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "WriteLatencyNVMeStorage", "DBInstanceIdentifier"]],
+        "title": "Write Latency NVMe Storage"
+    }
+}
+WriteThroughputNVMeStorage = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "WriteThroughputNVMeStorage", "DBInstanceIdentifier"]],
+        "title": "Write Throughput NVMe Storage"
     }
 }

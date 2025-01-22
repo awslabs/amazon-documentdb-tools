@@ -57,6 +57,7 @@ def main():
     parser.add_argument('--name', type=str, required=True, help="Name of CloudWatch dashboard to create")
     parser.add_argument('--region', type=str, required=True, help="Region of Amazon DocumentDB cluster(s)")
     parser.add_argument('--clusterID', type=str, required=True, help="Single Amazon DocumentDB cluster ID or comma separated list of cluster IDs")
+    parser.add_argument('--include-nvme',required=False,action='store_true',help='Include NVMe-backed instance metrics')
     args = parser.parse_args()
 
     # DocumentDB Configurations
@@ -74,21 +75,29 @@ def main():
 
     # All widgets to be displayed on the dashboard
     widgets = [
-        {"height":1,"panels":[w.ClusterHeading]},
+        {"height":2,"panels":[w.ClusterHeading]},
         {"height":2,"panels":[w.metricHelp,w.bestPractices]},
         {"height":7,"panels":[w.DBClusterReplicaLagMaximum,w.DatabaseCursorsTimedOut,w.VolumeWriteIOPS,w.VolumeReadIOPS]},
         {"height":7,"panels":[w.OpscountersInsert,w.OpscountersUpdate,w.OpscountersDelete,w.OpscountersQuery]},
-        {"height":1,"panels":[w.InstanceHeading]},
+        {"height":2,"panels":[w.InstanceHeading]},
         {"height":7,"panels":[w.CPUUtilization,w.DatabaseConnections,w.DatabaseCursors]},
-        {"height":7,"panels":[w.BufferCacheHitRatio,w.IndexBufferCacheHitRatio,w.FreeableMemory]},
+        {"height":7,"panels":[w.BufferCacheHitRatio,w.IndexBufferCacheHitRatio,w.FreeableMemory,w.FreeLocalStorage]},
         {"height":7,"panels":[w.NetworkTransmitThroughput,w.NetworkReceiveThroughput]},
         {"height":7,"panels":[w.StorageNetworkTransmitThroughput,w.StorageNetworkReceiveThroughput]},
         {"height":7,"panels":[w.DocsInserted,w.DocsDeleted,w.DocsUpdated,w.DocsReturned]},
         {"height":7,"panels":[w.ReadLatency,w.WriteLatency,w.DiskQueueDepth,w.DBInstanceReplicaLag]},
         {"height":7,"panels":[w.WriteIops,w.WriteThroughput,w.ReadIops,w.ReadThroughput]},
-        {"height":1,"panels":[w.BackupStorageHeading]},
+        {"height":2,"panels":[w.BackupStorageHeading]},
         {"height":7,"panels":[w.VolumeBytesUsed,w.BackupRetentionPeriodStorageUsed,w.TotalBackupStorageBilled]},
     ]
+
+    # Optional NVMe Metrics
+    if args.include_nvme:
+        print("{}".format("Adding NVMe-backed instance metrics"))
+        widgets.append({"height":2,"panels":[w.NVMeHeading]})
+        widgets.append({"height":7,"panels":[w.FreeNVMeStorage,w.NVMeStorageCacheHitRatio]})
+        widgets.append({"height":7,"panels":[w.ReadIopsNVMeStorage,w.ReadLatencyNVMeStorage,w.ReadThroughputNVMeStorage]})
+        widgets.append({"height":7,"panels":[w.WriteIopsNVMeStorage,w.WriteLatencyNVMeStorage,w.WriteThroughputNVMeStorage]})
 
     # Create the CW data
     dashboardWidgets = create_dashboard(widgets, args.region, instanceList, clusterList)
