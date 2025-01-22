@@ -73,4 +73,6 @@ cd <location path of python-script>
 ```
 ```
 python create-docdb-dashboard.py --name <your dashboard name> --region <your region> --clusterID <DocDB clusterID>
+
+optionally include --include-nvme to add NVMe metrics to the dashboard
 ```
