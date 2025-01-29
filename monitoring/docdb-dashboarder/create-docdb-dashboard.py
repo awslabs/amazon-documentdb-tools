@@ -58,6 +58,7 @@ def main():
     parser.add_argument('--region', type=str, required=True, help="Region of Amazon DocumentDB cluster(s)")
     parser.add_argument('--clusterID', type=str, required=True, help="Single Amazon DocumentDB cluster ID or comma separated list of cluster IDs")
     parser.add_argument('--include-nvme',required=False,action='store_true',help='Include NVMe-backed instance metrics')
+    parser.add_argument('--endpoint-url',type=str,required=False,help='Override default endpoint URL')
     args = parser.parse_args()
 
     # DocumentDB Configurations
