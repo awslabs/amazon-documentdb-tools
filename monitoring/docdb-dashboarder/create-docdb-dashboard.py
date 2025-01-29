@@ -61,7 +61,10 @@ def main():
     args = parser.parse_args()
 
     # DocumentDB Configurations
-    docdbclient = boto3.client('docdb', region_name=args.region)
+    if args.endpoint_url is not None:
+        docdbclient = boto3.client('docdb', region_name=args.region, endpoint_url=args.endpoint_url)
+    else:
+        docdbclient = boto3.client('docdb', region_name=args.region)
 
     clusterList = args.clusterID.split(',')
     instanceList = []
