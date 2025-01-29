@@ -17,7 +17,7 @@ pip3 install boto3, pandas
 Usage:
     
 ```
-metric-collector.py --region <aws-region-name> \\
+python3 metric-collector.py --region <aws-region-name> \\
     --log-file-name <output-file-name> \\
     --start-date <YYYYMMDD> \\
     --end-date <YYYYMMDD>
