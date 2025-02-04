@@ -8,6 +8,14 @@ The index review tool catalogs all collections and their indexes (structure and 
  - Python 3.7+
  - PyMongo
 
+# Access Control
+The account executing to this script requires the following permissions -
+ - collStats
+ - indexStats
+ - listCollections
+ - listDatabases
+ - serverStatus
+
 ## Using the Index Review Tool
 `python3 index-review.py --server-alias <server-alias> --uri <mongodb-uri>`
 
