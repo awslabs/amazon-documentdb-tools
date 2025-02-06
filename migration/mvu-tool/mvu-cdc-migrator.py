@@ -43,16 +43,20 @@ def change_stream_processor(threadnum, appConfig, perfQ):
 
     if (appConfig["startTs"] == "RESUME_TOKEN") and not appConfig["sourceDb"] :
         stream = sourceConnection.watch(resume_after={'_data': appConfig["startPosition"]}, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}])
-        
-    else:
+
+    elif not appConfig["sourceColl"]:
         sourceDatabase=sourceConnection[appConfig["sourceDb"]]
         stream = sourceDatabase.watch(resume_after={'_data': appConfig["startPosition"]}, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}])
-    
+
+    else:
+        sourceDatabase=sourceConnection[appConfig["sourceDb"]]
+        sourceCollection = sourceDatabase[appConfig["sourceColl"]]
+        stream = sourceCollection.watch(resume_after={'_data': appConfig["startPosition"]}, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}])
 
     if appConfig['verboseLogging']:
         if (appConfig["startTs"] == "RESUME_TOKEN"):
             logIt(threadnum,"Creating change stream cursor for resume token {}".format(appConfig["startPosition"]))
-    
+
     while  not allDone:
         while stream.alive:
             change = stream.try_next()
@@ -66,8 +70,8 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                 continue
             elif waitcount>(appConfig["maxSecondsBetweenBatches"]+1):
                 waitcount=0
-                applyLastbatch=True 
-          
+                applyLastbatch=True
+
             if not applyLastbatch:
                 endTs = change['clusterTime']
                 resumeToken = change['_id']['_data']
@@ -107,7 +111,7 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     else:
                         print(change)
                         sys.exit(1)
-            
+
             if ((numCurrentBulkOps >= appConfig["maxOperationsPerBatch"]) or (time.time() >= (lastBatch + appConfig["maxSecondsBetweenBatches"])) ) and (numCurrentBulkOps > 0):
                 bulkOpList=[]
                 bulkOpListReplace=[]
@@ -156,15 +160,20 @@ def change_stream_processor(threadnum, appConfig, perfQ):
 #Function to get the Change stream token
 def get_resume_token(appConfig):
     sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"],appname='mvutool')
-    
+
     allDone = False
     if not appConfig["sourceDb"]:
         stream = sourceConnection.watch()
         logIt(-1,'getting current change stream resume token')
-    else:
+    elif not appConfig["sourceColl"]:
         sourceDatabase=sourceConnection[appConfig["sourceDb"]]
         stream=sourceDatabase.watch()
         logIt(-1,'getting current change stream resume token for ' + appConfig["sourceDb"] + " database")
+    else:
+        sourceDatabase=sourceConnection[appConfig["sourceDb"]]
+        sourceCollection = sourceDatabase[appConfig["sourceColl"]]
+        stream=sourceCollection.watch()
+        logIt(-1,'getting current change stream resume token for ' + appConfig["sourceDb"] + " database " + appConfig["sourceColl"] + " collection")
 
     while not allDone:
         for change in stream:
@@ -181,10 +190,10 @@ def get_resume_token(appConfig):
 def reporter(appConfig, perfQ):
     if appConfig['verboseLogging']:
         logIt(-1,'reporting thread started')
-    
+
     startTime = time.time()
     lastTime = time.time()
-    
+
     lastProcessedOplogEntries = 0
     nextReportTime = startTime + appConfig["feedbackSeconds"]
 
@@ -192,13 +201,13 @@ def reporter(appConfig, perfQ):
 
     numWorkersCompleted = 0
     numProcessedOplogEntries = 0
-    
+
     dtDict = {}
-    
+
     while (numWorkersCompleted < appConfig["numProcessingThreads"]):
         time.sleep(appConfig["feedbackSeconds"])
         nowTime = time.time()
-        
+
         while not perfQ.empty():
             qMessage = perfQ.get_nowait()
             if qMessage['name'] == "batchCompleted":
@@ -226,11 +235,11 @@ def reporter(appConfig, perfQ):
         thisHours, rem = divmod(elapsedSeconds, 3600)
         thisMinutes, thisSeconds = divmod(rem, 60)
         thisHMS = "{:0>2}:{:0>2}:{:05.2f}".format(int(thisHours),int(thisMinutes),thisSeconds)
-        
+
         # this interval
         intervalElapsedSeconds = nowTime - lastTime
         intervalOpsPerSecond = (numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds
-        
+
         # how far behind current time
         dtUtcNow = datetime.utcnow()
         totSecondsBehind = 0
@@ -244,7 +253,7 @@ def reporter(appConfig, perfQ):
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
         print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot {4:16,d} | {5:12,d} secs behind | resume token = {6}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind,resumeToken))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
-        
+
         lastTime = nowTime
         lastProcessedOplogEntries = numProcessedOplogEntries
 
@@ -256,7 +265,7 @@ def main():
                         required=False,
                         action='store_true',
                         help='Permit execution on Python 3.6 and prior')
-    
+
     parser.add_argument('--source-uri',
                         required=True,
                         type=str,
@@ -272,8 +281,12 @@ def main():
                         required=False,
                         type=str,
                         help='Source database name if you skip it will replicate all the databases')
-                        
-                      
+
+    parser.add_argument('--source-collection',
+                        required=False,
+                        type=str,
+                        help='Source collection name. Only used if --source-database is defined')
+
     parser.add_argument('--duration-seconds',
                         required=False,
                         type=int,
@@ -303,7 +316,7 @@ def main():
                         type=int,
                         default=100,
                         help='Maximum number of operations to include in a single batch')
-                        
+
     parser.add_argument('--dry-run',
                         required=False,
                         action='store_true',
@@ -341,6 +354,7 @@ def main():
     appConfig['feedbackSeconds'] = args.feedback_seconds
     appConfig['dryRun'] = args.dry_run
     appConfig['sourceDb'] = args.source_database
+    appConfig['sourceColl'] = args.source_collection
     appConfig['startPosition'] = args.start_position
     appConfig['verboseLogging'] = args.verbose
     appConfig['cdcSource'] = 'changeStream'
@@ -351,7 +365,7 @@ def main():
     elif (not args.get_resume_token) and args.target_uri =='no-target-uri':
         message = "you need to supply target uri to run it"
         parser.error(message)
-  
+
     logIt(-1,"processing {} using {} threads".format(appConfig['cdcSource'],appConfig['numProcessingThreads']))
 
     if len(appConfig["startPosition"]) == 36:
@@ -364,18 +378,18 @@ def main():
 
     t = threading.Thread(target=reporter,args=(appConfig,q))
     t.start()
-    
+
     processList = []
     for loop in range(appConfig["numProcessingThreads"]):
         p = mp.Process(target=change_stream_processor,args=(loop,appConfig,q))
         processList.append(p)
-        
+
     for process in processList:
         process.start()
-        
+
     for process in processList:
         process.join()
-        
+
     t.join()
 
 

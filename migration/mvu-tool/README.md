@@ -25,7 +25,8 @@ cd amazon-documentdb-tools/mvu-tool/
 ```
 python3 mvu-cdc-migrator.py  --help
 usage: mvu-cdc-migrator.py [-h] [--skip-python-version-check] --source-uri SOURCE_URI [--target-uri TARGET_URI]
-                           [--source-database SOURCE_DATABASE] 
+                           [--source-database SOURCE_DATABASE]
+                           [--source-collection SOURCE_COLLECTION] 
                            [--duration-seconds DURATION_SECONDS]
                            [--feedback-seconds FEEDBACK_SECONDS] [--threads THREADS]
                            [--max-seconds-between-batches MAX_SECONDS_BETWEEN_BATCHES]
@@ -45,6 +46,8 @@ options:
                         Target URI you can skip if you run with get-resume-token
   --source-database SOURCE_DATABASE
                         Source database name if you skip it will replicate all the databases
+  --source-collection SOURCE_COLLECTION
+                        Source collection name. Only used if --source-database is defined
   --duration-seconds DURATION_SECONDS
                         Number of seconds to run before exiting, 0 = run forever
   --feedback-seconds FEEDBACK_SECONDS
@@ -62,7 +65,7 @@ options:
 ```
 ## Example usage:
 
-* To get the cluster wide change stream token 
+* To get the cluster wide change stream token
 ```
 python3 mvu-cdc-migrator.py --source-uri <source-cluster-uri> -- start-position 0 --verbose --get-resume-token
 ```
