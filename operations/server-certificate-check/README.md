@@ -1,12 +1,12 @@
 # Amazon DocumentDB Server Certificate Check
-The server certificate check returns a list of all instances in a region including the expiration of the servers certificate and maintenance window..
+The server certificate check returns a list of all instances in a region including the expiration of the servers certificate and maintenance window.
 
 ## Features
 - Output may be filtered using case-insensitive matching on cluster name and/or instance name.
 
 ## Requirements
 - Python 3.7 or greater, boto3, urllib3
-- IAM privileges in https://github.com/awslabs/amazon-documentdb-tools/blob/master/performance/deployment-scanner/iam-policy.json
+- IAM privileges in https://github.com/awslabs/amazon-documentdb-tools/blob/master/operations/server-certificate-check/iam-policy.json
 
 ## Installation
 Clone the repository and install the requirements:

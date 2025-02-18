@@ -1,0 +1,15 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "rds:DescribeDBClusters",
+                "rds:DescribeDBInstances"
+            ],
+            "Resource": [
+                "arn:aws:rds:{region}:{account}:*:*"
+            ]
+        }
+    ]
+}
