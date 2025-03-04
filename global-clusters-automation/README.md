@@ -1,3 +1,13 @@
+> [!NOTE]  
+>
+> With the release of managed failover and switchover, this automation is no longer required.
+>
+> For Disaster recovery use <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/global-clusters-disaster-recovery.html#managed-failover" target="_blank"> global cluster managed failover</a>.
+>
+> For Business Continuity Planning (BCP) use <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/global-clusters-disaster-recovery.html#global-cluster-switchover" target="_blank">global cluster switchover</a>.
+>
+> You can only perform a managed failover or switchover on an Amazon DocumentDB global cluster if the primary and secondary clusters have the same major, minor, and patch level engine versions. However, the patch levels can be different, depending on the minor engine version. If your engine versions are incompatible, you can perform the failover using the automation below or by following the steps in <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/global-clusters-disaster-recovery.html#global-cluster-switchover" target="_blank">Performing a manual failover for an Amazon DocumentDB global cluster</a>.
+
 # Global Cluster Automation
 The use cases considered for this tool are Disaster Recovery (DR) and Business Continuity Planning (BCP). DR use case is applicable when DocumentDB is unavailable in a region. BCP use case is applicable when you want to switch from one functional region to another to help validate business continuity across various AWS regions.
 
