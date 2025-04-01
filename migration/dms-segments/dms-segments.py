@@ -5,10 +5,15 @@ import pymongo
 import time
 import os
 import argparse
+import warnings
+
+
+supportedIdTypes=['int','string','objectId']
 
 
 def via_skips(appConfig):
     # get boundaries by performing large server-side skips
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
 
     boundaryList = []
 
@@ -63,6 +68,8 @@ def via_skips(appConfig):
 
 def via_cursor(appConfig):
     # get by walking the _id index
+
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
 
     numBoundaries = appConfig['numSegments'] - 1
     boundaryList = []
@@ -133,6 +140,40 @@ def via_cursor(appConfig):
     client.close()
 
 
+def check_for_mixed_types(appConfig):
+    # grab the first document and last document as ordered by _id, check for unsupported or differing data types
+    returnValue = True
+
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
+    global supportedIdTypes
+
+    client = pymongo.MongoClient(host=appConfig['uri'])
+    db = client[appConfig['database']]
+    col = db[appConfig['collection']]
+
+    idTypeFirst = col.aggregate([{"$sort":{"_id":pymongo.ASCENDING}},{"$project":{"_id":False,"idType":{"$type":"$_id"}}},{"$limit":1}]).next()['idType']
+    idTypeLast = col.aggregate([{"$sort":{"_id":pymongo.DESCENDING}},{"$project":{"_id":False,"idType":{"$type":"$_id"}}},{"$limit":1}]).next()['idType']
+
+    if idTypeFirst not in supportedIdTypes:
+        # unsupported data type
+        print("Unsupported data type of '{}' for first _id value in {}.{} - only {} types are supported, stopping".format(idTypeFirst,appConfig['database'],appConfig['collection'],supportedIdTypes))
+        returnValue = False
+
+    if idTypeLast not in supportedIdTypes:
+        # unsupported data type
+        print("Unsupported data type of '{}' for first _id value in {}.{} - only {} types are supported, stopping".format(idTypeLast,appConfig['database'],appConfig['collection'],supportedIdTypes))
+        returnValue = False
+
+    if idTypeFirst != idTypeLast:
+        # mixed data types
+        print("Mixed data types of '{}' and '{}' for first and last  _id values in {}.{}, stopping".format(idTypeFirst,idTypeLast,appConfig['database'],appConfig['collection']))
+        returnValue = False
+
+    client.close()
+
+    return returnValue
+
 
 def main():
     parser = argparse.ArgumentParser(description='DMS Segment Analysis Tool.')
@@ -170,11 +211,12 @@ def main():
     appConfig['collection'] = args.collection
     appConfig['numSegments'] = int(args.num_segments)
 
-    if args.single_cursor:
-        via_cursor(appConfig)
+    if check_for_mixed_types(appConfig):
+        if args.single_cursor:
+            via_cursor(appConfig)
 
-    else:
-        via_skips(appConfig)
+        else:
+            via_skips(appConfig)
 
 
 if __name__ == "__main__":
