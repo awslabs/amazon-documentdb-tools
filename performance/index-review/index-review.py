@@ -134,10 +134,10 @@ def evalIndexes(appConfig):
             addlIdxCount += 1
 
     outFile1 = open(appConfig['serverAlias']+'-collections.csv','wt')
-    outFile1.write("{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','ins/day','upd/day','del/day'))
+    outFile1.write("{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','ins/day','upd/day','del/day'))
 
     outFile2 = open(appConfig['serverAlias']+'-indexes.csv','wt')
-    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','num-indexes','indexSize-GB','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day'))
+    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','index-unused-pct','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day'))
 
     # for each database
     for thisDb in idxDict["start"]["collstats"]:
@@ -154,14 +154,17 @@ def evalIndexes(appConfig):
             insPerDay = thisInsUpdDel['ins']
             updPerDay = thisInsUpdDel['upd']
             delPerDay = thisInsUpdDel['del']
+            collectionUnusedPct = thisCollInfo.get('unusedStorageSize', {}).get('unusedPercent', -1.0)
 
-            outFile1.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize',0),thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb,insPerDay,updPerDay,delPerDay))
+            outFile1.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize',0),thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,collectionUnusedPct,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb,insPerDay,updPerDay,delPerDay))
             
             # for each index
             for thisIdx in idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"]:
                 if thisIdx["name"] in ["_id","_id_"]:
                     continue
                     
+                indexUnusedPct = thisIdx.get('unusedStorageSize', {}).get('unusedSizePercent', -1.0)
+
                 # check extra servers for non-usage
                 numXtraOps = 0
                 if addlIdxCount > 0:
@@ -191,8 +194,8 @@ def evalIndexes(appConfig):
                 #with open('output.log', 'a') as fpDet:
                 #    fpDet.write("{:40s} {:40s} {:40s} {:12d} {:12d}\n".format(thisDb,thisColl,thisIdx["name"],thisIdx["accesses"]["ops"],numXtraOps))
 
-                outFile2.write("{},{},{},{},{:8.2f},{:8.2f},{},{:8.2f},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize'),
-                  thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,thisIdx["name"],
+                outFile2.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{:.2f},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize'),
+                  thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,collectionUnusedPct,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,indexUnusedPct,thisIdx["name"],
                   thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList,insPerDay,updPerDay,delPerDay))
 
     outFile1.close()
