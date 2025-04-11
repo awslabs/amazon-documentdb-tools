@@ -19,6 +19,7 @@ DBClusterReplicaLagMaximum = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "DBClusterReplicaLagMaximum", "DBClusterIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "DBClusterReplicaLagMaximum"
     }
 }
@@ -29,6 +30,7 @@ DatabaseCursorsTimedOut = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "DatabaseCursorsTimedOut", "DBClusterIdentifier"]],
         "period": 300,
+        "yAxis": {"left": {"min": 0}},
         "title": "DatabaseCursorsTimedOut"
     }
 }
@@ -38,6 +40,7 @@ VolumeWriteIOPS = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "VolumeWriteIOPs", "DBClusterIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "VolumeWriteIOPS"
     }
 }
@@ -47,6 +50,7 @@ VolumeReadIOPS = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "VolumeReadIOPs", "DBClusterIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "VolumeReadIOPS"
     }
 }
@@ -59,6 +63,7 @@ OpscountersInsert = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "OpcountersInsert", "DBClusterIdentifier"]],
         "period": 300,
+        "yAxis": {"left": {"min": 0}},
         "title": "OpcountersInsert"
     }
 }
@@ -69,6 +74,7 @@ OpscountersUpdate = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "OpcountersUpdate", "DBClusterIdentifier"]],
         "period": 300,
+        "yAxis": {"left": {"min": 0}},
         "title": "OpcountersUpdate"
     }
 }
@@ -79,6 +85,7 @@ OpscountersDelete = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "OpcountersDelete", "DBClusterIdentifier"]],
         "period": 300,
+        "yAxis": {"left": {"min": 0}},
         "title": "OpcountersDelete"
     }
 }
@@ -89,6 +96,7 @@ OpscountersQuery = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "OpcountersQuery", "DBClusterIdentifier"]],
         "period": 300,
+        "yAxis": {"left": {"min": 0}},
         "title": "OpcountersQuery"
     }
 }
@@ -108,12 +116,7 @@ CPUUtilization = {
                 "title": "CPU Utilization",
                 "period": 300,
                 "stat": "Average",
-                "yAxis": {
-                    "left": {
-                        "max": 100,
-                        "min": 0
-                    }
-                }
+                "yAxis": {"left": {"max": 100,"min": 0}}
             }
         }
 DatabaseConnections = {
@@ -121,6 +124,7 @@ DatabaseConnections = {
     "properties": {
         "view": "timeSeries",
         "stacked": False,
+        "yAxis": {"left": {"min": 0}},
         "metrics": [["AWS/DocDB", "DatabaseConnections", "DBInstanceIdentifier"]],
     }
 }
@@ -129,6 +133,7 @@ DatabaseCursors = {
     "properties": {
         "view": "timeSeries",
         "stacked": False,
+        "yAxis": {"left": {"min": 0}},
         "metrics": [["AWS/DocDB", "DatabaseCursors", "DBInstanceIdentifier"]],
     }
 }
@@ -141,13 +146,8 @@ BufferCacheHitRatio = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "BufferCacheHitRatio", "DBInstanceIdentifier"]],
         "period": 300,
-        "yAxis": {
-            "left": {
-                "max": 100,
-                "min": 0
-                    }
-                },
-                "title": "Buffer Cache Hit Ratio"
+        "yAxis": {"left": {"max": 100,"min": 0}},
+        "title": "Buffer Cache Hit Ratio"
             }
         }
 IndexBufferCacheHitRatio = {
@@ -157,12 +157,7 @@ IndexBufferCacheHitRatio = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "IndexBufferCacheHitRatio", "DBInstanceIdentifier"]],
         "period": 300,
-        "yAxis": {
-            "left": {
-                "max": 100,
-                "min": 0
-                    }
-                },
+        "yAxis": {"left": {"max": 100,"min": 0}},
         "title": "Index Buffer Cache Hit Ratio"
             }
         }
@@ -175,11 +170,7 @@ FreeableMemory = {
         "title": "Freeable Memory",
         "period": 300,
         "stacked": False,
-        "yAxis": {
-            "left": {
-                "min": 0
-                    }
-                }
+        "yAxis": {"left": {"min": 0}}
             }
         }
 FreeLocalStorage = {
@@ -191,11 +182,7 @@ FreeLocalStorage = {
         "title": "Free Local Storage",
         "period": 300,
         "stacked": False,
-        "yAxis": {
-            "left": {
-                "min": 0
-                    }
-                }
+        "yAxis": {"left": {"min": 0}}
             }
         }
 
@@ -209,11 +196,7 @@ NetworkTransmitThroughput = {
             ["AWS/DocDB", "NetworkTransmitThroughput", "DBInstanceIdentifier"]
         ],
         "period": 300,
-        "yAxis": {
-            "left": {
-                "min": 0
-                    }
-                },
+        "yAxis": {"left": {"min": 0}},
         "title": "Network Transmit Throughput"
             }
         }
@@ -224,11 +207,7 @@ NetworkReceiveThroughput = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "NetworkReceiveThroughput", "DBInstanceIdentifier"]],
         "period": 300,
-        "yAxis": {
-            "left": {
-                "min": 0
-                    }
-                },
+        "yAxis": {"left": {"min": 0}},
         "title": "Network Receive Throughput"
             }
         }
@@ -241,12 +220,8 @@ StorageNetworkTransmitThroughput = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "StorageNetworkTransmitThroughput", "DBInstanceIdentifier"]],
         "period": 300,
-        "yAxis": {
-            "left": {
-                "min": 0
-                    }
-                },
-                "title": "Storage Network Transmit Throughput"
+        "yAxis": {"left": {"min": 0}},
+         "title": "Storage Network Transmit Throughput"
             }
         }
 StorageNetworkReceiveThroughput = {
@@ -256,11 +231,7 @@ StorageNetworkReceiveThroughput = {
         "stacked": False,
         "metrics": [["AWS/DocDB", "StorageNetworkReceiveThroughput", "DBInstanceIdentifier"]],
         "period": 300,
-        "yAxis": {
-            "left": {
-                "min": 0
-                    }
-                },
+        "yAxis": {"left": {"min": 0}},
         "title": "Storage Network Receive Throughput"
             }
         }
@@ -272,6 +243,7 @@ DocsInserted = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "DocumentsInserted", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Documents Inserted"
     }
 }
@@ -281,6 +253,7 @@ DocsDeleted = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "DocumentsDeleted", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Documents Deleted"
     }
 }
@@ -290,6 +263,7 @@ DocsUpdated = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "DocumentsUpdated", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Documents Updated"
     }
 }
@@ -299,6 +273,7 @@ DocsReturned = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "DocumentsReturned", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Documents Returned"
     }
 }
@@ -310,6 +285,7 @@ ReadLatency = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "ReadLatency", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Read Latency"
     }
 }
@@ -319,6 +295,7 @@ WriteLatency = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "WriteLatency", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Write Latency"
     }
 }
@@ -328,6 +305,7 @@ DiskQueueDepth = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "DiskQueueDepth", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Disk Queue Depth"
     }
 }
@@ -337,6 +315,7 @@ DBInstanceReplicaLag = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "DBInstanceReplicaLag", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Replica Lag"
     }
 }
@@ -348,6 +327,7 @@ WriteIops = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "WriteIOPS", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Write IOPs"
     }
 }
@@ -357,6 +337,7 @@ WriteThroughput = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "WriteThroughput", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Write Throughput"
     }
 }
@@ -366,6 +347,7 @@ ReadIops = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "ReadIOPS", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Read IOPs"
     }
 }
@@ -375,6 +357,7 @@ ReadThroughput = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "ReadThroughput", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Read Throughput"
     }
 }
@@ -392,6 +375,7 @@ VolumeBytesUsed = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "VolumeBytesUsed", "DBClusterIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "VolumeBytesUsed"
     }
 }
@@ -401,6 +385,7 @@ BackupRetentionPeriodStorageUsed = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "BackupRetentionPeriodStorageUsed", "DBClusterIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "BackupRetentionPeriodStorageUsed"
     }
 }
@@ -410,6 +395,7 @@ TotalBackupStorageBilled = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "TotalBackupStorageBilled", "DBClusterIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "TotalBackupStorageBilled"
     }
 }
@@ -426,6 +412,7 @@ FreeNVMeStorage = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "FreeNVMeStorage", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Free NVMe Storage"
     }
 }
@@ -435,7 +422,8 @@ NVMeStorageCacheHitRatio = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "NVMeStorageCacheHitRatio", "DBInstanceIdentifier"]],
-        "title": "NVMe Storage Cache Hit Ratio"
+        "title": "NVMe Storage Cache Hit Ratio",
+        "yAxis": {"left": {"max": 100,"min": 0}}
     }
 }
 # NVME 3 ----------------------------------------------
@@ -445,6 +433,7 @@ ReadIopsNVMeStorage = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "ReadIOPSNVMeStorage", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Read IOPs NVMe Storage"
     }
 }
@@ -454,6 +443,7 @@ ReadLatencyNVMeStorage = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "ReadLatencyNVMeStorage", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Read Latency NVMe Storage"
     }
 }
@@ -463,6 +453,7 @@ ReadThroughputNVMeStorage = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "ReadThroughputNVMeStorage", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Read Throughput NVMe Storage"
     }
 }
@@ -473,6 +464,7 @@ WriteIopsNVMeStorage = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "WriteIOPSNVMeStorage", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Write IOPs NVMe Storage"
     }
 }
@@ -482,6 +474,7 @@ WriteLatencyNVMeStorage = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "WriteLatencyNVMeStorage", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Write Latency NVMe Storage"
     }
 }
@@ -491,6 +484,7 @@ WriteThroughputNVMeStorage = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "WriteThroughputNVMeStorage", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
         "title": "Write Throughput NVMe Storage"
     }
 }
