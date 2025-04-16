@@ -9,6 +9,7 @@ import bz2
 import lzma
 import zstandard as zstd
 import zlib
+import snappy
 
 
 def createDictionary(appConfig, databaseName, collectionName):
@@ -50,8 +51,8 @@ def getData(appConfig):
     logFileHandle.write("\n")
 
     # output header to csv
-    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minComp','maxComp','avgComp','compRatio','exceptions','compTime(ms)'))
-
+    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minComp','maxComp','avgComp','lz4Ratio','exceptions','compTime(ms)'))
+    
     # get databases - filter out admin, config, local, and system
     dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":['admin','config','local','system']}})['databases']
     for thisDb in dbDict:
@@ -139,6 +140,8 @@ def getData(appConfig):
                             compressed = lzma.compress(docAsString.encode(),format=lzma.FORMAT_XZ,preset=0)
                         elif compressor == 'zlib-1':
                             compressed = zlib.compress(docAsString.encode(),level=1)
+                        elif compressor == 'snappy':
+                            compressed = snappy.compress(docAsString.encode())
                         else:
                             print('Unknown compressor | {}'.format('compressor'))
                             sys.exit(1)
@@ -203,7 +206,7 @@ def main():
 
     parser.add_argument('--compressor',
                         required=False,
-                        choices=['lz4-fast','lz4-high','lz4-fast-dict','lz4-high-dict','zstd-1','zstd-5','zstd-1-dict','zstd-5-dict','bz2-1','lzma-0','zlib-1'],
+                        choices=['lz4-fast','lz4-high','lz4-fast-dict','lz4-high-dict','zstd-1','zstd-5','zstd-1-dict','zstd-5-dict','bz2-1','lzma-0','zlib-1', 'snappy'],
                         type=str,
                         default='lz4-fast',
                         help='Compressor')
@@ -240,3 +243,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
