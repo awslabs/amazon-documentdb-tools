@@ -8,6 +8,8 @@ import threading
 import multiprocessing as mp
 import hashlib
 import argparse
+import boto3
+import warnings
 
 
 def logIt(threadnum, message):
@@ -16,6 +18,8 @@ def logIt(threadnum, message):
 
 
 def oplog_processor(threadnum, appConfig, perfQ):
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
     if appConfig['verboseLogging']:
         logIt(threadnum,'thread started')
 
@@ -182,6 +186,8 @@ def oplog_processor(threadnum, appConfig, perfQ):
 
 
 def change_stream_processor(threadnum, appConfig, perfQ):
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
     if appConfig['verboseLogging']:
         logIt(threadnum,'thread started')
 
@@ -342,6 +348,8 @@ def change_stream_processor(threadnum, appConfig, perfQ):
 
 
 def get_resume_token(appConfig):
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
     logIt(-1,'getting current change stream resume token')
 
     sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"],appname='migrcdc')
@@ -361,12 +369,23 @@ def get_resume_token(appConfig):
 
 
 def reporter(appConfig, perfQ):
+    createCloudwatchMetrics = appConfig['createCloudwatchMetrics']
+    clusterName = appConfig['clusterName']
+
     if appConfig['verboseLogging']:
         logIt(-1,'reporting thread started')
-    
+
+    if createCloudwatchMetrics:
+        # only instantiate client if needed
+        cloudWatchClient = boto3.client('cloudwatch')
+
     startTime = time.time()
     lastTime = time.time()
     
+    # number of seconds between posting metrics to cloudwatch
+    cloudwatchPutSeconds = 30
+    lastCloudwatchPutTime = time.time()
+
     lastProcessedOplogEntries = 0
     nextReportTime = startTime + appConfig["feedbackSeconds"]
 
@@ -381,9 +400,11 @@ def reporter(appConfig, perfQ):
         time.sleep(appConfig["feedbackSeconds"])
         nowTime = time.time()
         
+        numBatchEntries = 0
         while not perfQ.empty():
             qMessage = perfQ.get_nowait()
             if qMessage['name'] == "batchCompleted":
+                numBatchEntries += 1
                 numProcessedOplogEntries += qMessage['operations']
                 thisEndDt = qMessage['endts'].as_datetime().replace(tzinfo=None)
                 thisProcessNum = qMessage['processNum']
@@ -402,7 +423,7 @@ def reporter(appConfig, perfQ):
 
         # total total
         elapsedSeconds = nowTime - startTime
-        totalOpsPerSecond = numProcessedOplogEntries / elapsedSeconds
+        totalOpsPerSecond = int(numProcessedOplogEntries / elapsedSeconds)
 
         # elapsed hours, minutes, seconds
         thisHours, rem = divmod(elapsedSeconds, 3600)
@@ -411,27 +432,43 @@ def reporter(appConfig, perfQ):
         
         # this interval
         intervalElapsedSeconds = nowTime - lastTime
-        intervalOpsPerSecond = (numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds
+        intervalOpsPerSecond = int((numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds)
         
         # how far behind current time
-        dtUtcNow = datetime.utcnow()
-        totSecondsBehind = 0
-        numSecondsBehindEntries = 0
-        for thisDt in dtDict:
-            totSecondsBehind += (dtUtcNow - dtDict[thisDt].replace(tzinfo=None)).total_seconds()
-            numSecondsBehindEntries += 1
+        if numBatchEntries == 0:
+            # no work this interval, we are fully caught up
+            avgSecondsBehind = 0
+        else:
+            dtUtcNow = datetime.utcnow()
+            totSecondsBehind = 0
+            numSecondsBehindEntries = 0
+            for thisDt in dtDict:
+                totSecondsBehind += (dtUtcNow - dtDict[thisDt].replace(tzinfo=None)).total_seconds()
+                numSecondsBehindEntries += 1
 
-        avgSecondsBehind = int(totSecondsBehind / max(numSecondsBehindEntries,1))
+            avgSecondsBehind = int(totSecondsBehind / max(numSecondsBehindEntries,1))
 
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
-        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot {4:16,d} | {5:12,d} secs behind | resume token = {6}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind,resumeToken))
+        print("[{0}] elapsed {1} | total o/s {2:9,d} | interval o/s {3:9,d} | tot {4:16,d} | {5:12,d} secs behind | resume token = {6}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind,resumeToken))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
         
         lastTime = nowTime
         lastProcessedOplogEntries = numProcessedOplogEntries
 
+        # output CW metrics every cloudwatchPutSeconds seconds
+        if createCloudwatchMetrics and ((time.time() - lastCloudwatchPutTime) > cloudwatchPutSeconds):
+            # log to cloudwatch
+            cloudWatchClient.put_metric_data(
+                Namespace='CustomDocDB',
+                MetricData=[{'MetricName':'MigratorCDCOperationsPerSecond','Dimensions':[{'Name':'Cluster','Value':clusterName}],'Value':intervalOpsPerSecond,'StorageResolution':60},
+                            {'MetricName':'MigratorCDCNumSecondsBehind','Dimensions':[{'Name':'Cluster','Value':clusterName}],'Value':avgSecondsBehind,'StorageResolution':60}])
+
+            lastCloudwatchPutTime = time.time()
+
 
 def main():
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
     parser = argparse.ArgumentParser(description='CDC replication tool.')
 
     parser.add_argument('--skip-python-version-check',
@@ -519,6 +556,9 @@ def main():
                         action='store_true',
                         help='Display the current change stream resume token')
 
+    parser.add_argument('--create-cloudwatch-metrics',required=False,action='store_true',help='Create CloudWatch metrics when garbage collection is active')
+    parser.add_argument('--cluster-name',required=False,type=str,help='Name of cluster for CloudWatch metrics')
+
     args = parser.parse_args()
 
     MIN_PYTHON = (3, 7)
@@ -537,6 +577,9 @@ def main():
         message = "--start-position must be supplied as YYYY-MM-DD+HH:MM:SS in UTC or resume token when executing in --use-change-stream mode"
         parser.error(message)
 
+    if args.create_cloudwatch_metrics and (args.cluster_name is None):
+        sys.exit("\nMust supply --cluster-name when capturing CloudWatch metrics.\n")
+
     appConfig = {}
     appConfig['sourceUri'] = args.source_uri
     appConfig['targetUri'] = args.target_uri
@@ -553,6 +596,8 @@ def main():
         appConfig['targetNs'] = args.target_namespace
     appConfig['startPosition'] = args.start_position
     appConfig['verboseLogging'] = args.verbose
+    appConfig['createCloudwatchMetrics'] = args.create_cloudwatch_metrics
+    appConfig['clusterName'] = args.cluster_name
 
     if args.get_resume_token:
         get_resume_token(appConfig)

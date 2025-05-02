@@ -9,14 +9,32 @@ import threading
 import multiprocessing as mp
 import hashlib
 import argparse
+import boto3
+import warnings
 
 
 def logIt(threadnum, message):
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
     logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
     print("[{}] thread {:>3d} | {}".format(logTimeStamp,threadnum,message))
 
 
+def getCollectionCount(appConfig):
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
+    sourceDb = appConfig["sourceNs"].split('.',1)[0]
+    sourceColl = appConfig["sourceNs"].split('.',1)[1]
+    client = pymongo.MongoClient(appConfig['sourceUri'])
+    db = client[sourceDb]
+    collStats = db.command("collStats", sourceColl)
+    client.close()
+    return max(collStats['count'],1)
+
+
 def full_load_loader(threadnum, appConfig, perfQ):
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
     if appConfig['verboseLogging']:
         logIt(threadnum,'thread started')
 
@@ -93,11 +111,23 @@ def full_load_loader(threadnum, appConfig, perfQ):
 
 
 def reporter(appConfig, perfQ):
+    createCloudwatchMetrics = appConfig['createCloudwatchMetrics']
+    numDocumentsToMigrate = appConfig['numDocumentsToMigrate']
+    clusterName = appConfig['clusterName']
+
     if appConfig['verboseLogging']:
         logIt(-1,'reporting thread started')
+
+    if createCloudwatchMetrics:
+        # only instantiate client if needed
+        cloudWatchClient = boto3.client('cloudwatch')
     
     startTime = time.time()
     lastTime = time.time()
+
+    # number of seconds between posting metrics to cloudwatch
+    cloudwatchPutSeconds = 30
+    lastCloudwatchPutTime = time.time()
     
     lastProcessedOplogEntries = 0
     nextReportTime = startTime + appConfig["feedbackSeconds"]
@@ -124,6 +154,22 @@ def reporter(appConfig, perfQ):
         elapsedSeconds = nowTime - startTime
         totalOpsPerSecond = numProcessedOplogEntries / elapsedSeconds
 
+        # estimated time to done
+        if numProcessedOplogEntries > 0:
+            pctDone = max(numProcessedOplogEntries / numDocumentsToMigrate,0.001)
+            remainingSeconds = max(int(elapsedSeconds / pctDone) - elapsedSeconds,0)
+        else:
+            remainingSeconds = 0
+
+        thisHours, rem = divmod(remainingSeconds, 3600)
+        thisMinutes, thisSeconds = divmod(rem, 60)
+        remainHMS = "{:0>2}:{:0>2}:{:0>2}".format(int(thisHours),int(thisMinutes),int(thisSeconds))
+
+        if (numDocumentsToMigrate == 0):
+            pctDone = 100.0
+        else:
+            pctDone = (numProcessedOplogEntries / numDocumentsToMigrate) * 100.0
+
         # elapsed hours, minutes, seconds
         thisHours, rem = divmod(elapsedSeconds, 3600)
         thisMinutes, thisSeconds = divmod(rem, 60)
@@ -134,11 +180,21 @@ def reporter(appConfig, perfQ):
         intervalOpsPerSecond = (numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds
 
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
-        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot ops {4:16,d} | loading {5:5d}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,numWorkersLoading))
+        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot ops {4:16,d} | loading {5:5d} | pct {6:6.2f}% | done in {7}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,numWorkersLoading,pctDone,remainHMS))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
         
         lastTime = nowTime
         lastProcessedOplogEntries = numProcessedOplogEntries
+
+        # output CW metrics every cloudwatchPutSeconds seconds
+        if createCloudwatchMetrics and ((time.time() - lastCloudwatchPutTime) > cloudwatchPutSeconds):
+            # log to cloudwatch
+            cloudWatchClient.put_metric_data(
+                Namespace='CustomDocDB',
+                MetricData=[{'MetricName':'MigratorFLInsertsPerSecond','Dimensions':[{'Name':'Cluster','Value':clusterName}],'Value':intervalOpsPerSecond,'StorageResolution':60},
+                            {'MetricName':'MigratorFLRemainingSeconds','Dimensions':[{'Name':'Cluster','Value':clusterName}],'Value':remainingSeconds,'StorageResolution':60}])
+
+            lastCloudwatchPutTime = time.time()
 
 
 def main():
@@ -203,12 +259,17 @@ def main():
                         choices=['objectid','string','int'],
                         help='Boundaries for segmenting')
 
+    parser.add_argument('--create-cloudwatch-metrics',required=False,action='store_true',help='Create CloudWatch metrics when garbage collection is active')
+    parser.add_argument('--cluster-name',required=False,type=str,help='Name of cluster for CloudWatch metrics')
 
     args = parser.parse_args()
 
     MIN_PYTHON = (3, 7)
     if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
         sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
+
+    if args.create_cloudwatch_metrics and (args.cluster_name is None):
+        sys.exit("\nMust supply --cluster-name when capturing CloudWatch metrics.\n")
 
     appConfig = {}
     appConfig['sourceUri'] = args.source_uri
@@ -223,6 +284,8 @@ def main():
         appConfig['targetNs'] = args.target_namespace
     appConfig['verboseLogging'] = args.verbose
     appConfig['boundaryDatatype'] = args.boundary_datatype
+    appConfig['createCloudwatchMetrics'] = args.create_cloudwatch_metrics
+    appConfig['clusterName'] = args.cluster_name
 
     boundaryList = args.boundaries.split(',')
     appConfig['boundaries'] = []
@@ -235,6 +298,7 @@ def main():
             appConfig['boundaries'].append(int(thisBoundary))
 
     appConfig['numProcessingThreads'] = len(appConfig['boundaries'])+1
+    appConfig['numDocumentsToMigrate'] = getCollectionCount(appConfig)
     
     logIt(-1,"processing using {} threads".format(appConfig['numProcessingThreads']))
 
