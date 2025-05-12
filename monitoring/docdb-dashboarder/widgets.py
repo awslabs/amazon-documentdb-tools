@@ -546,53 +546,6 @@ MigratorFLRemainingSeconds = {
     }
 }
 
-# MigrationRemainingSecondsGraph = {
-#     "type": "metric",
-#     "properties": {
-#         "view": "gauge",
-#         "metrics": [
-#             ["CustomDocDB", "MigratorFLRemainingSeconds", "Cluster", "DBClusterIdentifier"]
-#         ],
-#         "period": 60,
-#         "yAxis": {
-#             "left": {
-#                 "min": 0,
-#                 "max": 3600
-#             }
-#         },
-#         "gauge": {
-#             "percentageMode": False,
-#             "minValue": 0,
-#             "maxValue": 3600
-#         },
-#         "title": "Migration Time Remaining",
-#         "stat": "Average",
-#         "setPeriodToTimeRange": True,
-#         "region": "us-east-1",
-#         "thresholds": [
-#             {
-#                 "color": "#2ca02c",
-#                 "label": "Almost Done",
-#                 "value": 600
-#             },
-#             {
-#                 "color": "#98df8a",
-#                 "label": "Good Progress",
-#                 "value": 1800
-#             },
-#             {
-#                 "color": "#ffbb78",
-#                 "label": "In Progress",
-#                 "value": 3000
-#             },
-#             {
-#                 "color": "#ff9896",
-#                 "label": "Just Started",
-#                 "value": 3600
-#             }
-#         ]
-#     }
-# }
 
 
 # CDC Replication Metrics
