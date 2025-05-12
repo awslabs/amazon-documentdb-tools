@@ -488,3 +488,227 @@ WriteThroughputNVMeStorage = {
         "title": "Write Throughput NVMe Storage"
     }
 }
+
+# ----------------------------------------------
+# MongoDB to DocumentDB Migration Monitoring Widgets
+# ----------------------------------------------
+
+# Migration Monitoring Heading
+MigrationMonitoringHeading = {
+    "type": "text",
+    "properties": {"markdown": "# MongoDB to DocumentDB Migration Monitoring"}
+}
+
+# Full Load Migration Metrics
+# ----------------------------------------------
+FullLoadMigrationHeading = {
+    "type": "text",
+    "properties": {"markdown": "## Full Load Migration Metrics"}
+}
+
+MigratorFLInsertsPerSecond = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["CustomDocDB", "MigratorFLInsertsPerSecond", "Cluster", "DBClusterIdentifier"]],
+        "period": 300,
+        "yAxis": {"left": {"min": 0}},  # No max to allow auto-scaling
+        "title": "Migration Operations Per Second",
+        "annotations": {
+            "horizontal": [
+                {
+                    "label": "High Throughput",
+                    "value": 1000,
+                    "color": "#2ca02c"
+                },
+                {
+                    "label": "Medium Throughput",
+                    "value": 500,
+                    "color": "#ffbb78"
+                }
+            ]
+        }
+    }
+}
+
+
+MigratorFLRemainingSeconds = {
+    "type": "metric",
+    "properties": {
+        "view": "singleValue",
+        "metrics": [["CustomDocDB", "MigratorFLRemainingSeconds", "Cluster", "DBClusterIdentifier"]],
+        "period": 300,
+        "title": "Remaining Time (seconds)",
+        "stat": "Average",
+        "setPeriodToTimeRange": True,
+        "trend": True
+    }
+}
+
+# MigrationRemainingSecondsGraph = {
+#     "type": "metric",
+#     "properties": {
+#         "view": "gauge",
+#         "metrics": [
+#             ["CustomDocDB", "MigratorFLRemainingSeconds", "Cluster", "DBClusterIdentifier"]
+#         ],
+#         "period": 60,
+#         "yAxis": {
+#             "left": {
+#                 "min": 0,
+#                 "max": 3600
+#             }
+#         },
+#         "gauge": {
+#             "percentageMode": False,
+#             "minValue": 0,
+#             "maxValue": 3600
+#         },
+#         "title": "Migration Time Remaining",
+#         "stat": "Average",
+#         "setPeriodToTimeRange": True,
+#         "region": "us-east-1",
+#         "thresholds": [
+#             {
+#                 "color": "#2ca02c",
+#                 "label": "Almost Done",
+#                 "value": 600
+#             },
+#             {
+#                 "color": "#98df8a",
+#                 "label": "Good Progress",
+#                 "value": 1800
+#             },
+#             {
+#                 "color": "#ffbb78",
+#                 "label": "In Progress",
+#                 "value": 3000
+#             },
+#             {
+#                 "color": "#ff9896",
+#                 "label": "Just Started",
+#                 "value": 3600
+#             }
+#         ]
+#     }
+# }
+
+
+# CDC Replication Metrics
+# ----------------------------------------------
+CDCReplicationHeading = {
+    "type": "text",
+    "properties": {"markdown": "## CDC Replication Metrics"}
+}
+
+MigratorCDCOperationsPerSecond = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["CustomDocDB", "MigratorCDCOperationsPerSecond", "Cluster", "DBClusterIdentifier"]],
+        "period": 300,
+        "yAxis": {"left": {"min": 0}},  # Removed max to allow auto-scaling
+        "title": "CDC Operations Per Second",
+        "annotations": {
+            "horizontal": [
+                {
+                    "label": "High Throughput",
+                    "value": 500,
+                    "color": "#2ca02c"
+                },
+                {
+                    "label": "Medium Throughput",
+                    "value": 100,
+                    "color": "#ffbb78"
+                }
+            ]
+        }
+    }
+}
+
+MigratorCDCNumSecondsBehind = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["CustomDocDB", "MigratorCDCNumSecondsBehind", "Cluster", "DBClusterIdentifier"]],
+        "period": 300,
+        "yAxis": {"left": {"min": 0}},  # No max to allow auto-scaling
+        "title": "CDC Replication Lag (seconds)",
+        "annotations": {
+            "horizontal": [
+                {
+                    "label": "Critical Lag",
+                    "value": 3600,
+                    "color": "#ff9896"
+                },
+                {
+                    "label": "High Lag",
+                    "value": 900,
+                    "color": "#ffbb78"
+                },
+                {
+                    "label": "Moderate Lag",
+                    "value": 300,
+                    "color": "#98df8a"
+                },
+                {
+                    "label": "Low Lag",
+                    "value": 60,
+                    "color": "#2ca02c"
+                }
+            ]
+        }
+    }
+}
+
+
+
+
+# ----------------------------------------------
+# DMS Task Metrics
+# ----------------------------------------------
+
+DMSHeading = {
+    "type": "text",
+    "properties": {"markdown": "# AWS DMS Task Metrics"}
+}
+
+DMSFullLoadThroughputRowsTarget = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DMS", "FullLoadThroughputRowsTarget", "ReplicationInstanceIdentifier", "instance_id", "ReplicationTaskIdentifier", "TASK_ID"]],
+        "period": 60,
+        "yAxis": {"left": {"min": 0}},
+        "title": "Full Load Throughput Rows Target"
+    }
+}
+
+DMSCDCLatencyTarget = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DMS", "CDCLatencyTarget","ReplicationInstanceIdentifier", "instance_id", "ReplicationTaskIdentifier", "TASK_ID"]],
+        "period": 60,
+        "yAxis": {"left": {"min": 0}},
+        "title": "CDC Latency Target (seconds)"
+    }
+}
+
+DMSCDCThroughputRowsTarget = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DMS", "CDCThroughputRowsTarget", "ReplicationInstanceIdentifier", "instance_id","ReplicationTaskIdentifier", "TASK_ID"]],
+        "period": 60,
+        "yAxis": {"left": {"min": 0}},
+        "title": "CDC Throughput Rows Target"
+    }
+}
+

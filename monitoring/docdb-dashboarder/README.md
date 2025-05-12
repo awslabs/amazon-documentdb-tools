@@ -76,3 +76,9 @@ python create-docdb-dashboard.py --name <your dashboard name> --region <your reg
 
 optionally include --include-nvme to add NVMe metrics to the dashboard
 ```
+### Only include one of the below metrics. If migrating using migrator script, include --monitor-migration. If migrating using DMS, include --monitor-dms following by --dms-task-id
+```
+optionally include --monitor-migration to add full load / cdc metrics from migrator tool to the dashboard
+
+optionally include --monitor-dms --dms-task-id to monitor DMS task during migration
+```
