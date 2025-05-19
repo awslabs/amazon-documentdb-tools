@@ -65,7 +65,7 @@ List of skipped files - excluded extensions
 Check a specific file and show the supported operators found:
 
 ```
-python3 compat.py --file test/testlog.txt --show-supported
+python3 compat.py --file test/testlog.txt
 
 processing file test/testlog.txt
 Processed 1 files, skipped 0 files
