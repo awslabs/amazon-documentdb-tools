@@ -80,5 +80,5 @@ optionally include --include-nvme to add NVMe metrics to the dashboard
 ```
 optionally include --monitor-migration to add full load / cdc metrics from migrator tool to the dashboard
 
-optionally include --monitor-dms --dms-task-id to monitor DMS task during migration
+optionally include --monitor-dms --dms-task-id (dms task identifier) to monitor DMS task during migration
 ```

@@ -21,12 +21,7 @@ def create_dashboard(widgets, region, instanceList, clusterList, monitoring_type
             widget["y"] = dashboardY
 
             if 'metrics' in widget["properties"]:
-                # Skip processing for migration metrics which use MigrationType dimension
-                if monitoring_type == 'migration' and ('CustomDocDB' in widget["properties"]["metrics"][0][0] or 'AWS/CustomDocDB' in widget["properties"]["metrics"][0][0]):
-                    # Migration metrics don't need instance/cluster IDs
-                    pass
-                # Skip processing for DMS metrics which already have their task IDs set
-                elif monitoring_type == 'dms' and 'AWS/DMS' in widget["properties"]["metrics"][0]:
+                if monitoring_type == 'dms' and 'AWS/DMS' in widget["properties"]["metrics"][0]:
                     # DMS metrics already have their task IDs set
                     pass
                 elif 'DBInstanceIdentifier' in widget["properties"]["metrics"][0]:
@@ -128,15 +123,6 @@ def main():
         monitoring_type = 'migration'
         print("{}".format("Adding MongoDB to DocumentDB Migration Monitoring metrics"))
         widgets.append({"height":2,"panels":[w.MigrationMonitoringHeading]})
-        
-        # Add cluster name to migration metrics
-        for widget in [w.MigratorFLInsertsPerSecond, w.MigratorFLRemainingSeconds, 
-                    w.MigratorCDCNumSecondsBehind, w.MigratorCDCOperationsPerSecond]:
-            if 'metrics' in widget["properties"]:
-                for i, metric in enumerate(widget["properties"]["metrics"]):
-                    if len(metric) > 3 and metric[2] == 'Cluster':
-                        widget["properties"]["metrics"][i][3] = args.clusterID.split(',')[0]  # Use first cluster if multiple
-        
         # Add Full Load Migration metrics
         print("{}".format("Adding Full Load Migration metrics"))
         widgets.append({"height":2,"panels":[w.FullLoadMigrationHeading]})
@@ -151,84 +137,65 @@ def main():
     elif args.monitor_dms:
         monitoring_type = 'dms'
         print("{}".format("Adding AWS DMS Task metrics"))
-        
         # Get the task ID
         task_id = args.dms_task_id
-        
-        # Find the task ARN and replication instance name
-        try:
-            dms_client = boto3.client('dms', region_name=args.region)
-            response = dms_client.describe_replication_tasks(
-                Filters=[
-                    {
-                        'Name': 'replication-task-id',
-                        'Values': [task_id]
-                    }
-                ]
-            )
+        #  Retrieve DMS task information and update widgets with task and instance identifiers
+        update_dms_widgets(task_id, args.region, w)
+        # Add DMS widgets to dashboard
+        widgets.append({"height":2,"panels":[w.DMSHeading]})
+        widgets.append({"height":7,"panels":[w.DMSFullLoadThroughputRowsTarget]})
+        widgets.append({"height":7,"panels":[w.DMSCDCLatencyTarget, w.DMSCDCThroughputRowsTarget]})
+    # Create the CW data
+    dashboardWidgets = create_dashboard(widgets, args.region, instanceList, clusterList, 
+                                   monitoring_type=monitoring_type)
+    # Converting to json
+    dashBody = json.dumps({"widgets":dashboardWidgets})
+    # Create dashboard
+    client.put_dashboard(DashboardName=args.name, DashboardBody=dashBody)
+
+    print("Dashboard {} deployed to CloudWatch".format(args.name))
+
+
+def update_dms_widgets(task_id, region, w):
+    """
+    Retrieve DMS task information and update widgets with task and instance identifiers.
+    
+    Args:
+        task_id: The DMS task ID
+        region: AWS region
+        w: Widget definitions module
+    """
+    try:
+        dms_client = boto3.client('dms', region_name=region)
+        response = dms_client.describe_replication_tasks(
+            Filters=[
+                {
+                    'Name': 'replication-task-id',
+                    'Values': [task_id]
+                }
+            ]
+        )
+        if response['ReplicationTasks']:
+            # Get the full ARN of the task
+            task_arn = response['ReplicationTasks'][0]['ReplicationTaskArn']
+            # Extract the task ID from the ARN (last part)
+            task_id = task_arn.split(':')[-1]
             
-            if response['ReplicationTasks']:
-                # Get the full ARN of the task
-                task_arn = response['ReplicationTasks'][0]['ReplicationTaskArn']
-                print(f"Found task ARN: {task_arn}")
+            # Get the replication instance ARN
+            replication_instance_arn = response['ReplicationTasks'][0]['ReplicationInstanceArn']
+            
+            # Try to get all replication instances and find the one with matching ARN
+            try:
+                all_instances = dms_client.describe_replication_instances()
+                instance_name = None
                 
-                # Extract the task ID from the ARN (last part)
-                task_id = task_arn.split(':')[-1]
-                print(f"Using task ID from ARN: {task_id}")
+                for instance in all_instances.get('ReplicationInstances', []):
+                    if instance.get('ReplicationInstanceArn') == replication_instance_arn:
+                        instance_name = instance.get('ReplicationInstanceIdentifier')
+                        break
                 
-                # Get the replication instance ARN
-                replication_instance_arn = response['ReplicationTasks'][0]['ReplicationInstanceArn']
-                print(f"Found replication instance ARN: {replication_instance_arn}")
-                
-                # Try to get all replication instances and find the one with matching ARN
-                try:
-                    all_instances = dms_client.describe_replication_instances()
-                    instance_name = None
-                    
-                    for instance in all_instances.get('ReplicationInstances', []):
-                        if instance.get('ReplicationInstanceArn') == replication_instance_arn:
-                            instance_name = instance.get('ReplicationInstanceIdentifier')
-                            print(f"Found replication instance name: {instance_name}")
-                            break
-                    
-                    if instance_name:
-                        # Update the widgets with task ID and instance name
-                        for widget in [w.DMSFullLoadThroughputRowsTarget, w.DMSCDCLatencyTarget, w.DMSCDCThroughputRowsTarget]:
-                            for i, metric in enumerate(widget["properties"]["metrics"]):
-                                # Update task ID
-                                task_id_index = metric.index("ReplicationTaskIdentifier") + 1 if "ReplicationTaskIdentifier" in metric else -1
-                                if task_id_index != -1:
-                                    widget["properties"]["metrics"][i][task_id_index] = task_id
-                                
-                                # Update instance name
-                                instance_id_index = metric.index("ReplicationInstanceIdentifier") + 1 if "ReplicationInstanceIdentifier" in metric else -1
-                                if instance_id_index != -1:
-                                    widget["properties"]["metrics"][i][instance_id_index] = instance_name
-                    else:
-                        print("Warning: Could not find replication instance name. Using instance ID from ARN.")
-                        # Extract the instance ID from the ARN (last part)
-                        instance_id = replication_instance_arn.split(':')[-1]
-                        print(f"Using replication instance ID: {instance_id}")
-                        
-                        # Update the widgets with task ID and instance ID
-                        for widget in [w.DMSFullLoadThroughputRowsTarget, w.DMSCDCLatencyTarget, w.DMSCDCThroughputRowsTarget]:
-                            for i, metric in enumerate(widget["properties"]["metrics"]):
-                                # Update task ID
-                                task_id_index = metric.index("ReplicationTaskIdentifier") + 1 if "ReplicationTaskIdentifier" in metric else -1
-                                if task_id_index != -1:
-                                    widget["properties"]["metrics"][i][task_id_index] = task_id
-                                
-                                # Update instance ID
-                                instance_id_index = metric.index("ReplicationInstanceIdentifier") + 1 if "ReplicationInstanceIdentifier" in metric else -1
-                                if instance_id_index != -1:
-                                    widget["properties"]["metrics"][i][instance_id_index] = instance_id
-                except Exception as e:
-                    print(f"Error getting replication instances: {str(e)}. Using instance ID from ARN.")
-                    # Extract the instance ID from the ARN (last part)
-                    instance_id = replication_instance_arn.split(':')[-1]
-                    print(f"Using replication instance ID: {instance_id}")
-                    
-                    # Update the widgets with task ID and instance ID
+                if instance_name:
+                    # Update the widgets with task ID and instance name
                     for widget in [w.DMSFullLoadThroughputRowsTarget, w.DMSCDCLatencyTarget, w.DMSCDCThroughputRowsTarget]:
                         for i, metric in enumerate(widget["properties"]["metrics"]):
                             # Update task ID
@@ -236,35 +203,20 @@ def main():
                             if task_id_index != -1:
                                 widget["properties"]["metrics"][i][task_id_index] = task_id
                             
-                            # Update instance ID
+                            # Update instance name
                             instance_id_index = metric.index("ReplicationInstanceIdentifier") + 1 if "ReplicationInstanceIdentifier" in metric else -1
                             if instance_id_index != -1:
-                                widget["properties"]["metrics"][i][instance_id_index] = instance_id
-            else:
-                print("Warning: Could not find DMS task with ID '{}'.".format(task_id))
-                
-        except Exception as e:
-            print("Error retrieving DMS task: {}".format(str(e)))
-        
-        # Add DMS widgets to dashboard
-        widgets.append({"height":2,"panels":[w.DMSHeading]})
-        widgets.append({"height":7,"panels":[w.DMSFullLoadThroughputRowsTarget]})
-        widgets.append({"height":7,"panels":[w.DMSCDCLatencyTarget, w.DMSCDCThroughputRowsTarget]})
-
-
-
-
-    # Create the CW data
-    dashboardWidgets = create_dashboard(widgets, args.region, instanceList, clusterList, 
-                                   monitoring_type=monitoring_type)
-
-    # Converting to json
-    dashBody = json.dumps({"widgets":dashboardWidgets})
-
-    # Create dashboard
-    client.put_dashboard(DashboardName=args.name, DashboardBody=dashBody)
-
-    print("Dashboard {} deployed to CloudWatch".format(args.name))
+                                widget["properties"]["metrics"][i][instance_id_index] = instance_name
+                else:
+                    print("Warning: Could not find replication instance name. Using instance ID from ARN.")
+                    
+            except Exception as e:
+                print(f"Error getting replication instances: {str(e)}. Using instance ID from ARN.")
+        else:
+            print("Warning: Could not find DMS task with ID '{}'.".format(task_id))
+            
+    except Exception as e:
+        print("Error retrieving DMS task: {}".format(str(e)))
 
 
 if __name__ == "__main__":
