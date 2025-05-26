@@ -38,12 +38,24 @@ def create_dashboard(widgets, region, instanceList, clusterList, monitoring_type
                             widget["properties"]["metrics"].append([".",".",".",DBInstanceIdentifier['DBInstanceIdentifier'],{"label":DBInstanceIdentifier['DBInstanceIdentifier']+instanceType}])
 
                 else:
+                    # Check if this is a CustomDocDB metric with Cluster dimension
+                    is_custom_metric = ('CustomDocDB' in widget["properties"]["metrics"][0][0])
+                    
                     for i, DBClusterIdentifier in enumerate(clusterList):
                         if (i == 0):
-                            widget["properties"]["metrics"][i].append(DBClusterIdentifier)
-                            widget["properties"]["metrics"][i].append({"label":DBClusterIdentifier})
+                            # Keep only the first 3 items
+                            metric = widget["properties"]["metrics"][i][:3]
+                            
+                            metric = widget["properties"]["metrics"][i]
+                            if len(metric) >= 4:
+                                metric[3] = DBClusterIdentifier
+                            else:
+                                metric.append(DBClusterIdentifier)
+                                
+                            widget["properties"]["metrics"][i] = metric
                         else:
-                            widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
+                            # Add additional clusters
+                            widget["properties"]["metrics"].append([".", ".", ".", DBClusterIdentifier])
 
             tempWidgets.append(widget)
             dashboardX += incrementX                
