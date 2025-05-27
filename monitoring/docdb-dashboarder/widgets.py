@@ -536,13 +536,13 @@ MigratorFLInsertsPerSecond = {
 MigratorFLRemainingSeconds = {
     "type": "metric",
     "properties": {
-        "view": "singleValue",
+        "view": "timeSeries",
+        "stacked": False,
         "metrics": [["CustomDocDB", "MigratorFLRemainingSeconds", "Cluster", "DBClusterIdentifier"]],
         "period": 300,
         "title": "Remaining Time (seconds)",
         "stat": "Average",
-        "setPeriodToTimeRange": True,
-        "trend": True
+        "yAxis": {"left": {"min": 0}}
     }
 }
 
