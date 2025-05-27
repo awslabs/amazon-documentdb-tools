@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import time
+import csv
 import pymongo
 from bson.timestamp import Timestamp
 from datetime import datetime, timedelta, timezone
@@ -165,6 +166,31 @@ def parseOplog(appConfig):
    
     printLog("opLog elapsed seconds = {}".format(oplogSeconds),fp)
 
+    # Write to CSV if requested
+    if appConfig['outputToCsv']:
+        try:
+            with open(appConfig['fileName'], 'w', newline='') as csvfile:
+                csvwriter = csv.writer(csvfile)
+                # Write header
+                csvwriter.writerow(['Namespace', 
+                                   'Tot Inserts', 'Per '+appConfig['unitOfMeasure'],
+                                   'Tot Updates', 'Per '+appConfig['unitOfMeasure'],
+                                   'Tot Deletes', 'Per '+appConfig['unitOfMeasure'],
+                                   'Tot Commands', 'Per '+appConfig['unitOfMeasure'],
+                                   'Tot No-Ops', 'Per '+appConfig['unitOfMeasure']])
+                
+                # Write data rows
+                for thisOpKey in sorted(opDict.keys()):
+                    csvwriter.writerow([thisOpKey,
+                                       opDict[thisOpKey]['ins'], opDict[thisOpKey]['ins']//calcDivisor,
+                                       opDict[thisOpKey]['upd'], opDict[thisOpKey]['upd']//calcDivisor,
+                                       opDict[thisOpKey]['del'], opDict[thisOpKey]['del']//calcDivisor,
+                                       opDict[thisOpKey]['com'], opDict[thisOpKey]['com']//calcDivisor,
+                                       opDict[thisOpKey]['nop'], opDict[thisOpKey]['nop']//calcDivisor])
+            printLog(f"CSV output written to {appConfig['fileName']}", fp)
+        except Exception as e:
+            printLog(f"Error writing to CSV file: {str(e)}", fp)
+
     # print collection ops, ips/ups/dps
     printLog("{:<{dbWidth}s} | {:<{intWidth}s} | {:<{floatWidth}s} | {:<{intWidth}s} | {:<{floatWidth}s} | {:<{intWidth}s} | {:<{floatWidth}s} | {:<{intWidth}s} | {:<{floatWidth}s} | {:<{intWidth}s} | {:<{floatWidth}s}".format('Namespace',
             'Tot Inserts','Per '+appConfig['unitOfMeasure'],
@@ -250,6 +276,16 @@ def main():
                         required=False,
                         action='store_true',
                         help='Stop processing and output results when fully caught up on the oplog')
+                        
+    parser.add_argument('--output-to-csv',
+                        required=False,
+                        action='store_true',
+                        help='Output results to a CSV file')
+
+    parser.add_argument('--file-name',
+                        required=False,
+                        type=str,
+                        help='Name of the CSV file to write (default: <server-alias>_oplog_stats.csv)')
 
     args = parser.parse_args()
     
@@ -267,6 +303,8 @@ def main():
     appConfig['collectSeconds'] = args.collect_seconds
     appConfig['unitOfMeasure'] = args.unit_of_measure
     appConfig['stopWhenOplogCurrent'] = args.stop_when_oplog_current
+    appConfig['outputToCsv'] = args.output_to_csv
+    appConfig['fileName'] = args.file_name if args.file_name else f"{args.server_alias}_oplog_stats.csv"
     
     # start from the beginning of the oplog rather than an aribtrary timestamp
     appConfig['startFromOplogStart'] = True

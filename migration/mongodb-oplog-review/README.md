@@ -14,6 +14,10 @@ The mongodb oplog review tool connects to any instance in a MongoDB replicaset (
 ## Using the MongoDB Oplog Review Tool
 `python3 mongo-oplog-review.py --server-alias <server-alias> --uri <mongodb-uri> --stop-when-oplog-current`
 
+## If you want output to be saved to a csv file
+ - Optionally add arguments
+ --output-to-csv --file-name <name of outputfile>
+
 - Run on any instance in the replicaset (the larger the oplog the better)
 - Use a different \<server-alias> for each execution
 - If sharded, run on one instance in each shard
