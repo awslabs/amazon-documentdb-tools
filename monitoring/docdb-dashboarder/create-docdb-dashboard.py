@@ -54,8 +54,14 @@ def create_dashboard(widgets, region, instanceList, clusterList, monitoring_type
                                 
                             widget["properties"]["metrics"][i] = metric
                         else:
-                            # Add additional clusters
-                            widget["properties"]["metrics"].append([".", ".", ".", DBClusterIdentifier])
+                            if is_custom_metric:
+                                widget["properties"]["metrics"].append(
+                                    [".", ".", ".", DBClusterIdentifier]
+                                )
+                            else:
+                                widget["properties"]["metrics"].append(
+                                    [".", ".", ".", DBClusterIdentifier, {"label": DBClusterIdentifier}]
+                                )
 
             tempWidgets.append(widget)
             dashboardX += incrementX                
