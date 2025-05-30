@@ -45,10 +45,12 @@ The Index Tool accepts the following arguments:
 --dump-indexes               Perform index export from the specified server
 --restore-indexes            Restore indexes found in metadata to the specified server
 --skip-incompatible          Skip incompatible indexes when restoring metadata
---support-2dsphere           Support 2dsphere indexes creation (collections must use GeoJSON Point type for indexing)
 --skip-python-version-check  Permit execution using Python 3.6 and prior
 --shorten-index-name         Shorten long index name to compatible length
 --skip-id-indexes            Do not create _id indexes
+--show-difference            Compare two metadata files in the directory provided by --dir option and show the index differences in those two files
+--source-metadata            Provide a source metadata file name for index comparison
+--target-metadata            Provide a target metadata file name for index comparison
 ```
 
 ### Export indexes from a MongoDB instance:
@@ -69,6 +71,11 @@ python3 migrationtools/documentdb_index_tool.py --show-issues --dir mongodb_inde
 ### Restore compatible indexes to Amazon DocumentDB
 ```
 python3 migrationtools/documentdb_index_tool.py --restore-indexes --skip-incompatible --dir mongodb_index_export --uri 'mongodb://user:password@mydocdb.cluster-cdtjj00yfi95.eu-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=rds-combined-ca-bundle.pem&replicaSet=rs0&retryWrites=false' 
+```
+
+### Compare indexes in two metadata files
+```
+python3 migrationtools/documentdb_index_tool.py --show-difference --dir mongodb_index_export  --source-metadata 'src.metadata.json' --target-metadata 'target.metadata.json'
 ```
 
 ## License

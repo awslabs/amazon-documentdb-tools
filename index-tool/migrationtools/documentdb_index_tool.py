@@ -27,6 +27,7 @@ from bson.json_util import dumps
 from pymongo import MongoClient
 from pymongo.errors import (ConnectionFailure, OperationFailure, ServerSelectionTimeoutError)
 from collections import OrderedDict
+from typing import Any, Dict
 
 alphabet = string.ascii_lowercase + string.digits 
 
@@ -66,11 +67,11 @@ class DocumentDbUnsupportedFeatures(object):
     def __init__(self):
         pass
 
-    UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
-    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
+    UNSUPPORTED_INDEX_TYPES = ['2d', 'geoHaystack', 'hashed']
+    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates','hidden']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion']
-
+    IGNORED_TEXT_INDEX_OPTIONS = ['default_language','language_override','textIndexVersion','sparse']
 
 class IndexToolConstants(object):
     """
@@ -92,13 +93,14 @@ class IndexToolConstants(object):
     INDEX_NAME = 'name'
     INDEX_VERSION = 'v'
     INDEX_KEY = 'key'
+    INDEX_WEIGHTS='weights'
     INDEX_NAMESPACE = 'ns'
     NAMESPACE = 'ns'
     OPTIONS = 'options'
     UNSUPPORTED_INDEX_OPTIONS_KEY = 'unsupported_index_options'
     UNSUPPORTED_COLLECTION_OPTIONS_KEY = 'unsupported_collection_options'
     UNSUPPORTED_INDEX_TYPES_KEY = 'unsupported_index_types'
-
+    WILD_INDEX_IDENTIFIER ='$**'
 
 class DocumentDbIndexTool(IndexToolConstants):
     """
@@ -408,13 +410,6 @@ class DocumentDbIndexTool(IndexToolConstants):
                             index_name][self.EXCEEDED_LIMITS][
                                 message] = fully_qualified_index_name
 
-                    # Check for indexes with too many keys
-                    if len(index) > DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS:
-                        message = 'Index contains more than {} keys'.format(
-                            DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS)
-                        compatibility_issues[db_name][collection_name][
-                            index_name][self.EXCEEDED_LIMITS][message] = len(
-                                index)
 
                     for key_name in index:
                         # Check for index key names that are too long
@@ -442,7 +437,12 @@ class DocumentDbIndexTool(IndexToolConstants):
 
                         # Check for unsupported index types
                         if key_name == self.INDEX_KEY:
+                            keysCounter=0
                             for index_key_name in index[key_name]:
+                                keysCounter+=1
+                                # Check for wildcard index
+                                if self.WILD_INDEX_IDENTIFIER in index_key_name:
+                                    compatibility_issues[db_name][collection_name][index_name][self.UNSUPPORTED_INDEX_TYPES_KEY] = 'wildindex'
                                 key_value = index[key_name][index_key_name]
 
                                 if key_value in DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_TYPES:
@@ -450,6 +450,11 @@ class DocumentDbIndexTool(IndexToolConstants):
                                         collection_name][index_name][
                                             self.
                                             UNSUPPORTED_INDEX_TYPES_KEY] = key_value
+                                    
+                            # Check for indexes with too many keys
+                            if keysCounter > DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS:
+                                message = 'Index contains more than {} keys'.format(DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS)
+                                compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = len(index)
 
         return compatibility_issues
 
@@ -487,15 +492,24 @@ class DocumentDbIndexTool(IndexToolConstants):
                             index_direction = int(index_direction['$numberInt'])
                         elif type(index_direction) is dict and '$numberDouble' in index_direction:
                             index_direction = int(float(index_direction['$numberDouble']))
+                        elif type(index_direction) is str and index_direction == "text": #this is added to handle text key that has the string "text" in it
+                            index_direction ="text"
+                            if self.INDEX_WEIGHTS in metadata[db_name][collection_name][self.INDEXES][index_name]:
+                                for w in metadata[db_name][collection_name][self.INDEXES][index_name][self.INDEX_WEIGHTS]:
+                                    keys_to_create.append((w, index_direction))
+                                isTextIndex=True
+                        elif key=="_ftsx" and self.INDEX_WEIGHTS in metadata[db_name][collection_name][self.INDEXES][index_name]:
+                            index_direction ="text" #do not add _ftsx key if this is part of the text index
 
-                        keys_to_create.append((key, index_direction))
+                        if index_direction!='text':
+                            keys_to_create.append((key, index_direction))
 
                     for k in metadata[db_name][collection_name][
                             self.INDEXES][index_name]:
-                        if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
+                       if k != self.INDEX_KEY and k != self.INDEX_VERSION:
+                            if (isTextIndex==True and k not in DocumentDbUnsupportedFeatures.IGNORED_TEXT_INDEX_OPTIONS) or (isTextIndex==False and  k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS):
                             # this key is an additional index option
-                            index_options[k] = metadata[db_name][
-                                collection_name][self.INDEXES][index_name][k]
+                                index_options[k] = metadata[db_name][collection_name][self.INDEXES][index_name][k]
 
                     if self.args.dry_run is True:
                         if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
@@ -519,6 +533,54 @@ class DocumentDbIndexTool(IndexToolConstants):
                             logging.info("%s.%s: added index: %s", db_name,
                                          collection_name, index_options[self.INDEX_NAME] )
 
+    def diff_metadata(self, source_metadata, target_metadata,path: str = "") -> Dict[str, tuple]:
+        """Compare two metadata objects and return a diff"""
+        differences = {}
+
+        # Helper function to get all keys from both dictionaries
+        all_keys = set(source_metadata.keys()) | set(target_metadata.keys())
+
+        for key in all_keys:
+            current_path = f"{path}.{key}" if path else str(key)
+        
+            # Check if key exists in both dictionaries
+            if key not in source_metadata:
+                differences[current_path] = (None, target_metadata[key])
+            elif key not in target_metadata:
+                differences[current_path] = (source_metadata[key], None)
+            else:
+                # If both have the key, compare values
+                val1, val2 = source_metadata[key], target_metadata[key]
+            
+                # If both values are AutovivifyDict, recurse
+                if isinstance(val1, AutovivifyDict) and isinstance(val2, AutovivifyDict):
+                    nested_diff = self.diff_metadata(val1, val2, current_path)
+                    differences.update(nested_diff)
+                # If values are different
+                elif val1 != val2:
+                    differences[current_path] = (val1, val2)
+    
+        return differences                    
+                    
+    def print_differences(self,differences: Dict[str, tuple]):
+        """
+        Print the differences in a readable format
+    
+        Args:
+        differences: Dictionary of differences from compare_autovivify_dicts
+        """
+        if not differences:
+            print("No differences found")
+            return
+    
+        print("\nDifferences found:")
+        print("-" * 50)
+        for path, (val1, val2) in sorted(differences.items()):
+            print(f"Path: {path}")
+            print(f"Source: {val1}")
+            print(f"Target: {val2}")
+            print("-" * 50)
+
     def run(self):
         """Entry point
         """
@@ -539,6 +601,23 @@ class DocumentDbIndexTool(IndexToolConstants):
         if self.args.dump_indexes is True:
             self._dump_indexes_from_server(connection, self.args.dir,
                                            self.args.dry_run)
+            sys.exit()
+
+         # show difference between two metadata files of source and target
+        if self.args.show_diff is True:
+            source_file_path=os.path.join(self.args.dir, self.args.source_metadata)
+            target_file_path=os.path.join(self.args.dir, self.args.target_metadata) 
+
+            (src_db_name, src_collection_name,src_collection_metadata) = self._get_metadata_from_file(source_file_path)
+            source_metadata = AutovivifyDict()
+            source_metadata=src_collection_metadata[self.INDEXES]
+
+            (tgt_db_name, tgt_collection_name, tgt_collection_metadata) = self._get_metadata_from_file(target_file_path)
+            target_metadata = AutovivifyDict()
+            target_metadata=tgt_collection_metadata[self.INDEXES]
+
+            differences=self.diff_metadata(source_metadata, target_metadata)
+            self.print_differences(differences)
             sys.exit()
 
         # all non-dump operations require valid source metadata
@@ -604,10 +683,12 @@ def main():
     parser.add_argument('--dump-indexes',required=False,action='store_true',help='Perform index export from the specified server')
     parser.add_argument('--restore-indexes',required=False,action='store_true',help='Restore indexes found in metadata to the specified server')
     parser.add_argument('--skip-incompatible',required=False,action='store_true',help='Skip incompatible indexes when restoring metadata')
-    parser.add_argument('--support-2dsphere',required=False,action='store_true',help='Support 2dsphere indexes creation (collections data must use GeoJSON Point type for indexing)')
     parser.add_argument('--skip-python-version-check',required=False,action='store_true',help='Permit execution on Python 3.6 and prior')
     parser.add_argument('--shorten-index-name',required=False,action='store_true',help='Shorten long index name to compatible length')
     parser.add_argument('--skip-id-indexes',required=False,action='store_true',help='Do not create _id indexes')
+    parser.add_argument('--show-difference',required=False,action='store_true',dest='show_diff',help='Output a report of compatibility issues found')
+    parser.add_argument('--source-metadata',required=False,type=str,help='specify the metadata file within the --dir location for source cluster')
+    parser.add_argument('--target-metadata',required=False,type=str,help='specify the metadata file within the --dir location for target cluster')
 
     args = parser.parse_args()
 
@@ -619,8 +700,8 @@ def main():
         message = "Must specify --uri when dumping or restoring indexes"
         parser.error(message)
 
-    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible):
-        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible]"
+    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible or args.show_diff):
+        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible | --show-difference]"
         parser.error(message)
 
     if args.dir is not None:
@@ -631,9 +712,9 @@ def main():
         if args.restore_indexes is True:
             parser.error("Cannot dump and restore indexes simultaneously")
 
-    if args.support_2dsphere:
-        # 2dsphere supported, remove from unsupported
-        DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_TYPES.remove('2dsphere')
+    if args.show_diff and (args.source_metadata is None or args.target_metadata is None):
+        message = "Must specify source and target metadata file"
+        parser.error(message)
 
     indextool = DocumentDbIndexTool(args)
     indextool.run()
@@ -641,3 +722,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
