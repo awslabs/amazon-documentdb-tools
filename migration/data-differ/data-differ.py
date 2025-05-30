@@ -1,4 +1,5 @@
 import argparse
+import json
 from pymongo import MongoClient
 from deepdiff import DeepDiff
 from tqdm import tqdm
@@ -18,8 +19,12 @@ def connect_to_db(uri, pool_size):
 ## Find missing docs in source when doc count in target is higher
 def check_target_for_extra_documents(srcCollection, tgtCollection, output_file):
     print("Check if extra documents exist in target database. Scanning......")
-    missing_docs = tgtCollection.find({'_id': {'$nin': srcCollection.distinct('_id')}})
-    if len(list(missing_docs.clone()))  > 0 :
+    # Using aggregation pipeline instead of distinct to handle dictionary _id values
+    src_ids = [doc['_id'] for doc in srcCollection.find({}, {'_id': 1})]
+    
+    # Find documents in target that don't exist in source
+    missing_docs = tgtCollection.find({'_id': {'$nin': src_ids}})
+    if len(list(missing_docs.clone())) > 0:
         write_difference_to_file(output_file, "Document _IDs present in the target collection but not in the source collection:")
         for doc in missing_docs:
             print(doc['_id'])
@@ -37,6 +42,12 @@ def compare_docs_deepdiff(doc1, doc2, output_file):
     except Exception as e:
         print(f"An error occurred while comparing documents: {e}")
 
+
+## Helper function to make _id hashable
+def make_id_hashable(id_value):
+    if isinstance(id_value, dict):
+        return json.dumps(id_value, sort_keys=True)
+    return id_value
 
 ## Main compare document function
 def compare_document_data(srcCollection, tgtCollection, batch_size, output_file, src_count, sample_size_percent, sampling_timeout_ms):
@@ -57,30 +68,38 @@ def compare_document_data(srcCollection, tgtCollection, batch_size, output_file,
         while source_cursor.alive:
             batch1 = [next(source_cursor, None) for _ in range(batch_size)]
             doc_pairs = []
-            src_ids_set = set()
+            src_ids_list = []
 
             for document in batch1:
                 if document is not None:
-                    source_id = document['_id']
-                    src_ids_set.add(source_id)
                     doc_pairs.append((document, None))  # None is used as a placeholder for target document
+                    src_ids_list.append(document['_id'])
 
-            tgt_docs = tgtCollection.find({"_id": {"$in": [doc[0]['_id'] for doc in doc_pairs]}})
-            tgt_docs_map = {doc['_id']: doc for doc in tgt_docs}
+            # Use MongoDB's $in operator directly without converting to set
+            tgt_docs = tgtCollection.find({"_id": {"$in": src_ids_list}})
+            
+            # Create a dictionary mapping hashable versions of _id to documents
+            tgt_docs_map = {}
+            for doc in tgt_docs:
+                hashable_id = make_id_hashable(doc['_id'])
+                tgt_docs_map[hashable_id] = doc
 
-            doc_pairs = [(doc[0], tgt_docs_map.get(doc[0]['_id'])) for doc in doc_pairs]
-
-            # Check if any documents from source collection are missing in the target collection
-            missing_docs = [doc[0] for doc in doc_pairs if doc[1] is None]
-            tgt_missing_ids.extend([doc['_id'] for doc in missing_docs])
+            # Match source documents with target documents
+            matched_doc_pairs = []
+            for src_doc in [doc[0] for doc in doc_pairs if doc[0] is not None]:
+                hashable_id = make_id_hashable(src_doc['_id'])
+                tgt_doc = tgt_docs_map.get(hashable_id)
+                matched_doc_pairs.append((src_doc, tgt_doc))
+                if tgt_doc is None:
+                    tgt_missing_ids.append(src_doc['_id'])
 
             # Check difference between docs, multi process based on cpu_count()
             pool_size = cpu_count()
             with Pool(pool_size) as pool:
-                pool.starmap(compare_docs_deepdiff, [(doc1, doc2, output_file) for doc1, doc2 in doc_pairs if doc2 is not None])
+                pool.starmap(compare_docs_deepdiff, [(doc1, doc2, output_file) for doc1, doc2 in matched_doc_pairs if doc2 is not None])
 
-            processed_docs += len(doc_pairs)
-            progress_bar.update(len(doc_pairs))
+            processed_docs += len(matched_doc_pairs)
+            progress_bar.update(len(matched_doc_pairs))
 
     except Exception as e:
         print(f"An error occurred while comparing documents: {e}")

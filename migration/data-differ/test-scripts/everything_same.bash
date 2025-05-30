@@ -1,17 +1,9 @@
 #!/bin/bash
 
-mongoimport $SOURCE_URI -d $SOURCE_DB -c $SOURCE_COLL everything_same.json
-mongoimport $TARGET_URI -d $TARGET_DB -c $TARGET_COLL everything_same.json
+mongoimport --uri="$SOURCE_URI" --db="$SOURCE_DB" --collection="$SOURCE_COLL" --file=everything_same.json
+mongoimport --uri="$TARGET_URI" --db="$TARGET_DB" --collection="$TARGET_COLL" --file=everything_same.json
 
-python3 ../data-differ.py --source-uri $SOURCE_URI --target-uri $TARGET_URI --source-namespace "$SOURCE_DB.$SOURCE_COLL" --target-namespace "$TARGET_DB.$TARGET_COLL" --percent 100
+python3 ../data-differ.py --source-uri "$SOURCE_URI" --target-uri "$TARGET_URI" --source-db "$SOURCE_DB" --source-coll "$SOURCE_COLL" --target-db "$TARGET_DB" --target-coll "$TARGET_COLL" --batch-size 100 --output-file everything_same_result.txt
 
-mongosh $SOURCE_URI <<EOF
-use $SOURCE_DB
-db.$SOURCE_COLL.drop()
-EOF
-
-mongosh $TARGET_URI <<EOF
-use $TARGET_DB
-db.$TARGET_COLL.drop()
-EOF
-
+mongosh "$SOURCE_URI" --eval "use $SOURCE_DB; db.$SOURCE_COLL.drop()"
+mongosh "$TARGET_URI" --eval "use $TARGET_DB; db.$TARGET_COLL.drop()"
