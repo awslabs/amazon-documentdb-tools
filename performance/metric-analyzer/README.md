@@ -1,4 +1,4 @@
-# DocumentDB Metric Analyzer
+# Amazon DocumentDB Metric Analyzer
 
 This tool analyzes the output of the [Amazon DocumentDB Metric Collector Tool](https://github.com/awslabs/amazon-documentdb-tools/tree/master/performance/metric-collector) to provide recommendations for optimizing performance, cost, and availability.
 
