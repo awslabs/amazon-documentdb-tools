@@ -208,14 +208,14 @@ Resources:
             #!/bin/bash
             cd /home/ec2-user
 
-            echo "downloading https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/couchbase-migration-utility/createTruststore.sh ..." >> setup.log
-            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/couchbase-migration-utility/createTruststore.sh -O createTruststore.sh 2> wget.log
+            echo "downloading https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/couchbase-migration-utility/static/scripts/createTruststore.sh ..." >> setup.log
+            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/couchbase-migration-utility/static/scripts/createTruststore.sh -O createTruststore.sh 2> wget.log
 
             echo "making createTruststore.sh executable ..." >> setup.log
             chmod 755 createTruststore.sh
 
-            echo "downloading setup.sh from https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/couchbase-migration-utility/setup.sh ..." >> setup.log
-            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/couchbase-migration-utility/setup.sh -O setup.sh 2> wget.log
+            echo "downloading setup.sh from https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/couchbase-migration-utility/static/scripts/setup.sh ..." >> setup.log
+            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/couchbase-migration-utility/static/scripts/setup.sh -O setup.sh 2> wget.log
 
             echo "making setup.sh executable ..." >> setup.log
             chmod 755 setup.sh
