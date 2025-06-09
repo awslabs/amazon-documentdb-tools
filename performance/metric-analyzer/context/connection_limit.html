@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>Connection Limits Approaching Maximum</h1>
+<p>Each instance has a connection limit that scales with instance size. Additionally, each open connection consumes memory and CPU resources on the Amazon DocumentDB instance. After the connection limit has been reached, Amazon DocumentDB rejects any further connection attempts and the application will encounter connection exceptions.</p>
+
+<h2>Considerations before taking action:</h2>
+<ol>
+<li><strong>Connection pooling</strong>: Verify if your application is using <a href="https://aws.amazon.com/blogs/database/building-resilient-applications-with-amazon-documentdb-with-mongodb-compatibility-part-1-client-configuration/" target="_blank">connection pooling</a> effectively. Improper connection management can lead to unnecessary connection proliferation.</li>
+<li><strong>Connection distribution</strong>: Verify that you are connecting to your cluster as a replica set, distributing reads to replica instances using the built-in read preference capabilities of your driver.</li>
+<li><strong>Instance sizing impact</strong>: Increasing instance size will increase costs but provides higher connection limits and additional resources.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li>Review application code for connection leaks or improper connection handling</li>
+<li>Consider implementing a <a href="https://aws.amazon.com/blogs/database/scale-your-connections-with-amazon-documentdb-using-mongobetween/ target="_blank""> connection proxy layer</a> to manage connection distribution</li>
+</ol>
+</body>
+</html>

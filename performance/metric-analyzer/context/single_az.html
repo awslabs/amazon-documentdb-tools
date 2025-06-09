@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>Single Instance Deployment Considerations</h1>
+<p>Running a DocumentDB cluster with only a single instance provides no high availability and no read scaling capabilities. For production workloads, it is recommended to deploy a cluster with at least one replica instance.</p>
+
+<h2>Considerations before adding replica instances:</h2>
+<ol>
+<li><strong>High availability needs</strong>: Single-instance clusters have no automatic <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/failover.html" target="_blank">failover</a> capability, resulting in longer downtime during instance failures.</li>
+<li><strong>Read scaling requirements</strong>: Without replicas, all read operations must be processed by the primary instance.</li>
+<li><strong>Maintenance impact</strong>: With replicas, maintenance operations can be performed with minimal downtime.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li>For production workloads, deploy at least one replica instance (two total instances)</li>
+<li>For critical workloads, consider deploying two replica instances (three total instances)</li>
+<li>Amazon DocumentDB clusters can be <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/db-cluster-stop-start.html" target="_blank">stopped and started</a>, helping to manage costs for development and test environments</li>
+<li>Configure read preference to secondaryPreferred to utilize replica instances for read operations</li>
+<li>Monitor replica lag to ensure acceptable data consistency</li>
+</ol>
+</body>
+</html>

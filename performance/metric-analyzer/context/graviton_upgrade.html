@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>Upgrading Instances to Graviton2</h1>
+<p>AWS Graviton2 processors are custom built by AWS using 64-bit Arm Neoverse cores and provide significant performance and cost benefits over previous generation instances. R6g instances offer up to 30% better price/performance compared to R5/R4 instances, with r6g instances 5% less expensive than their r5 counterparts.</p>
+
+<h2>Considerations before upgrading to Graviton2:</h2>
+<ol>
+<li><strong>Performance benefits</strong>: Graviton2 instances provide better CPU performance and memory encryption, which can improve overall database performance.</li>
+<li><strong>Application compatibility</strong>: No application changes are required when migrating from Intel to Graviton2 instances on Amazon DocumentDB.</li>
+<li><strong>Instance size mapping</strong>: Ensure you select the appropriate Graviton2 instance size that matches or exceeds your current workload requirements.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li>Identify the appropriate Graviton2 instance type (r6g) that corresponds to your current instance</li>
+<li>To minimize downtime, consider modifying your replicas first, then promoting the replicas before modifying the primary instance</li>
+<li>Monitor performance after the upgrade to ensure expected improvements are realized</li>
+</ol>
+</body>
+</html>

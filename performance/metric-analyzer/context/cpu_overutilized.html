@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>High CPU Usage Considerations</h1>
+<p>When CPU utilization is consistently high (above 90%), your instances may be under-provisioned, which can lead to performance issues, increased latency, and potential outages.</p>
+
+<h2>Considerations before taking action:</h2>
+<ol>
+<li><strong>Query optimization</strong>: High CPU might indicate inefficient queries. Review and optimize your queries before scaling up.</li>
+<li><strong>Workload patterns</strong>: Determine if high CPU is consistent or occurs during specific peak periods.</li>
+<li><strong>Instance sizing impact</strong>: Increasing instance size will increase costs but may be necessary for consistent performance.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li>Review the <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/profiling.html" target="_blank">slow query profiler</a> to identify and optimize problematic queries</li>
+<li>Check for common causes of <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/user_diagnostics.html#user_diagnostics-cpu_utilization" target="_blank">high CPU utilization</a></li>
+<li>Consider using Performance Insights to identify specific resource bottlenecks</li>
+<li>Distribute read operations to replica instances if using a read-heavy workload</li>
+<li>Implement or optimize connection pooling to reduce connection overhead</li>
+<li>Consider implementing a <a href="https://aws.amazon.com/blogs/database/caching-for-performance-with-amazon-documentdb-and-amazon-elasticache/" target="_blank">caching layer</a> for frequently accessed data</li>
+</ol>
+</body>
+</html>

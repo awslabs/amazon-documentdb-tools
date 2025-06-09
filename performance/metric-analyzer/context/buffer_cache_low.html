@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>Low Buffer Cache Hit Ratio Considerations</h1>
+<p>When BufferCacheHitRatio is low (below 90%) for an extended period of time, your instances may be under-provisioned for your working dataset, which can lead to performance issues and higher I/O costs.</p>
+
+<h2>Considerations before taking action:</h2>
+<ol>
+<li><strong>Data access patterns</strong>: Analyze if your application is accessing data in a way that could be optimized to improve <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/user_diagnostics.html#user-diag-cache-perf" target="_blank">cache utilization</a>.</li>
+<li><strong>Working dataset size</strong>: Determine if your working dataset has grown beyond the memory capacity of your current instance.</li>
+<li><strong>Instance sizing impact</strong>: Increasing instance size will increase costs but may improve performance significantly if memory is the bottleneck.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li>Enable the <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/profiling.html" target="_blank">profiler</a> and review the CloudWatch logs to identify and optimize slow queries</li>
+<li>Consider using Performance Insights to identify specific resource bottlenecks</li>
+<li>Implement BufferCacheHitRatio isolation by directing operational queries to the primary instance and analytic queries only to the replica instances</li>
+<li>Alternatively, achieve partial isolation by directing analytic queries to a specific replica instance with the understanding that some percentage of regular queries will also run on that replica and could potentially be affected</li>
+</ol>
+</body>
+</html>

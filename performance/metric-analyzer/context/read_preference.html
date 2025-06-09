@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>Read Preference Driver Settings</h1>
+<p>When the primary instance is handling the majority of read operations, your cluster is not efficiently utilizing read replicas. This can lead to unnecessary load on the primary instance and underutilization of replica resources.</p>
+
+<h2>Considerations before changing read preference:</h2>
+<ol>
+<li><strong>Consistency requirements</strong>: Secondary reads provide eventual consistency. Ensure your application can tolerate this for read operations.</li>
+<li><strong>Driver configuration</strong>: Different drivers have different methods for setting read preferences. Review the documentation for your driver.</li>
+<li><strong>Replica availability</strong>: With secondaryPreferred, reads will fall back to the primary if no replicas are available.</li>
+<li><strong>Monitoring impact</strong>: Track metrics after changing read preference to ensure proper load distribution.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li><strong>Node.js driver</strong>:
+  <pre>const client = new MongoClient(uri, {
+  readPreference: 'secondaryPreferred'
+});</pre>
+</li>
+<li><strong>Python driver</strong>:
+  <pre>client = pymongo.MongoClient(uri, 
+  read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED)</pre>
+</li>
+<li><strong>Java driver</strong>:
+  <pre>MongoClientSettings settings = MongoClientSettings.builder()
+  .readPreference(ReadPreference.secondaryPreferred())
+  .build();</pre>
+</li>
+</ol>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>Excessive Instance Deployment Considerations</h1>
+<p>Amazon DocumentDB is designed for 99.99% availability when deployed across two or more AZ’s. Replica instances work well for read scaling because they are fully dedicated to read operations on your cluster volume. However running an Amazon DocumentDB cluster with more than three instances (one primary and two replicas) does not increase the availability beyond 99.99% and can increase costs. </p>
+
+<h2>Considerations before removing instances:</h2>
+<ol>
+<li><strong>Read scaling needs</strong>: Determine if your current read workload actually requires the additional replica instances.</li>
+<li><strong>Regional distribution</strong>: Verify that the current instances are distributed across multiple Availability Zones for maximum resilience.</li>
+<li><strong>Maintenance strategy</strong>: Consider how instance removal might affect your maintenance procedures.</li>
+<li><strong>Future growth plans</strong>: Assess if anticipated workload growth justifies keeping additional instances.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li>For production workloads, it is recommended to run a cluster with three instances (one primary, two replicas), but no less than two (one primary, one replica)</li>
+<li>Ensure instances are distributed across different Availability Zones</li>
+<li>Configure read preference to secondaryPreferred to maximize read scaling</li>
+<li>Consider increasing instance size instead of adding more instances if additional capacity is needed</li>
+</ol>
+</body>
+</html>
