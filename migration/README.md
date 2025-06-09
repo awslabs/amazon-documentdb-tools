@@ -1,6 +1,7 @@
 # Amazon DocumentDB Migration Tools
 
 * [cosmos-db-migration-utility](./cosmos-db-migration-utility) - migrate from Cosmos DB to Amazon DocumentDB.
+* [couchbase-migration-utility](./cosmos-db-migration-utility) - migrate from Couchbase to Amazon DocumentDB.
 * [data-differ](./data-differ) - compare documents between two databases or collections.
 * [dms-segments](./dms-segments) - calculate segments for Amazon DMS full load segmentation.
 * [export-users](./export-users) - export users from MongoDB or Amazon DocumentDB.
