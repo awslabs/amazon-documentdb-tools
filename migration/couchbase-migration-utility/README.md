@@ -297,15 +297,28 @@ Topic: couchbase-to-documentdb  TopicId: 4GwdAvIvQm-OF2ZlZtMTeg PartitionCount: 
   Topic: couchbase
 ```
 * Confirm that the documents from the `beer-sample` Couchbase bucket exist in the `beer-sample.test` collection in the Amazon DocumentDB cluster. Use the `mongosh` command you used earlier when validating the connection to the cluster from the EC2 instance.
+* Switch to the `beer-sample` database.
 ```
-rs0 [direct: primary] test> use beer-sample
+use beer-sample
+```
+* You will see that mongo shell has switched to the `beer-sample` database.
+```
 switched to db beer-sample
-rs0 [direct: primary] beer-sample> db.test.countDocuments()
+```
+* Get a count of documents in the `test` collection.
+```
+db.test.countDocuments()
+```
+* It should match the number of the documents in the `beer-sample` source bucket.
+```
 7303
 ```
-* Find a specific document:
+* Find a specific document.
 ```
-rs0 [direct: primary] beer-sample> db.test.find({"_id":"21st_amendment_brewery_cafe"})
+db.test.find({"_id":"21st_amendment_brewery_cafe"})
+```
+* It should match the document in the `beer-sample` source bucket with the exception of the added `_id` field.
+```
 [
   {
     _id: '21st_amendment_brewery_cafe',
@@ -323,16 +336,21 @@ rs0 [direct: primary] beer-sample> db.test.find({"_id":"21st_amendment_brewery_c
     updated: '2010-10-24 13:54:07'
   }
 ]
-rs0 [direct: primary] beer-sample> db.test.find({"_id":"21st_amendment_brewery_cafe"})
 ```
-* Get distinct `type` values:
+* Get distinct `type` values in the `test` collection.
 ```
-rs0 [direct: primary] beer-sample> db.test.distinct("type")
+db.test.distinct("type")
+```
+* It should match the document types in the `beer-sample` source bucket.
+```
 [ 'beer', 'brewery' ]
 ```
-* Get count of `brewery` documents:
+* Get count of `brewery` documents.
 ```
-rs0 [direct: primary] beer-sample> db.test.find({"type":"brewery"}).count()
+db.test.find({"type":"brewery"}).count()
+```
+* It should match the number of documents in the `beer-sample` source bucket with `"type": "brewery"`.
+```
 1412
 ```
 ## Cleanup
