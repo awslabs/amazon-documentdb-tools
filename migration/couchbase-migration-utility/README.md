@@ -134,21 +134,35 @@ rs0 [direct: primary] test>
 It is a best practice to create indexes before migrating data so create the target collection(s) and indexes.
 * Create the required target database(s) and collection(s). These instructions use the `test` collection in the `beer-sample` database with the default 2 KB threshold. See [Setting the compression thresholds](https://docs.aws.amazon.com/documentdb/latest/developerguide/doc-compression.html#manage-compression) to create a collection with a different compression threshold.
 ```
-rs0 [direct: primary] test> use beer-sample
-switched to beer-sample
-rs0 [direct: primary] beer-sample> db.createCollection("test")
+use beer-sample
+db.createCollection("test")
+```
+* You should see an `ok` return code from the `createCollection()` command.
+```
 { ok: 1 }
-rs0 [direct: primary] beer-sample> show collections
+```
+* Show the collections in the `beer-sample` database.
+```
+show collections
+```
+* Confirm that you see the `test` collection.
+```
 test
 ```
 * Create the required indexes on the target collection(s). For example, create an index on the `type` field in the `test` collection:
 ```
-rs0 [direct: primary] beer-sample> db.test.createIndex({"type": 1})
+db.test.createIndex({"type": 1})
+```
+* You should see the name of the newly created index.
+```
 type_1
 ```
-* View the indexes that exist on the `test` collection. All collections in Amazon DocumentDB have a default index on the `_id` field so in this example there will be two indexes. 
+* View the indexes that exist on the `test` collection.
 ```
-rs0 [direct: primary] beer-sample> db.test.getIndexes()
+db.test.getIndexes()
+```
+* All collections in Amazon DocumentDB have a default index on the `_id` field so in this example there will be two indexes.
+```
 [
   { v: 4, key: { _id: 1 }, name: '_id_', ns: 'beer-sample.test' },
   { v: 4, key: { type: 1 }, name: 'type_1', ns: 'beer-sample.test' }
@@ -156,7 +170,7 @@ rs0 [direct: primary] beer-sample> db.test.getIndexes()
 ```
 * Exit mongo shell by typing `exit`.
 ```
-rs0 [direct: primary] beer-sample> exit
+exit
 ```
 ## Step 4 - Deploy MSK Connect resources.
 *This guide assumes you are using the `test` collection in the `beer-sample` database. If you specify a different collection and database, modify the commands accordingly.*
