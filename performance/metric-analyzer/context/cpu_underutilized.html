@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>Low CPU Usage Considerations</h1>
+<p>When CPU utilization is consistently low (below 30%), your instances may be over-provisioned, which can lead to unnecessary costs without providing performance benefits.</p>
+
+<h2>Considerations before downsizing:</h2>
+<ol>
+<li><strong>Workload patterns</strong>: Verify if the low CPU usage is consistent or if there are periodic spikes that require the current capacity.</li>
+<li><strong>Future growth</strong>: Consider if you're anticipating workload growth that would justify the current instance size.</li>
+<li><strong>Memory requirements</strong>: Even with low CPU, your workload may require the current memory capacity for optimal cache performance. For example, moving from an r6g.xlarge to r6g.large decreases your buffer cache space by 50%, potentially increasing your I/O costs.</li>
+<li><strong>Instance type selection</strong>: Consider if a different instance family might better match your workload characteristics, such as <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/db-instance-nvme.html" target="_blank">NVMe-backed instances</a>.</li>
+<li><strong>Network bandwidth impact</strong>: In addition to vCPU and RAM, decreasing the instance size may also affect <a href="https://aws.amazon.com/ec2/instance-types/#Memory_Optimized" target="_blank">network bandwidth</a>. This can affect your I/O performance.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li>If running multiple clusters that are over-provisioned, evaluate if their workloads can be consolidated</li>
+<li>Monitor other metrics like memory usage and cache hit ratios before making sizing decisions</li>
+</ol>
+</body>
+</html>

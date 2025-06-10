@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+        h1 { color: #333; }
+        h2 { color: #444; margin-top: 20px; }
+        strong { font-weight: bold; }
+        ul { margin-left: 20px; }
+        li { margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+<h1>Low Index Buffer Cache Hit Ratio Considerations</h1>
+<p>When IndexBufferCacheHitRatio is low (below 90%) for an extended period of time, your instance may have too many indexes for its memory capacity, which can lead to performance degradation.</p>
+
+<h2>Considerations before taking action:</h2>
+<ol>
+<li><strong>Index usage analysis</strong>: Use the <a href="https://github.com/awslabs/amazon-documentdb-tools/tree/master/performance/index-review" target="_blank">Index Review Tool</a> to identify which indexes are rarely or never used before removing them.</li>
+<li><strong>Query impact</strong>: Removing indexes may negatively impact some queries that depend on them. Test your workload before removing indexes from your production clusters.</li>
+<li><strong>Instance sizing trade-offs</strong>: Increasing instance size will increase costs but may be necessary if all indexes are required.</li>
+<li><strong>Review your queries for optimization</strong>: Utilize the explain command to veiw your <a href="https://docs.aws.amazon.com/documentdb/latest/developerguide/querying.html#querying.queryplan" target="_blank">query execution plan</a>. You can use the $hint operator to enforce selection of a preferred index.</li>
+</ol>
+
+<h2>Additional considerations:</h2>
+<ol>
+<li>Consider consolidating multiple indexes where possible</li>
+<li>Evaluate if your application can be modified to require fewer indexes</li>
+<li>Utilize the <a href="https://github.com/awslabs/amazon-documentdb-tools/tree/master/performance/index-cardinality-detection" target="_blank">index low cardinality tool</a> to idetify indexes with a high number of duplicate values. It is recommended to limit the creation of indexes to fields where the number of duplicate values is less than 1% of the total number of documents in the collection.</li>
+</ol>
+</body>
+</html>
