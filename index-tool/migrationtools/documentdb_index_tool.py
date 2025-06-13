@@ -530,92 +530,6 @@ class DocumentDbIndexTool(IndexToolConstants):
                             logging.info("%s.%s: added index: %s", db_name,
                                          collection_name, index_options[self.INDEX_NAME] )
 
-    def diff_metadata(self, source_metadata, target_metadata,filename) -> Dict[str, tuple]:
-        """Compare two metadata objects and return a diff"""
-        sourceKeysNotFound=[]
-        targetKeysNotFound=[]
-        keysInboth=[]
-
-        print("*" * 50)
-        print(f"Showing differences between metadata file '{filename}' in source and target folder")
-        print("*" * 50)
-
-        noDifferenceFlag=True
-        # Helper function to get all keys from both dictionaries
-        all_keys = set(source_metadata.keys()) | set(target_metadata.keys())
-        
-        for key in all_keys:
-            #print(key)
-            if key not in source_metadata:
-                sourceKeysNotFound.append(key)
-            elif key not in target_metadata:
-                targetKeysNotFound.append(key)
-            else:
-                keysInboth.append(key)
-
-        if len(sourceKeysNotFound) > 0:
-            noDifferenceFlag=False
-            print(f"\nFollowing keys are found in the target but not in the source\n")
-            for srckey in sourceKeysNotFound:
-                print(srckey)
-                print(json.dumps(target_metadata[srckey],indent=2))
-            print("-" * 50)
-
-        if len(targetKeysNotFound) > 0:
-            noDifferenceFlag=False
-            print(f"\nFollowing keys are found in the source but not in the target\n")
-            for trgtkey in targetKeysNotFound:
-                print(trgtkey)
-                print(json.dumps(source_metadata[trgtkey],indent=2))
-            print("-" * 50)
-
-        if len(keysInboth) > 0:
-            for similarkey in keysInboth:
-                sourcedict, targetdict=source_metadata[similarkey], target_metadata[similarkey]
-                sourceKeysOptionNotFound=[]
-                targetKeysOptionNotFound=[]
-                notSimilarOptions=[]
-                for option in sourcedict.keys() | targetdict.keys():
-                    # If option exists in both dicts but values are different
-                    if option in sourcedict and option in targetdict:
-                        if option != 'v':
-                            if sourcedict[option] != targetdict[option]:
-                                noDifferenceFlag=False
-                                notSimilarOptions.append(option)
-                    # If option only exists in source
-                    elif option not in sourcedict:
-                        noDifferenceFlag=False
-                        sourceKeysOptionNotFound.append(option)
-                    # If key only exists in target
-                    else:
-                        noDifferenceFlag=False
-                        targetKeysOptionNotFound.append(option)
-                if len(notSimilarOptions)>0 or len(sourceKeysOptionNotFound) > 0 or len(targetKeysOptionNotFound):
-                    print(f"The key {similarkey} has the following differences between source and target\n")
-
-                if len(notSimilarOptions) > 0:
-                    print(f"Options that are not similar\n")
-                    for notSimilarOption in notSimilarOptions:
-                        print(f"     {notSimilarOption}")
-                        print(f"        Source value: {sourcedict[notSimilarOption]}")
-                        print(f"        Target value: {targetdict[notSimilarOption]}")
-                    print("-" * 50)
-
-                if len(sourceKeysOptionNotFound) > 0:
-                    print(f"Following options are not present in the source {similarkey} key\n")
-                    for sourceOption in sourceKeysOptionNotFound:
-                        print(f"     {sourceOption}")
-                    print("-" * 50)
-
-                if len(targetKeysOptionNotFound) > 0:
-                    print(f"Following options are not present in the target {similarkey} key\n")
-                    for targetOption in targetKeysOptionNotFound:
-                        print(f"     {targetOption}")
-                    print("-" * 50)
-
-        if noDifferenceFlag==True:
-            print("There is no difference in the indexes of two files")                    
-        print("\n")           
                     
     def run(self):
         """Entry point
@@ -637,24 +551,6 @@ class DocumentDbIndexTool(IndexToolConstants):
         if self.args.dump_indexes is True:
             self._dump_indexes_from_server(connection, self.args.dir,
                                            self.args.dry_run)
-            sys.exit()
-
-        # show difference between two metadata files in the source and target folder
-        if self.args.show_diff is True:
-            sourceFiles=self._find_metadata_files(self.args.source_metadata_dir)
-            targetFiles=self._find_metadata_files(self.args.target_metadata_dir)
-            srcfile_names = [os.path.basename(path) for path in sourceFiles]
-            trgtfile_names = [os.path.basename(path) for path in targetFiles]
-            commonFiles = list(set(srcfile_names) & set(trgtfile_names))
-            for fileName in commonFiles:
-                (src_db_name, src_collection_name,src_collection_metadata) =self._get_metadata_from_file(os.path.join(self.args.source_metadata_dir, fileName))
-                source_metadata = AutovivifyDict()
-                source_metadata=src_collection_metadata[self.INDEXES]
-                (tgt_db_name, tgt_collection_name, tgt_collection_metadata)=self._get_metadata_from_file(os.path.join(self.args.target_metadata_dir, fileName))
-                target_metadata = AutovivifyDict()
-                target_metadata=tgt_collection_metadata[self.INDEXES]
-                self.diff_metadata(source_metadata, target_metadata,fileName)
-                        
             sys.exit()
 
         # all non-dump operations require valid source metadata
@@ -724,9 +620,6 @@ def main():
     parser.add_argument('--skip-python-version-check',required=False,action='store_true',help='Permit execution on Python 3.6 and prior')
     parser.add_argument('--shorten-index-name',required=False,action='store_true',help='Shorten long index name to compatible length')
     parser.add_argument('--skip-id-indexes',required=False,action='store_true',help='Do not create _id indexes')
-    parser.add_argument('--show-difference',required=False,action='store_true',dest='show_diff',help='Output a report of compatibility issues found')
-    parser.add_argument('--source-metadata-dir',required=False,type=str,help='specify the folder where source metadata files are located')
-    parser.add_argument('--target-metadata-dir',required=False,type=str,help='specify the folder where target metadata files are located')
 
     args = parser.parse_args()
 
@@ -753,18 +646,6 @@ def main():
     if args.support_2dsphere:
         # 2dsphere supported, remove from unsupported
         DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_TYPES.remove('2dsphere')
-        
-    if args.show_diff and (args.source_metadata_dir is None or args.target_metadata_dir is None):
-        message = "Must specify source and target folder for the metadata files"
-        parser.error(message)
-
-    if args.source_metadata_dir is not None:
-        if not os.path.isdir(args.source_metadata_dir):
-            parser.error("--source-metadata-dir must specify a directory")
-
-    if args.target_metadata_dir is not None:
-        if not os.path.isdir(args.target_metadata_dir):
-            parser.error("--target-metadata-dir must specify a directory")
 
     indextool = DocumentDbIndexTool(args)
     indextool.run()
