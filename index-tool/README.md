@@ -45,6 +45,7 @@ The Index Tool accepts the following arguments:
 --dump-indexes               Perform index export from the specified server
 --restore-indexes            Restore indexes found in metadata to the specified server
 --skip-incompatible          Skip incompatible indexes when restoring metadata
+--support-2dsphere           Support 2dsphere indexes creation (collections must use GeoJSON Point type for indexing)
 --skip-python-version-check  Permit execution using Python 3.6 and prior
 --shorten-index-name         Shorten long index name to compatible length
 --skip-id-indexes            Do not create _id indexes
