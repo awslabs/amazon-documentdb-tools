@@ -27,6 +27,7 @@ from bson.json_util import dumps
 from pymongo import MongoClient
 from pymongo.errors import (ConnectionFailure, OperationFailure, ServerSelectionTimeoutError)
 from collections import OrderedDict
+from typing import Any, Dict
 
 alphabet = string.ascii_lowercase + string.digits 
 
@@ -67,10 +68,10 @@ class DocumentDbUnsupportedFeatures(object):
         pass
 
     UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
-    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
+    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates','hidden']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion']
-
+    IGNORED_TEXT_INDEX_OPTIONS = ['default_language','language_override','textIndexVersion','sparse']
 
 class IndexToolConstants(object):
     """
@@ -92,13 +93,14 @@ class IndexToolConstants(object):
     INDEX_NAME = 'name'
     INDEX_VERSION = 'v'
     INDEX_KEY = 'key'
+    INDEX_WEIGHTS='weights'
     INDEX_NAMESPACE = 'ns'
     NAMESPACE = 'ns'
     OPTIONS = 'options'
     UNSUPPORTED_INDEX_OPTIONS_KEY = 'unsupported_index_options'
     UNSUPPORTED_COLLECTION_OPTIONS_KEY = 'unsupported_collection_options'
     UNSUPPORTED_INDEX_TYPES_KEY = 'unsupported_index_types'
-
+    WILD_INDEX_IDENTIFIER ='$**'
 
 class DocumentDbIndexTool(IndexToolConstants):
     """
@@ -408,13 +410,6 @@ class DocumentDbIndexTool(IndexToolConstants):
                             index_name][self.EXCEEDED_LIMITS][
                                 message] = fully_qualified_index_name
 
-                    # Check for indexes with too many keys
-                    if len(index) > DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS:
-                        message = 'Index contains more than {} keys'.format(
-                            DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS)
-                        compatibility_issues[db_name][collection_name][
-                            index_name][self.EXCEEDED_LIMITS][message] = len(
-                                index)
 
                     for key_name in index:
                         # Check for index key names that are too long
@@ -442,7 +437,12 @@ class DocumentDbIndexTool(IndexToolConstants):
 
                         # Check for unsupported index types
                         if key_name == self.INDEX_KEY:
+                            keysCounter=0
                             for index_key_name in index[key_name]:
+                                keysCounter+=1
+                                # Check for wildcard index
+                                if self.WILD_INDEX_IDENTIFIER in index_key_name:
+                                    compatibility_issues[db_name][collection_name][index_name][self.UNSUPPORTED_INDEX_TYPES_KEY] = 'wildindex'
                                 key_value = index[key_name][index_key_name]
 
                                 if key_value in DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_TYPES:
@@ -450,6 +450,11 @@ class DocumentDbIndexTool(IndexToolConstants):
                                         collection_name][index_name][
                                             self.
                                             UNSUPPORTED_INDEX_TYPES_KEY] = key_value
+                                    
+                            # Check for indexes with too many keys
+                            if keysCounter > DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS:
+                                message = 'Index contains more than {} keys'.format(DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS)
+                                compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = keysCounter
 
         return compatibility_issues
 
@@ -480,22 +485,28 @@ class DocumentDbIndexTool(IndexToolConstants):
                   
                     for key in index_keys:
                         index_direction = index_keys[key]
+                        if key=="_fts" and self.INDEX_WEIGHTS in metadata[db_name][collection_name][self.INDEXES][index_name]:
+                            index_direction ="text"
+                            for w in metadata[db_name][collection_name][self.INDEXES][index_name][self.INDEX_WEIGHTS]:
+                                keys_to_create.append((w, index_direction))
+                            isTextIndex=True        
+                        elif key!="_ftsx" or ( key=="_ftsx" and self.INDEX_WEIGHTS not in metadata[db_name][collection_name][self.INDEXES][index_name]):
+                            index_direction = index_keys[key]
+                            if type(index_direction) is float:
+                                index_direction = int(index_direction)
+                            elif type(index_direction) is dict and '$numberInt' in index_direction:
+                                index_direction = int(index_direction['$numberInt'])
+                            elif type(index_direction) is dict and '$numberDouble' in index_direction:
+                                index_direction = int(float(index_direction['$numberDouble']))
 
-                        if type(index_direction) is float:
-                            index_direction = int(index_direction)
-                        elif type(index_direction) is dict and '$numberInt' in index_direction:
-                            index_direction = int(index_direction['$numberInt'])
-                        elif type(index_direction) is dict and '$numberDouble' in index_direction:
-                            index_direction = int(float(index_direction['$numberDouble']))
-
-                        keys_to_create.append((key, index_direction))
+                            keys_to_create.append((key, index_direction))
 
                     for k in metadata[db_name][collection_name][
                             self.INDEXES][index_name]:
-                        if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
+                       if k != self.INDEX_KEY and k != self.INDEX_VERSION:
+                            if (isTextIndex==True and k not in DocumentDbUnsupportedFeatures.IGNORED_TEXT_INDEX_OPTIONS) or (isTextIndex==False and  k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS):
                             # this key is an additional index option
-                            index_options[k] = metadata[db_name][
-                                collection_name][self.INDEXES][index_name][k]
+                                index_options[k] = metadata[db_name][collection_name][self.INDEXES][index_name][k]
 
                     if self.args.dry_run is True:
                         if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
@@ -519,6 +530,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                             logging.info("%s.%s: added index: %s", db_name,
                                          collection_name, index_options[self.INDEX_NAME] )
 
+                    
     def run(self):
         """Entry point
         """
@@ -619,8 +631,8 @@ def main():
         message = "Must specify --uri when dumping or restoring indexes"
         parser.error(message)
 
-    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible):
-        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible]"
+    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible or args.show_diff):
+        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible | --show-difference]"
         parser.error(message)
 
     if args.dir is not None:
@@ -641,3 +653,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
