@@ -726,7 +726,7 @@ def main():
     parser.add_argument('--skip-id-indexes',required=False,action='store_true',help='Do not create _id indexes')
     parser.add_argument('--show-difference',required=False,action='store_true',dest='show_diff',help='Output a report of compatibility issues found')
     parser.add_argument('--source-metadata-dir',required=False,type=str,help='specify the folder where source metadata files are located')
-    parser.add_argument('--target-metadata-dir',required=False,type=str,help='sspecify the folder where target metadata files are located')
+    parser.add_argument('--target-metadata-dir',required=False,type=str,help='specify the folder where target metadata files are located')
 
     args = parser.parse_args()
 
