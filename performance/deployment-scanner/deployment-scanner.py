@@ -284,10 +284,16 @@ def get_pricing(appConfig):
              
         elif (thisProduct["productFamily"] == "CPU Credits"):
             # CPU Credits
-            # using db.t4g.medium for all burstable [conserving cloudwatch calls - cluster only, minor price difference]
-            if (thisProduct["attributes"]["instanceType"] == 'db.t4g.medium'):
+            # using db.t4g.medium for all burstable [conserving cloudwatch calls - cluster only, minor price difference] but use t3g if that is all that is available
+            thisRegion = thisProduct["attributes"]["regionCode"]
+            if (thisProduct["attributes"]["instanceType"] == 'db.t3.medium' and 'cpu-credits|'+thisRegion not in pd):
                 thisSku = thisProduct['sku']
-                thisRegion = thisProduct["attributes"]["regionCode"]
+                thisPrice = terms[thisSku]
+                thisInstanceType = thisProduct["attributes"]["instanceType"]
+                thisPricingDictKey = "{}|{}".format('cpu-credits',thisRegion)
+                pd[thisPricingDictKey] = {'type':'cpu-credits','region':thisRegion,'price':thisPrice,'instanceType':thisInstanceType}
+            elif (thisProduct["attributes"]["instanceType"] == 'db.t4g.medium'):
+                thisSku = thisProduct['sku']
                 thisPrice = terms[thisSku]
                 thisInstanceType = thisProduct["attributes"]["instanceType"]
                 thisPricingDictKey = "{}|{}".format('cpu-credits',thisRegion)
