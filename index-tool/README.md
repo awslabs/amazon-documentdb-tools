@@ -71,7 +71,6 @@ python3 migrationtools/documentdb_index_tool.py --show-issues --dir mongodb_inde
 python3 migrationtools/documentdb_index_tool.py --restore-indexes --skip-incompatible --dir mongodb_index_export --uri 'mongodb://user:password@mydocdb.cluster-cdtjj00yfi95.eu-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=rds-combined-ca-bundle.pem&replicaSet=rs0&retryWrites=false' 
 ```
 
-
 ## License
 [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
 

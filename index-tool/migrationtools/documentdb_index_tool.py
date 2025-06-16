@@ -27,7 +27,6 @@ from bson.json_util import dumps
 from pymongo import MongoClient
 from pymongo.errors import (ConnectionFailure, OperationFailure, ServerSelectionTimeoutError)
 from collections import OrderedDict
-from typing import Any, Dict
 
 alphabet = string.ascii_lowercase + string.digits 
 
@@ -529,8 +528,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                                                     **index_options)
                             logging.info("%s.%s: added index: %s", db_name,
                                          collection_name, index_options[self.INDEX_NAME] )
-
-                    
+                
     def run(self):
         """Entry point
         """
@@ -631,8 +629,8 @@ def main():
         message = "Must specify --uri when dumping or restoring indexes"
         parser.error(message)
 
-    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible or args.show_diff):
-        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible | --show-difference]"
+    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible ):
+        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible ]"
         parser.error(message)
 
     if args.dir is not None:
@@ -653,4 +651,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
