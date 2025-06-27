@@ -7,7 +7,7 @@ This document explains how you can perform a live migration from Couchbase to Am
 The solution uses Amazon Managed Streaming for Apache Kafka (MSK) to perform a full load of existing data and replicate ongoing changes from Couchbase to Amazon DocumentDB. The solution keeps the target Amazon DocumentDB arget cluster in sync with the source Couchbase cluster until the client applications are cutover to the Amazon DocumentDB cluster. It makes use of the following connectors:
 
 - [Couchbase Kafka connector](https://docs.couchbase.com/kafka-connector/current/index.html) to stream documents from Couchbase Server and publish them to a Kafka topic in near-real time.
-- [Couchbase Kafka connector](https://www.mongodb.com/docs/kafka-connector/current/) to read data from a Kafka topic and write it to Amazon DocumentDB.
+- [MongoDB Kafka connector](https://www.mongodb.com/docs/kafka-connector/current/) to read data from a Kafka topic and write it to Amazon DocumentDB.
 
 The solution also uses:
 - [AWS Cloudformation](https://aws.amazon.com/cloudformation/) to deploy the solution.
@@ -293,22 +293,22 @@ kafka_2.13-4.0.0/bin/kafka-topics.sh \
 ```
 * Confirm that it has the specified number of partitions (15).
 ```
-Topic: couchbase-to-documentdb  TopicId: 4GwdAvIvQm-OF2ZlZtMTeg PartitionCount: 15  ReplicationFactor: 3  Configs: message.format.version=3.0-IV1,min.insync.replicas=2,unclean.leader.election.enable=false,message.timestamp.after.max.ms=86400000,message.timestamp.before.max.ms=86400000,message.timestamp.difference.max.ms=86400000
-  Topic: couchbase-to-documentdb  Partition: 0  Leader: 2 Replicas: 2,3,1 Isr: 2,3,1  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 1  Leader: 1 Replicas: 1,2,3 Isr: 1,2,3  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 2  Leader: 3 Replicas: 3,1,2 Isr: 3,1,2  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 3  Leader: 2 Replicas: 2,1,3 Isr: 2,1,3  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 4  Leader: 1 Replicas: 1,3,2 Isr: 1,3,2  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 5  Leader: 3 Replicas: 3,2,1 Isr: 3,2,1  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 6  Leader: 2 Replicas: 2,3,1 Isr: 2,3,1  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 7  Leader: 1 Replicas: 1,2,3 Isr: 1,2,3  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 8  Leader: 3 Replicas: 3,1,2 Isr: 3,1,2  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 9  Leader: 2 Replicas: 2,1,3 Isr: 2,1,3  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 10 Leader: 1 Replicas: 1,3,2 Isr: 1,3,2  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 11 Leader: 3 Replicas: 3,2,1 Isr: 3,2,1  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 12 Leader: 2 Replicas: 2,3,1 Isr: 2,3,1  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase-to-documentdb  Partition: 13 Leader: 1 Replicas: 1,2,3 Isr: 1,2,3  Elr: N/A  LastKnownElr: N/A
-  Topic: couchbase
+Topic: couchbase-to-documentdb	TopicId: xb7TyMzvSkiiRb329G9ThA	PartitionCount: 15	ReplicationFactor: 3	Configs: message.format.version=3.0-IV1,min.insync.replicas=2,unclean.leader.election.enable=false,message.timestamp.after.max.ms=86400000,message.timestamp.before.max.ms=86400000,message.timestamp.difference.max.ms=86400000
+	Topic: couchbase-to-documentdb	Partition: 0	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 1	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 2	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 3	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 4	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 5	Leader: 1	Replicas: 1,2,3	Isr: 1,2,3	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 6	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 7	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 8	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 9	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 10	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 11	Leader: 1	Replicas: 1,2,3	Isr: 1,2,3	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 12	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 13	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
+	Topic: couchbase-to-documentdb	Partition: 14	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
 ```
 * Confirm that the documents from the `beer-sample` Couchbase bucket exist in the `beer-sample.test` collection in the Amazon DocumentDB cluster. Use the `mongosh` command you used earlier when validating the connection to the cluster from the EC2 instance.
 * Switch to the `beer-sample` database.

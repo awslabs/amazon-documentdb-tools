@@ -119,8 +119,14 @@ Resources:
         connection.uri: '<REPLACE WITH TARGET DOCUMENTDB CLUSTER ENDPOINT>'
         config.providers: 's3import,ssm,sm'
         config.providers.s3import.class: 'com.amazonaws.kafka.config.providers.S3ImportConfigProvider'
-        config.providers.s3import.param.region: 'us-west-2'
-        connection.ssl.truststore: '${s3import:us-west-2:dbonser-998564492370-cfn-testing/docdb-truststore.jks}'
+        config.providers.s3import.param.region: !Ref 'AWS::Region'
+        connection.ssl.truststore: !Join
+          - ''
+          - - "${s3import:"
+            - !Ref 'AWS::Region'
+            - ":"
+            - !Ref S3BucketName
+            - "/docdb-truststore.jks}"
         connection.ssl.truststorePassword: 'password'
         connector.class: 'com.mongodb.kafka.connect.MongoSinkConnector'
         document.id.strategy: 'com.mongodb.kafka.connect.sink.processor.id.strategy.ProvidedInKeyStrategy'
