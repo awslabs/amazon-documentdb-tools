@@ -43,25 +43,13 @@ def create_dashboard(widgets, region, instanceList, clusterList, monitoring_type
                     
                     for i, DBClusterIdentifier in enumerate(clusterList):
                         if (i == 0):
-                            # Keep only the first 3 items
-                            metric = widget["properties"]["metrics"][i][:3]
-                            
-                            metric = widget["properties"]["metrics"][i]
-                            if len(metric) >= 4:
-                                metric[3] = DBClusterIdentifier
-                            else:
-                                metric.append(DBClusterIdentifier)
-                                
-                            widget["properties"]["metrics"][i] = metric
+                            widget["properties"]["metrics"][i].append(DBClusterIdentifier)
+                            widget["properties"]["metrics"][i].append({"label":DBClusterIdentifier})
                         else:
                             if is_custom_metric:
-                                widget["properties"]["metrics"].append(
-                                    [".", ".", ".", DBClusterIdentifier]
-                                )
+                                widget["properties"]["metrics"].append([".",".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
                             else:
-                                widget["properties"]["metrics"].append(
-                                    [".", ".", ".", DBClusterIdentifier, {"label": DBClusterIdentifier}]
-                                )
+                                widget["properties"]["metrics"].append([".",".",".",DBClusterIdentifier,{"label":DBClusterIdentifier}])
 
             tempWidgets.append(widget)
             dashboardX += incrementX                
