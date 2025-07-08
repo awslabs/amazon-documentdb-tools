@@ -13,7 +13,7 @@ This MCP (Model Context Protocol) server provides tools for migrating data to Do
 
 ## Installation
 
-### 1. Through your favorite AI Agentic tool (e.g., for Amazon Q Developer CLI MCP, Claude, etc.) using uv package (Recommended)
+### 1. Through your favorite AI Agentic tool (e.g., for Amazon Q Developer CLI, Cline, etc.) using uv package (Recommended)
 
 ```json
 {
