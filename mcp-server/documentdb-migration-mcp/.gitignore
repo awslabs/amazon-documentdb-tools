@@ -1,0 +1,19 @@
+# Python cache files
+*.py[cod]
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# UV package files
+uv-package/
+.uv/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS specific files
+.DS_Store
+Thumbs.db
