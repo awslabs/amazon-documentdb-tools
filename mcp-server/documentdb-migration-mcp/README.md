@@ -34,6 +34,25 @@ This MCP (Model Context Protocol) server provides tools for migrating data to Do
   }
 }
 ```
+We recommend that you also install **Amazon DocumentDB MCP Server** as well along with Migration MCP Server. The DocumentDB MCP server will help with DML operations. 
+
+```json
+{
+    "awslabs.documentdb-mcp-server": {
+      "command": "uvx",
+      "args": [
+        "awslabs.documentdb-mcp-server@latest",
+      ],
+      "env": {
+        "AWS_PROFILE": "default",
+        "AWS_REGION": "us-east-1",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+}
+```
 You can customize the AWS profile and region by changing the `AWS_PROFILE` and `AWS_REGION` environment variables.
 
 ### 2. Through your favorite AI Agentic tool using local file
