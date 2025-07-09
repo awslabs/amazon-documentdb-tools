@@ -29,6 +29,8 @@ The compression review tool samples 1000 documents in each collection to determi
 | lz4-high-dict | lz4/high/level 1/dictionary-provided (trained by sampling documents) |
 | zstd-1 | zstandard/level 1 |
 | zstd-1-dict | zstandard/level 1/dictionary-provided (trained by sampling documents) |
+| zstd-3 | zstandard/level 3 |
+| zstd-3-dict | zstandard/level 3/dictionary-provided (trained by sampling documents) |
 | zstd-5 | zstandard/level 5 |
 | zstd-5-dict | zstandard/level 5/dictionary-provided (trained by sampling documents) |
 | bz2-1 | bzip/level 1 |
