@@ -15,6 +15,7 @@ import os
 import sys
 import time
 import subprocess
+import tempfile
 from datetime import datetime
 from typing import Annotated, Any, Dict, List, Optional
 from pydantic import Field
@@ -182,10 +183,31 @@ async def run_cdc(
     # Execute command
     try:
         logger.info(f"Executing command: {' '.join(cmd)}")
+        
+        # Create a log file for the output
+        try:
+            # Try to use a directory in the user's home directory
+            log_dir = os.path.join(os.path.expanduser("~"), ".documentdb-migration", "logs")
+            os.makedirs(log_dir, exist_ok=True)
+        except Exception as e:
+            # Fall back to a temporary directory if home directory is not accessible
+            logger.warning(f"Could not create log directory in home directory: {str(e)}")
+            log_dir = tempfile.mkdtemp(prefix="documentdb_migration_logs_")
+            logger.info(f"Using temporary directory for logs: {log_dir}")
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file_path = os.path.join(log_dir, f"cdc_{timestamp}.log")
+        
+        logger.info(f"Logging output to: {log_file_path}")
+        
+        # Open the log file
+        log_file = open(log_file_path, "w")
+        
+        # Start the process with stdout and stderr redirected to the log file
         process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=log_file,
+            stderr=log_file,
             text=True,
             bufsize=1,
             universal_newlines=True
@@ -194,9 +216,10 @@ async def run_cdc(
         # Process is running in the background
         return {
             "success": True,
-            "message": "CDC migration started successfully",
+            "message": f"CDC migration started successfully. Logs are being written to {log_file_path}",
             "process_id": process.pid,
             "command": " ".join(cmd),
+            "log_file": log_file_path,
         }
     except Exception as e:
         logger.error(f"Error starting CDC migration: {str(e)}")

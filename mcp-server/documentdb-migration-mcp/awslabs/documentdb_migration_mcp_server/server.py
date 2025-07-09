@@ -20,6 +20,7 @@ from awslabs.documentdb_migration_mcp_server.boundary_tools import generate_boun
 from awslabs.documentdb_migration_mcp_server.index_tools import (
     dump_indexes, restore_indexes, show_compatibility_issues, show_compatible_indexes
 )
+from awslabs.documentdb_migration_mcp_server.migration_workflow import run_easy_migration
 from loguru import logger
 from mcp.server.fastmcp import FastMCP
 
@@ -30,12 +31,18 @@ mcp = FastMCP(
     instructions="""DocumentDB Migration MCP Server provides tools to migrate data to AWS DocumentDB.
 
     Usage pattern:
-    1. For full load migrations, use the `runFullLoad` or `runFilteredFullLoad` tools
+    1. For a complete end-to-end migration workflow, use the `runEasyMigration` tool
+       - This tool combines index management and full load migration in a single workflow
+       - It handles index compatibility checking, dumping, and restoring
+       - It runs a full load migration with auto-generated boundaries
+       - After migration is complete, you can use getResumeToken and runCDC tools for CDC
+    
+    2. For full load migrations, use the `runFullLoad` or `runFilteredFullLoad` tools
        - Boundaries will be auto-generated if not provided
-    2. For CDC (Change Data Capture) migrations, use the `runCDC` tool
-    3. To get a change stream resume token for CDC, use the `getResumeToken` tool
-    4. To generate boundaries for segmenting collections, use the `generateBoundaries` tool
-    5. For index management:
+    3. For CDC (Change Data Capture) migrations, use the `runCDC` tool
+    4. To get a change stream resume token for CDC, use the `getResumeToken` tool
+    5. To generate boundaries for segmenting collections, use the `generateBoundaries` tool
+    6. For index management:
        - To dump indexes from a source database, use the `dumpIndexes` tool
        - To restore indexes to a target database, use the `restoreIndexes` tool
        - To check index compatibility with DocumentDB, use the `showIndexCompatibilityIssues` tool
@@ -70,6 +77,9 @@ mcp.tool(name='dumpIndexes')(dump_indexes)
 mcp.tool(name='restoreIndexes')(restore_indexes)
 mcp.tool(name='showIndexCompatibilityIssues')(show_compatibility_issues)
 mcp.tool(name='showCompatibleIndexes')(show_compatible_indexes)
+
+# Workflow tools
+mcp.tool(name='runEasyMigration')(run_easy_migration)
 
 
 def main():

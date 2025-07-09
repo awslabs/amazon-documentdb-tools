@@ -22,6 +22,7 @@ import os
 import sys
 import string
 import random
+import tempfile
 
 from bson.json_util import dumps
 from pymongo import MongoClient
@@ -598,7 +599,7 @@ def main():
     parser.add_argument('--debug',required=False,action='store_true',help='Output debugging information')
     parser.add_argument('--dry-run',required=False,action='store_true',help='Perform processing, but do not actually export or restore indexes')
     parser.add_argument('--uri',required=False,type=str,help='URI to connect to MongoDB or Amazon DocumentDB')
-    parser.add_argument('--dir',required=True,type=str,help='Specify the folder to export to or restore from (required)')
+    parser.add_argument('--dir',required=False,type=str,help='Specify the folder to export to or restore from (default: index_dump)')
     parser.add_argument('--show-compatible',required=False,action='store_true',dest='show_compatible',help='Output all compatible indexes with Amazon DocumentDB (no change is applied)')
     parser.add_argument('--show-issues',required=False,action='store_true',dest='show_issues',help='Output a report of compatibility issues found')
     parser.add_argument('--dump-indexes',required=False,action='store_true',help='Perform index export from the specified server')
@@ -623,9 +624,16 @@ def main():
         message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible]"
         parser.error(message)
 
-    if args.dir is not None:
-        if not os.path.isdir(args.dir):
-            parser.error("--dir must specify a directory")
+    # Create a temporary directory if output_dir is not provided
+    if args.dir is None:
+        args.dir = tempfile.mkdtemp(prefix="index_dump_")
+        logging.info(f"No directory specified, created temporary directory: {args.dir}")
+    elif not os.path.isdir(args.dir):
+        try:
+            os.makedirs(args.dir)
+            logging.info(f"Created directory: {args.dir}")
+        except Exception as e:
+            parser.error(f"Failed to create directory {args.dir}: {str(e)}")
 
     if args.dump_indexes is True:
         if args.restore_indexes is True:

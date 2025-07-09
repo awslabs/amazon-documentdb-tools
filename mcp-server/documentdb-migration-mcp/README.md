@@ -4,6 +4,7 @@ This MCP (Model Context Protocol) server provides tools for migrating data to Do
 
 ## Features
 
+- **Easy Migration Workflow**: Complete end-to-end migration workflow that combines index management and full load migration
 - **Full Load Migration**: Migrate data from a source database to DocumentDB in a one-time operation
 - **Filtered Full Load Migration**: Migrate data with filtering based on TTL
 - **Change Data Capture (CDC)**: Continuously replicate changes from a source database to DocumentDB
@@ -107,6 +108,25 @@ python -m awslabs.documentdb_migration_mcp_server.server
 ```
 
 ## MCP Tools
+
+### runEasyMigration
+
+Run a complete end-to-end migration workflow from source to target.
+
+**Parameters:**
+- `source_uri`: Source URI in MongoDB Connection String format
+- `target_uri`: Target URI in MongoDB Connection String format
+- `source_namespace`: Source Namespace as <database>.<collection>
+- `target_namespace`: (Optional) Target Namespace as <database>.<collection>, defaults to source_namespace
+- `max_inserts_per_batch`: (Optional) Maximum number of inserts to include in a single batch, defaults to 100
+- `feedback_seconds`: (Optional) Number of seconds between feedback output, defaults to 60
+- `dry_run`: (Optional) Read source changes only, do not apply to target, defaults to false
+- `verbose`: (Optional) Enable verbose logging, defaults to false
+- `create_cloudwatch_metrics`: (Optional) Create CloudWatch metrics for monitoring, defaults to false
+- `cluster_name`: (Optional) Name of cluster for CloudWatch metrics
+- `skip_incompatible_indexes`: (Optional) Skip incompatible indexes when restoring metadata, defaults to true
+- `support_2dsphere`: (Optional) Support 2dsphere indexes creation, defaults to false
+- `skip_id_indexes`: (Optional) Do not create _id indexes, defaults to true
 
 ### runFullLoad
 
@@ -224,11 +244,14 @@ Show compatible indexes with Amazon DocumentDB.
 - `debug`: (Optional) Output debugging information
 
 ## Requirements
-
+- Install uv from [Astral] (https://docs.astral.sh/uv/getting-started/installation/)
 - Python 3.10+
 - PyMongo
 - Boto3 (for CloudWatch metrics)
 - MCP Server
+
+## Version
+0.5.0
 
 ## License
 

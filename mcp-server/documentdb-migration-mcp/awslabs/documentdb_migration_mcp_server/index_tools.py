@@ -91,12 +91,31 @@ async def dump_indexes(
             check=True
         )
         
+        # Create a log file for the output
+        try:
+            # Try to use a directory in the user's home directory
+            log_dir = os.path.join(os.path.expanduser("~"), ".documentdb-migration", "logs")
+            os.makedirs(log_dir, exist_ok=True)
+        except Exception as e:
+            # Fall back to a temporary directory if home directory is not accessible
+            logger.warning(f"Could not create log directory in home directory: {str(e)}")
+            log_dir = tempfile.mkdtemp(prefix="documentdb_migration_logs_")
+            logger.info(f"Using temporary directory for logs: {log_dir}")
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file_path = os.path.join(log_dir, f"index_dump_{timestamp}.log")
+        
+        # Write stdout and stderr to the log file
+        with open(log_file_path, "w") as log_file:
+            log_file.write("STDOUT:\n")
+            log_file.write(result.stdout)
+            log_file.write("\nSTDERR:\n")
+            log_file.write(result.stderr)
+        
         return {
             "success": True,
-            "message": "Index dump completed successfully",
+            "message": f"Index dump completed successfully. Logs are available at {log_file_path}",
             "output_dir": output_dir,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
         }
     except subprocess.CalledProcessError as e:
         logger.error(f"Error dumping indexes: {e.stderr}")
@@ -215,11 +234,30 @@ async def restore_indexes(
             check=True
         )
         
+        # Create a log file for the output
+        try:
+            # Try to use a directory in the user's home directory
+            log_dir = os.path.join(os.path.expanduser("~"), ".documentdb-migration", "logs")
+            os.makedirs(log_dir, exist_ok=True)
+        except Exception as e:
+            # Fall back to a temporary directory if home directory is not accessible
+            logger.warning(f"Could not create log directory in home directory: {str(e)}")
+            log_dir = tempfile.mkdtemp(prefix="documentdb_migration_logs_")
+            logger.info(f"Using temporary directory for logs: {log_dir}")
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file_path = os.path.join(log_dir, f"index_restore_{timestamp}.log")
+        
+        # Write stdout and stderr to the log file
+        with open(log_file_path, "w") as log_file:
+            log_file.write("STDOUT:\n")
+            log_file.write(result.stdout)
+            log_file.write("\nSTDERR:\n")
+            log_file.write(result.stderr)
+        
         return {
             "success": True,
-            "message": "Index restore completed successfully",
-            "stdout": result.stdout,
-            "stderr": result.stderr,
+            "message": f"Index restore completed successfully. Logs are available at {log_file_path}",
         }
     except subprocess.CalledProcessError as e:
         logger.error(f"Error restoring indexes: {e.stderr}")
@@ -284,18 +322,37 @@ async def show_compatibility_issues(
             check=True
         )
         
+        # Create a log file for the output
+        try:
+            # Try to use a directory in the user's home directory
+            log_dir = os.path.join(os.path.expanduser("~"), ".documentdb-migration", "logs")
+            os.makedirs(log_dir, exist_ok=True)
+        except Exception as e:
+            # Fall back to a temporary directory if home directory is not accessible
+            logger.warning(f"Could not create log directory in home directory: {str(e)}")
+            log_dir = tempfile.mkdtemp(prefix="documentdb_migration_logs_")
+            logger.info(f"Using temporary directory for logs: {log_dir}")
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file_path = os.path.join(log_dir, f"compatibility_check_{timestamp}.log")
+        
+        # Write stdout and stderr to the log file
+        with open(log_file_path, "w") as log_file:
+            log_file.write("STDOUT:\n")
+            log_file.write(result.stdout)
+            log_file.write("\nSTDERR:\n")
+            log_file.write(result.stderr)
+        
         # Try to parse the JSON output
         try:
             issues = json.loads(result.stdout)
         except json.JSONDecodeError:
-            issues = {"raw_output": result.stdout}
+            issues = {"raw_output": "See log file for details"}
         
         return {
             "success": True,
-            "message": "Compatibility check completed successfully",
+            "message": f"Compatibility check completed successfully. Logs are available at {log_file_path}",
             "issues": issues,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
         }
     except subprocess.CalledProcessError as e:
         logger.error(f"Error checking compatibility: {e.stderr}")
@@ -360,18 +417,37 @@ async def show_compatible_indexes(
             check=True
         )
         
+        # Create a log file for the output
+        try:
+            # Try to use a directory in the user's home directory
+            log_dir = os.path.join(os.path.expanduser("~"), ".documentdb-migration", "logs")
+            os.makedirs(log_dir, exist_ok=True)
+        except Exception as e:
+            # Fall back to a temporary directory if home directory is not accessible
+            logger.warning(f"Could not create log directory in home directory: {str(e)}")
+            log_dir = tempfile.mkdtemp(prefix="documentdb_migration_logs_")
+            logger.info(f"Using temporary directory for logs: {log_dir}")
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file_path = os.path.join(log_dir, f"compatible_indexes_{timestamp}.log")
+        
+        # Write stdout and stderr to the log file
+        with open(log_file_path, "w") as log_file:
+            log_file.write("STDOUT:\n")
+            log_file.write(result.stdout)
+            log_file.write("\nSTDERR:\n")
+            log_file.write(result.stderr)
+        
         # Try to parse the JSON output
         try:
             compatible_indexes = json.loads(result.stdout)
         except json.JSONDecodeError:
-            compatible_indexes = {"raw_output": result.stdout}
+            compatible_indexes = {"raw_output": "See log file for details"}
         
         return {
             "success": True,
-            "message": "Compatible indexes check completed successfully",
+            "message": f"Compatible indexes check completed successfully. Logs are available at {log_file_path}",
             "compatible_indexes": compatible_indexes,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
         }
     except subprocess.CalledProcessError as e:
         logger.error(f"Error checking compatible indexes: {e.stderr}")
