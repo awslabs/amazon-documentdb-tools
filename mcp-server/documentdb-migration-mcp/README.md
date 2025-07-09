@@ -244,7 +244,7 @@ Show compatible indexes with Amazon DocumentDB.
 - `debug`: (Optional) Output debugging information
 
 ## Requirements
-- Install uv from [Astral] (https://docs.astral.sh/uv/getting-started/installation/)
+- Install uv from [Astral](https://docs.astral.sh/uv/getting-started/installation/)
 - Python 3.10+
 - PyMongo
 - Boto3 (for CloudWatch metrics)
