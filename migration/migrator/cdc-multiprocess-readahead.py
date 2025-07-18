@@ -350,6 +350,10 @@ def change_stream_processor(threadnum, appConfig, perfQ):
 def readahead_worker(threadnum, appConfig, perfQ):
     warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
 
+    sourceNs = appConfig['sourceNs']
+    tempFileName = "{}.tempfile".format(sourceNs)
+    readaheadMaximumAhead = appConfig['readaheadMaximumAhead']
+
     if appConfig['verboseLogging']:
         logIt(threadnum,'READAHEAD | process started')
 
@@ -394,11 +398,28 @@ def readahead_worker(threadnum, appConfig, perfQ):
         else:
             stream = sourceColl.watch(start_at_operation_time=endTs, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0,'fullDocument':0}}])
 
-        if appConfig['verboseLogging']:
-            if (appConfig["startTs"] == "RESUME_TOKEN"):
-                logIt(threadnum,"READAHEAD | Creating change stream cursor for resume token {}".format(appConfig["startPosition"]))
-            else:
-                logIt(threadnum,"READAHEAD | Creating change stream cursor for timestamp {}".format(endTs.as_datetime()))
+        #if appConfig['verboseLogging']:
+        #    if (appConfig["startTs"] == "RESUME_TOKEN"):
+        #        logIt(threadnum,"READAHEAD | Creating change stream cursor for resume token {}".format(appConfig["startPosition"]))
+        #    else:
+        #        logIt(threadnum,"READAHEAD | Creating change stream cursor for timestamp {}".format(endTs.as_datetime()))
+
+        try:
+            with open(tempFileName, 'r') as f:
+                content = f.read()
+            dtUtcNow = datetime.utcnow()
+            applierSecondsBehind = int(content)
+            secondsBehind = int((dtUtcNow - endTs.as_datetime().replace(tzinfo=None)).total_seconds())
+            secondsAhead = applierSecondsBehind - secondsBehind
+            #logIt(threadnum,"READAHEAD | ahead of applier by {} seconds".format(secondsAhead))
+            if (secondsAhead > readaheadMaximumAhead):
+                sleepSeconds = secondsAhead - readaheadMaximumAhead
+                logIt(threadnum,"READAHEAD | ahead of applier by {} seconds, sleeping for {} seconds".format(secondsAhead,sleepSeconds))
+                time.sleep(sleepSeconds)
+        except FileNotFoundError:
+            logIt(threadnum,"READAHEAD | temp file {} not found".format(tempFileName))
+        except IOError as e:
+            logIt(threadnum,"READAHEAD | reading temp file {} exception".format(e))
 
         for change in stream:
             # check if time to exit
@@ -501,6 +522,8 @@ def get_resume_token(appConfig):
 def reporter(appConfig, perfQ):
     createCloudwatchMetrics = appConfig['createCloudwatchMetrics']
     clusterName = appConfig['clusterName']
+    sourceNs = appConfig['sourceNs']
+    tempFileName = "{}.tempfile".format(sourceNs)
 
     if appConfig['verboseLogging']:
         logIt(-1,'reporting thread started')
@@ -592,11 +615,15 @@ def reporter(appConfig, perfQ):
 
             avgSecondsBehind = int(totSecondsBehind / max(numSecondsBehindEntries,1))
 
+        # write seconds behind to file
+        with open(tempFileName, 'w') as f:
+            f.write("{}".format(avgSecondsBehind))
+
         if appConfig['verboseLogging']:
             # how far behind are the readahead workers
             for thisDt in dtReadaheadDict:
                 secondsBehind = int((dtUtcNow - dtReadaheadDict[thisDt].replace(tzinfo=None)).total_seconds())
-                logIt(-1,"READAHEAD | worker {} is {:9,d} seconds behind".format(thisDt,secondsBehind))
+                logIt(-1,"READAHEAD | worker {} is {:9,d} seconds behind current and {:9d} seconds ahead of appliers".format(thisDt,secondsBehind,avgSecondsBehind-secondsBehind))
 
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
         print("[{0}] elapsed {1} | total o/s {2:9,d} | interval o/s {3:9,d} | tot {4:16,d} | {5:12,d} secs behind | resume token = {6}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind,resumeToken))
@@ -710,6 +737,7 @@ def main():
     parser.add_argument('--cluster-name',required=False,type=str,help='Name of cluster for CloudWatch metrics')
     parser.add_argument('--readahead-workers',required=False,type=int,default=0,help='Number of additional workers to heat the cache')
     parser.add_argument('--readahead-chunk-seconds',required=False,type=int,default=5,help='Number of seconds each worker processes before leaping ahead')
+    parser.add_argument('--readahead-maximum-ahead',required=False,type=int,default=60,help='Maximum number of seconds readahead workers are allowed')
 
     args = parser.parse_args()
 
@@ -752,6 +780,7 @@ def main():
     appConfig['clusterName'] = args.cluster_name
     appConfig['numReadaheadWorkers'] = args.readahead_workers
     appConfig['readaheadChunkSeconds'] = args.readahead_chunk_seconds
+    appConfig['readaheadMaximumAhead'] = args.readahead_maximum_ahead
 
     if args.get_resume_token:
         get_resume_token(appConfig)
