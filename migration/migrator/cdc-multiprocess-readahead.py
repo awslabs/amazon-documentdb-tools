@@ -411,15 +411,17 @@ def readahead_worker(threadnum, appConfig, perfQ):
             applierSecondsBehind = int(content)
             secondsBehind = int((dtUtcNow - endTs.as_datetime().replace(tzinfo=None)).total_seconds())
             secondsAhead = applierSecondsBehind - secondsBehind
-            #logIt(threadnum,"READAHEAD | ahead of applier by {} seconds".format(secondsAhead))
+            logIt(threadnum,"READAHEAD | ahead of applier by {} seconds".format(secondsAhead))
             if (secondsAhead > readaheadMaximumAhead):
                 sleepSeconds = secondsAhead - readaheadMaximumAhead
                 logIt(threadnum,"READAHEAD | ahead of applier by {} seconds, sleeping for {} seconds".format(secondsAhead,sleepSeconds))
                 time.sleep(sleepSeconds)
         except FileNotFoundError:
-            logIt(threadnum,"READAHEAD | temp file {} not found".format(tempFileName))
+            #logIt(threadnum,"READAHEAD | temp file {} not found".format(tempFileName))
+            pass
         except IOError as e:
-            logIt(threadnum,"READAHEAD | reading temp file {} exception".format(e))
+            #logIt(threadnum,"READAHEAD | reading temp file {} exception".format(e))
+            pass
 
         for change in stream:
             # check if time to exit
@@ -781,6 +783,15 @@ def main():
     appConfig['numReadaheadWorkers'] = args.readahead_workers
     appConfig['readaheadChunkSeconds'] = args.readahead_chunk_seconds
     appConfig['readaheadMaximumAhead'] = args.readahead_maximum_ahead
+
+    sourceNs = appConfig['sourceNs']
+    tempFileName = "{}.tempfile".format(sourceNs)
+    try:
+        os.remove(tempFileName)
+    except FileNotFoundError:
+        pass
+    except PermissionError:
+        pass
 
     if args.get_resume_token:
         get_resume_token(appConfig)
