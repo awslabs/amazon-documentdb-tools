@@ -389,8 +389,8 @@ def readahead_worker(threadnum, appConfig, perfQ):
     endTs = appConfig["startTs"]
 
     while not allDone:
-        endTs = Timestamp(endTs.time + (usableThreadNum * readaheadChunkSeconds), endTs.inc)
-        chunkStopTs = Timestamp(endTs.time + readaheadChunkSeconds, endTs.inc)
+        endTs = Timestamp(endTs.time + (usableThreadNum * readaheadChunkSeconds), 0)
+        chunkStopTs = Timestamp(endTs.time + readaheadChunkSeconds, 4294967295)
         #logIt(threadnum,"READAHEAD | starting at {}".format(endTs))
 
         if (appConfig["startTs"] == "RESUME_TOKEN"):
