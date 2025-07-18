@@ -411,7 +411,7 @@ def readahead_worker(threadnum, appConfig, perfQ):
             applierSecondsBehind = int(content)
             secondsBehind = int((dtUtcNow - endTs.as_datetime().replace(tzinfo=None)).total_seconds())
             secondsAhead = applierSecondsBehind - secondsBehind
-            logIt(threadnum,"READAHEAD | ahead of applier by {} seconds".format(secondsAhead))
+            #logIt(threadnum,"READAHEAD | ahead of applier by {} seconds".format(secondsAhead))
             if (secondsAhead > readaheadMaximumAhead):
                 sleepSeconds = secondsAhead - readaheadMaximumAhead
                 logIt(threadnum,"READAHEAD | ahead of applier by {} seconds, sleeping for {} seconds".format(secondsAhead,sleepSeconds))
@@ -625,7 +625,7 @@ def reporter(appConfig, perfQ):
             # how far behind are the readahead workers
             for thisDt in dtReadaheadDict:
                 secondsBehind = int((dtUtcNow - dtReadaheadDict[thisDt].replace(tzinfo=None)).total_seconds())
-                logIt(-1,"READAHEAD | worker {} is {:9,d} seconds behind current and {:9d} seconds ahead of appliers".format(thisDt,secondsBehind,avgSecondsBehind-secondsBehind))
+                #logIt(-1,"READAHEAD | worker {} is {:9,d} seconds behind current and {:9d} seconds ahead of appliers".format(thisDt,secondsBehind,avgSecondsBehind-secondsBehind))
 
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
         print("[{0}] elapsed {1} | total o/s {2:9,d} | interval o/s {3:9,d} | tot {4:16,d} | {5:12,d} secs behind | resume token = {6}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind,resumeToken))
