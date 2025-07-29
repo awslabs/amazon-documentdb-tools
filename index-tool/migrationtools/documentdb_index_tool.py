@@ -23,10 +23,12 @@ import sys
 import string
 import random
 
+
 from bson.json_util import dumps
 from pymongo import MongoClient
 from pymongo.errors import (ConnectionFailure, OperationFailure, ServerSelectionTimeoutError)
 from collections import OrderedDict
+
 
 alphabet = string.ascii_lowercase + string.digits 
 
@@ -67,10 +69,13 @@ class DocumentDbUnsupportedFeatures(object):
         pass
 
     UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
-    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates','hidden']
-    UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
+    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates','hidden','clustered']
+    UNSUPPORTED_COLLECTION_OPTIONS = ['capped','clusteredIndex']
+    IGNORED_COLLECTION_OPTIONS = []
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion']
     IGNORED_TEXT_INDEX_OPTIONS = ['default_language','language_override','textIndexVersion','sparse']
+    
+
 
 class IndexToolConstants(object):
     """
@@ -100,6 +105,7 @@ class IndexToolConstants(object):
     UNSUPPORTED_COLLECTION_OPTIONS_KEY = 'unsupported_collection_options'
     UNSUPPORTED_INDEX_TYPES_KEY = 'unsupported_index_types'
     WILD_INDEX_IDENTIFIER ='$**'
+
 
 class DocumentDbIndexTool(IndexToolConstants):
     """
@@ -302,7 +308,7 @@ class DocumentDbIndexTool(IndexToolConstants):
         except Exception:
             logging.exception("Failed to dump indexes from server")
             sys.exit()
-
+    
     def get_metadata(self, start_path):
         """
         Recursively search the supplied start_path, discovering all JSON metadata files and adding the
@@ -313,7 +319,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                 "Beginning recursive discovery of metadata files, starting at %s",
                 start_path)
             metadata_files = self._find_metadata_files(start_path)
-
+            
             if metadata_files == []:
                 logging.error("No metadata files found beneath directory: %s",
                               start_path)
@@ -340,99 +346,65 @@ class DocumentDbIndexTool(IndexToolConstants):
 
         for db_name in metadata:
             db_metadata = metadata[db_name]
-
+    
             if len(db_name) > DocumentDbLimits.DATABASE_NAME_MAX_LENGTH:
-                message = 'Database name greater than {} characters'.format(
-                    DocumentDbLimits.DATABASE_NAME_MAX_LENGTH)
-                compatibility_issues[db_name][
-                    self.EXCEEDED_LIMITS][message] = db_name
+                message = 'Database name greater than {} characters'.format(DocumentDbLimits.DATABASE_NAME_MAX_LENGTH)
+                compatibility_issues[db_name][self.EXCEEDED_LIMITS][message] = db_name
 
             for collection_name in metadata[db_name]:
                 collection_metadata = db_metadata[collection_name]
-
-                if len(collection_name
-                       ) > DocumentDbLimits.COLLECTION_NAME_MAX_LENGTH:
-                    message = 'Collection name greater than {} characters'.format(
-                        DocumentDbLimits.COLLECTION_NAME_MAX_LENGTH)
-                    compatibility_issues[db_name][collection_name][
-                        self.EXCEEDED_LIMITS][message] = collection_name
+            
+                if len(collection_name) > DocumentDbLimits.COLLECTION_NAME_MAX_LENGTH:
+                    message = 'Collection name greater than {} characters'.format(DocumentDbLimits.COLLECTION_NAME_MAX_LENGTH)
+                    compatibility_issues[db_name][collection_name][self.EXCEEDED_LIMITS][message] = collection_name
 
                 collection_namespace = '{}.{}'.format(db_name, collection_name)
                 # <db>.<collection>
-                if len(collection_namespace
-                       ) > DocumentDbLimits.NAMESPACE_MAX_LENGTH:
-                    message = 'Namespace greater than {} characters'.format(
-                        DocumentDbLimits.NAMESPACE_MAX_LENGTH)
-                    compatibility_issues[db_name][collection_name][
-                        self.EXCEEDED_LIMITS][message] = collection_namespace
+                if len(collection_namespace) > DocumentDbLimits.NAMESPACE_MAX_LENGTH:
+                    message = 'Namespace greater than {} characters'.format(DocumentDbLimits.NAMESPACE_MAX_LENGTH)
+                    compatibility_issues[db_name][collection_name][self.EXCEEDED_LIMITS][message] = collection_namespace
 
                 if self.OPTIONS in collection_metadata:
                     for option_key in collection_metadata[self.OPTIONS]:
-                        if option_key in DocumentDbUnsupportedFeatures.UNSUPPORTED_COLLECTION_OPTIONS and collection_metadata[self.OPTIONS][option_key] is True:
-                            if self.UNSUPPORTED_COLLECTION_OPTIONS_KEY not in compatibility_issues[
-                                    db_name][collection_name]:
-                                compatibility_issues[db_name][collection_name][
-                                    self.
-                                    UNSUPPORTED_COLLECTION_OPTIONS_KEY] = []
+                        if (option_key in DocumentDbUnsupportedFeatures.UNSUPPORTED_COLLECTION_OPTIONS and 
+                            option_key not in DocumentDbUnsupportedFeatures.IGNORED_COLLECTION_OPTIONS and 
+                            (isinstance(collection_metadata[self.OPTIONS][option_key], OrderedDict) or collection_metadata[self.OPTIONS][option_key] is True)):
+                            if self.UNSUPPORTED_COLLECTION_OPTIONS_KEY not in compatibility_issues[db_name][collection_name]:
+                                compatibility_issues[db_name][collection_name][self.UNSUPPORTED_COLLECTION_OPTIONS_KEY] = []
 
-                            compatibility_issues[db_name][collection_name][
-                                self.
-                                UNSUPPORTED_COLLECTION_OPTIONS_KEY].append(
-                                    option_key)
+                            compatibility_issues[db_name][collection_name][self.UNSUPPORTED_COLLECTION_OPTIONS_KEY].append(option_key)
 
                 for index_name in collection_metadata[self.INDEXES]:
                     index = collection_metadata[self.INDEXES][index_name]
-
+                    
                     # <collection>$<index>
-                    collection_qualified_index_name = '{}${}'.format(
-                        collection_name, index_name)
-                    if len(
-                            collection_qualified_index_name
-                    ) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH and self.args.shorten_index_name is False:
-                        message = '<collection>$<index> greater than {} characters'.format(
-                            DocumentDbLimits.
-                            COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH)
-                        compatibility_issues[db_name][collection_name][
-                            index_name][self.EXCEEDED_LIMITS][
-                                message] = collection_qualified_index_name
+                    collection_qualified_index_name = '{}${}'.format(collection_name, index_name)
+                    
+                    if len(collection_qualified_index_name) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH and self.args.shorten_index_name is False:
+                        message = '<collection>$<index> greater than {} characters'.format(DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH)
+                        compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = collection_qualified_index_name
 
                     # <db>.<collection>$<index>
-                    fully_qualified_index_name = '{}${}'.format(
-                        collection_namespace, index_name)
-                    if len(
-                            fully_qualified_index_name
-                    ) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH and self.args.shorten_index_name is False:
-                        message = '<db>.<collection>$<index> greater than {} characters'.format(
-                            DocumentDbLimits.
-                            FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH)
-                        compatibility_issues[db_name][collection_name][
-                            index_name][self.EXCEEDED_LIMITS][
-                                message] = fully_qualified_index_name
+                    fully_qualified_index_name = '{}${}'.format(collection_namespace, index_name)
+                    
+                    if len(fully_qualified_index_name) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH and self.args.shorten_index_name is False:
+                        message = '<db>.<collection>$<index> greater than {} characters'.format(DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH)
+                        compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = fully_qualified_index_name
 
-
+                    
                     for key_name in index:
                         # Check for index key names that are too long
-                        if len(key_name
-                               ) > DocumentDbLimits.INDEX_KEY_MAX_LENGTH:
-                            message = 'Key name greater than {} characters'.format(
-                                DocumentDbLimits.INDEX_KEY_MAX_LENGTH)
-                            compatibility_issues[db_name][collection_name][
-                                index_name][
-                                    self.EXCEEDED_LIMITS][message] = key_name
+                        if len(key_name) > DocumentDbLimits.INDEX_KEY_MAX_LENGTH:
+                            message = 'Key name greater than {} characters'.format(DocumentDbLimits.INDEX_KEY_MAX_LENGTH)
+                            compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = key_name
 
                         # Check for unsupported index options like collation
                         if key_name in DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_OPTIONS:
-                            if self.UNSUPPORTED_INDEX_OPTIONS_KEY not in compatibility_issues[
-                                    db_name][collection_name][index_name]:
-                                compatibility_issues[db_name][collection_name][
-                                    index_name][
-                                        self.
-                                        UNSUPPORTED_INDEX_OPTIONS_KEY] = []
+                            if key_name not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
+                                if self.UNSUPPORTED_INDEX_OPTIONS_KEY not in compatibility_issues[db_name][collection_name][index_name]:
+                                    compatibility_issues[db_name][collection_name][index_name][self.UNSUPPORTED_INDEX_OPTIONS_KEY] = []
 
-                            compatibility_issues[db_name][collection_name][
-                                index_name][
-                                    self.UNSUPPORTED_INDEX_OPTIONS_KEY].append(
-                                        key_name)
+                                compatibility_issues[db_name][collection_name][index_name][self.UNSUPPORTED_INDEX_OPTIONS_KEY].append(key_name)
 
                         # Check for unsupported index types
                         if key_name == self.INDEX_KEY:
@@ -442,15 +414,14 @@ class DocumentDbIndexTool(IndexToolConstants):
                                 # Check for wildcard index
                                 if self.WILD_INDEX_IDENTIFIER in index_key_name:
                                     compatibility_issues[db_name][collection_name][index_name][self.UNSUPPORTED_INDEX_TYPES_KEY] = 'wildindex'
+
                                 key_value = index[key_name][index_key_name]
 
                                 if key_value in DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_TYPES:
-                                    compatibility_issues[db_name][
-                                        collection_name][index_name][
-                                            self.
-                                            UNSUPPORTED_INDEX_TYPES_KEY] = key_value
-                                    
+                                    compatibility_issues[db_name][collection_name][index_name][self.UNSUPPORTED_INDEX_TYPES_KEY] = key_value
+                            
                             # Check for indexes with too many keys
+                            
                             if keysCounter > DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS:
                                 message = 'Index contains more than {} keys'.format(DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS)
                                 compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = keysCounter
@@ -461,19 +432,16 @@ class DocumentDbIndexTool(IndexToolConstants):
         """Restore compatible indexes to a DocumentDB instance"""
         for db_name in metadata:
             for collection_name in metadata[db_name]:
-                for index_name in metadata[db_name][collection_name][
-                        self.INDEXES]:
-                    # convert the keys dict to a list of tuples as pymongo requires
-                    index_keys = metadata[db_name][collection_name][
-                        self.INDEXES][index_name][self.INDEX_KEY]
+                for index_name in metadata[db_name][collection_name][self.INDEXES]:
+                    
+                    index_keys = metadata[db_name][collection_name][self.INDEXES][index_name][self.INDEX_KEY]
                     keys_to_create = []
+                    isTextIndex = False
                     index_options = OrderedDict()
                     
-                    # <collection>$<index>
                     collection_qualified_index_name = '{}${}'.format(collection_name, index_name)
-                    # <db>.<collection>.$<index><db>
                     fully_qualified_index_name = '{}.{}.${}'.format(db_name, collection_name, index_name)
-                    
+
                     if (len(collection_qualified_index_name) > DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH  or 
                         len(fully_qualified_index_name) > DocumentDbLimits.FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH):
                         short_index_name = index_name[:(DocumentDbLimits.COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH - 
@@ -481,7 +449,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                         index_options[self.INDEX_NAME] = short_index_name
                     else:   
                         index_options[self.INDEX_NAME] = index_name
-                  
+                    
                     for key in index_keys:
                         index_direction = index_keys[key]
                         if key=="_fts" and self.INDEX_WEIGHTS in metadata[db_name][collection_name][self.INDEXES][index_name]:
@@ -499,13 +467,16 @@ class DocumentDbIndexTool(IndexToolConstants):
                                 index_direction = int(float(index_direction['$numberDouble']))
 
                             keys_to_create.append((key, index_direction))
+                    
 
                     for k in metadata[db_name][collection_name][
                             self.INDEXES][index_name]:
-                       if k != self.INDEX_KEY and k != self.INDEX_VERSION:
-                            if (isTextIndex==True and k not in DocumentDbUnsupportedFeatures.IGNORED_TEXT_INDEX_OPTIONS) or (isTextIndex==False and  k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS):
+                        if k != self.INDEX_KEY and k != self.INDEX_VERSION:
+                            if ((isTextIndex==True and k not in DocumentDbUnsupportedFeatures.IGNORED_TEXT_INDEX_OPTIONS) or 
+                                (isTextIndex==False and  k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS)): # this condition is added to remove unique option from _id index that might be added by the clustered collection):
                             # this key is an additional index option
-                                index_options[k] = metadata[db_name][collection_name][self.INDEXES][index_name][k]
+                                if (index_options[self.INDEX_NAME] == '_id_' and k!='unique') or index_options[self.INDEX_NAME] != '_id_':
+                                    index_options[k] = metadata[db_name][collection_name][self.INDEXES][index_name][k]
 
                     if self.args.dry_run is True:
                         if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
@@ -516,19 +487,106 @@ class DocumentDbIndexTool(IndexToolConstants):
                                 db_name, collection_name, index_options[self.INDEX_NAME] )
                             logging.info("  (dry run) index options: %s", index_options)
                             logging.info("  (dry run) index keys: %s", keys_to_create)
+                    
                     else:
                         if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
                             logging.info("Skipping _id index creation on %s.%s",db_name,collection_name)
                         else:
-                            logging.debug("Adding index %s -> %s", keys_to_create,
-                                          index_options)
+                            logging.debug("Adding index %s -> %s", keys_to_create,index_options)
+                            
                             database = connection[db_name]
                             collection = database[collection_name]
-                            collection.create_index(keys_to_create,
-                                                    **index_options)
-                            logging.info("%s.%s: added index: %s", db_name,
-                                         collection_name, index_options[self.INDEX_NAME] )
-                
+                            collection.create_index(keys_to_create,**index_options)
+                            logging.info("%s.%s: added index: %s", db_name,collection_name, index_options[self.INDEX_NAME] )
+
+    def diff_metadata(self, source_metadata, target_metadata,filename) -> Dict[str, tuple]:
+        """Compare two metadata objects and return a diff"""
+        sourceKeysNotFound=[]
+        targetKeysNotFound=[]
+        keysInboth=[]
+
+        print("*" * 50)
+        print(f"Showing differences between metadata file '{filename}' in source and target folder")
+        print("*" * 50)
+
+        noDifferenceFlag=True
+        # Helper function to get all keys from both dictionaries
+        all_keys = set(source_metadata.keys()) | set(target_metadata.keys())
+        
+        for key in all_keys:
+            #print(key)
+            if key not in source_metadata:
+                sourceKeysNotFound.append(key)
+            elif key not in target_metadata:
+                targetKeysNotFound.append(key)
+            else:
+                keysInboth.append(key)
+
+        if len(sourceKeysNotFound) > 0:
+            noDifferenceFlag=False
+            print(f"\nFollowing keys are found in the target but not in the source\n")
+            for srckey in sourceKeysNotFound:
+                print(srckey)
+                print(json.dumps(target_metadata[srckey],indent=2))
+            print("-" * 50)
+
+        if len(targetKeysNotFound) > 0:
+            noDifferenceFlag=False
+            print(f"\nFollowing keys are found in the source but not in the target\n")
+            for trgtkey in targetKeysNotFound:
+                print(trgtkey)
+                print(json.dumps(source_metadata[trgtkey],indent=2))
+            print("-" * 50)
+
+        if len(keysInboth) > 0:
+            for similarkey in keysInboth:
+                sourcedict, targetdict=source_metadata[similarkey], target_metadata[similarkey]
+                sourceKeysOptionNotFound=[]
+                targetKeysOptionNotFound=[]
+                notSimilarOptions=[]
+                for option in sourcedict.keys() | targetdict.keys():
+                    # If option exists in both dicts but values are different
+                    if option in sourcedict and option in targetdict:
+                        if option != 'v':
+                            if sourcedict[option] != targetdict[option]:
+                                noDifferenceFlag=False
+                                notSimilarOptions.append(option)
+                    # If option only exists in source
+                    elif option not in sourcedict:
+                        noDifferenceFlag=False
+                        sourceKeysOptionNotFound.append(option)
+                    # If key only exists in target
+                    else:
+                        noDifferenceFlag=False
+                        targetKeysOptionNotFound.append(option)
+                if len(notSimilarOptions)>0 or len(sourceKeysOptionNotFound) > 0 or len(targetKeysOptionNotFound):
+                    print(f"The key {similarkey} has the following differences between source and target\n")
+
+                if len(notSimilarOptions) > 0:
+                    print(f"Options that are not similar\n")
+                    for notSimilarOption in notSimilarOptions:
+                        print(f"     {notSimilarOption}")
+                        print(f"        Source value: {sourcedict[notSimilarOption]}")
+                        print(f"        Target value: {targetdict[notSimilarOption]}")
+                    print("-" * 50)
+
+                if len(sourceKeysOptionNotFound) > 0:
+                    print(f"Following options are not present in the source {similarkey} key\n")
+                    for sourceOption in sourceKeysOptionNotFound:
+                        print(f"     {sourceOption}")
+                    print("-" * 50)
+
+                if len(targetKeysOptionNotFound) > 0:
+                    print(f"Following options are not present in the target {similarkey} key\n")
+                    for targetOption in targetKeysOptionNotFound:
+                        print(f"     {targetOption}")
+                    print("-" * 50)
+
+        if noDifferenceFlag==True:
+            print("There is no difference in the indexes of two files")                    
+        print("\n")           
+
+
     def run(self):
         """Entry point
         """
@@ -549,6 +607,24 @@ class DocumentDbIndexTool(IndexToolConstants):
         if self.args.dump_indexes is True:
             self._dump_indexes_from_server(connection, self.args.dir,
                                            self.args.dry_run)
+            sys.exit()
+
+        # show difference between two metadata files in the source and target folder
+        if self.args.show_diff is True:
+            sourceFiles=self._find_metadata_files(self.args.source_metadata_dir)
+            targetFiles=self._find_metadata_files(self.args.target_metadata_dir)
+            srcfile_names = [os.path.basename(path) for path in sourceFiles]
+            trgtfile_names = [os.path.basename(path) for path in targetFiles]
+            commonFiles = list(set(srcfile_names) & set(trgtfile_names))
+            for fileName in commonFiles:
+                (src_db_name, src_collection_name,src_collection_metadata) =self._get_metadata_from_file(os.path.join(self.args.source_metadata_dir, fileName))
+                source_metadata = AutovivifyDict()
+                source_metadata=src_collection_metadata[self.INDEXES]
+                (tgt_db_name, tgt_collection_name, tgt_collection_metadata)=self._get_metadata_from_file(os.path.join(self.args.target_metadata_dir, fileName))
+                target_metadata = AutovivifyDict()
+                target_metadata=tgt_collection_metadata[self.INDEXES]
+                self.diff_metadata(source_metadata, target_metadata,fileName)
+                        
             sys.exit()
 
         # all non-dump operations require valid source metadata
@@ -600,8 +676,8 @@ class DocumentDbIndexTool(IndexToolConstants):
                            sort_keys=True,
                            indent=4,
                            separators=(',', ': ')))
-
-
+            
+        
 def main():
     parser = argparse.ArgumentParser(description='Dump and restore indexes from MongoDB to DocumentDB.')
 
@@ -618,6 +694,11 @@ def main():
     parser.add_argument('--skip-python-version-check',required=False,action='store_true',help='Permit execution on Python 3.6 and prior')
     parser.add_argument('--shorten-index-name',required=False,action='store_true',help='Shorten long index name to compatible length')
     parser.add_argument('--skip-id-indexes',required=False,action='store_true',help='Do not create _id indexes')
+    parser.add_argument('--ignore-hidden',required=False,action='store_true',help='Ignore the hidden option and create the index without the hidden flag')
+    parser.add_argument('--ignore-clustered',required=False,action='store_true',help='Ignore clustered collection as well as clustered option on _id field')
+    parser.add_argument('--show-difference',required=False,action='store_true',dest='show_diff',help='Output a report of compatibility issues found')
+    parser.add_argument('--source-metadata-dir',required=False,type=str,help='Specify the folder where source metadata files are located')
+    parser.add_argument('--target-metadata-dir',required=False,type=str,help='Specify the folder where target metadata files are located')
 
     args = parser.parse_args()
 
@@ -629,8 +710,8 @@ def main():
         message = "Must specify --uri when dumping or restoring indexes"
         parser.error(message)
 
-    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible ):
-        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible ]"
+    if not (args.dump_indexes or args.restore_indexes or args.show_issues or args.show_compatible or args.show_diff):
+        message = "Must specify one of [--dump-indexes | --restore-indexes | --show-issues | --show-compatible | --show-difference]"
         parser.error(message)
 
     if args.dir is not None:
@@ -644,6 +725,26 @@ def main():
     if args.support_2dsphere:
         # 2dsphere supported, remove from unsupported
         DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_TYPES.remove('2dsphere')
+
+    #if ignore hidden is provided that ignore the hidden option and create that index withouth the hidden option
+    if args.ignore_hidden:
+        DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS.append('hidden')
+
+    if args.ignore_clustered:
+        DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS.append('clustered')
+        DocumentDbUnsupportedFeatures.IGNORED_COLLECTION_OPTIONS.append('clusteredIndex')
+
+    if args.show_diff and (args.source_metadata_dir is None or args.target_metadata_dir is None):
+        message = "Must specify source and target folder for the metadata files"
+        parser.error(message)
+
+    if args.source_metadata_dir is not None:
+        if not os.path.isdir(args.source_metadata_dir):
+            parser.error("--source-metadata-dir must specify a directory")
+
+    if args.target_metadata_dir is not None:
+        if not os.path.isdir(args.target_metadata_dir):
+            parser.error("--target-metadata-dir must specify a directory")
 
     indextool = DocumentDbIndexTool(args)
     indextool.run()
