@@ -1,0 +1,2 @@
+pymongo>=4.0.0
+humanize>=4.0.0
