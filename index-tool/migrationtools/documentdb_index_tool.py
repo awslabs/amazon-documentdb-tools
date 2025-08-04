@@ -409,12 +409,10 @@ class DocumentDbIndexTool(IndexToolConstants):
                                 message] = fully_qualified_index_name
 
                     # Check for indexes with too many keys
-                    if len(index) > DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS:
-                        message = 'Index contains more than {} keys'.format(
-                            DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS)
-                        compatibility_issues[db_name][collection_name][
-                            index_name][self.EXCEEDED_LIMITS][message] = len(
-                                index)
+                    if len(index['key']) > DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS:
+                        message = 'Index contains more than {} keys'.format(DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS)
+                        compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = len(index['key'])
+
 
                     for key_name in index:
                         # Check for index key names that are too long
