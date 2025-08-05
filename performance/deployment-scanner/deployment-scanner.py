@@ -352,8 +352,8 @@ def main():
 
     if (args.start_date is None) and (args.end_date is None):
         # use last 30 days
-        startTime = (datetime.datetime.utcnow() - datetime.timedelta(days=30)).strftime("%Y-%m-%dT00:00:00")
-        endTime = (datetime.datetime.utcnow() - datetime.timedelta(days=0)).strftime("%Y-%m-%dT00:00:00")
+        startTime = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=30)).strftime("%Y-%m-%dT00:00:00")
+        endTime = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=0)).strftime("%Y-%m-%dT00:00:00")
     else:
         # use provided start/end dates
         startTime = "{}-{}-{}T00:00:00".format(args.start_date[0:4],args.start_date[4:6],args.start_date[6:8])
