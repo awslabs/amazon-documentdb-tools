@@ -188,6 +188,9 @@ def main(args):
         print("The following {} supported operators were found:".format(len(supportedDict)))
         for thisKeyPair in sorted(supportedDict.items(), key=lambda x: (-x[1],x[0])):
             print("  - {} | found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
+    else:
+        print("")
+        print("WARNING - No supported operators found, check that profiling is enabled if scanning logs or using the correct path to scan source code ")
 
     if len(skippedFileList) > 0:
         print("")
