@@ -373,7 +373,7 @@ def load_keywords():
         "$multiply":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$natural":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$ne":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
-        "$near":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$near":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$nearSphere":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$nin":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$nor":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
