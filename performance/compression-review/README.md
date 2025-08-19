@@ -21,7 +21,7 @@ The compression review tool samples 1000 documents in each collection to determi
 - Default compression tested is lz4/fast/level 1
 - To test other compression techniques provide --compressor \<compression-type> with one of the following for \<compression-type>
 
-| compression | description |
+| compressor | description |
 | ----------- | ----------- |
 | lz4-fast | lz4/fast/level 1 |
 | zstd-3-dict | zstandard/level 3/dictionary-provided (trained by sampling documents) |
