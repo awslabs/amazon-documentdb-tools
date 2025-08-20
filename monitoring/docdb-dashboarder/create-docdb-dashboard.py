@@ -67,6 +67,7 @@ def main():
     parser.add_argument('--region', type=str, required=True, help="Region of Amazon DocumentDB cluster(s)")
     parser.add_argument('--clusterID', type=str, required=True, help="Single Amazon DocumentDB cluster ID or comma separated list of cluster IDs")
     parser.add_argument('--include-nvme',required=False,action='store_true',help='Include NVMe-backed instance metrics')
+    parser.add_argument('--include-serverless',required=False,action='store_true',help='Include serverless instance metrics')
     parser.add_argument('--monitor-migration',required=False,action='store_true',help='Include MongoDB to DocumentDB migration metrics')
     parser.add_argument('--endpoint-url',type=str,required=False,help='Override default endpoint URL')
     parser.add_argument('--monitor-dms', required=False, action='store_true', help='Include AWS DMS task metrics')
@@ -122,7 +123,14 @@ def main():
         widgets.append({"height":7,"panels":[w.FreeNVMeStorage,w.NVMeStorageCacheHitRatio]})
         widgets.append({"height":7,"panels":[w.ReadIopsNVMeStorage,w.ReadLatencyNVMeStorage,w.ReadThroughputNVMeStorage]})
         widgets.append({"height":7,"panels":[w.WriteIopsNVMeStorage,w.WriteLatencyNVMeStorage,w.WriteThroughputNVMeStorage]})
-    
+
+    # Optional serverless Metrics
+    if args.include_serverless:
+        print("{}".format("Adding serverless instance metrics"))
+        widgets.append({"height":2,"panels":[w.ServerlessHeading]})
+        widgets.append({"height":7,"panels":[w.ServerlessDatabaseCapacity,w.DCUUtilization]})
+        widgets.append({"height":7,"panels":[w.TempStorageIops,w.TempStorageThroughput]})
+
     # Determine monitoring type
     monitoring_type = None
     if args.monitor_migration:
