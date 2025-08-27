@@ -1,8 +1,51 @@
 # Amazon DocumentDB Compatibility Tool
-The tool examines MongoDB log files or source code from MongoDB applications to determine if there are any queries which use operators that are not supported in Amazon DocumentDB. This tool produces a simple report of unsupported operators and file names with line numbers for further investigation.
+The tool examines **MongoDB log files** or **source code** from MongoDB applications to determine if there are any queries which use operators that are not supported in Amazon DocumentDB. This tool produces a simple report of unsupported operators and file names with line numbers for further investigation.
+
+## Prerequisites for MongoDB Log File Analysis
+
+### Enable query logging in MongoDB
+#### For local, on-premise, or self-managed installations:
+By default, MongoDB logs the slow queries, over the 100ms threshold, to the configured log file.
+
+1. Check current profiling status and note the `slowms` value:
+```
+> db.getProfilingStatus()
+{
+  "was": 0,
+  "slowms": 100,
+  "sampleRate": 1
+}
+```
+
+2. Enable logging of all queries by setting `slowms` to `-1`:
+```
+> db.setProfilingLevel(0, -1)
+```
+3. **After completing the compatibility analysis**, reset to the original profiling level (using the `slowms` value from step 1):
+```
+> db.setProfilingLevel(0, 100)
+```
+
+#### For MongoDB Atlas:
+MongoDB Atlas dynamically adjusts slow query threshold based on the execution time of operations across the cluster. The Atlas-managed slow operation threshold is enabled by default and must be disabled using the Atlas CLI, Atlas Administration API, or Atlas UI.
+
+1. Disable the Atlas-Managed Slow Operation Threshold by going to Project Settings for the cluster project and toggling Managed Slow Operations to Off. Please refer to the documentation here: https://www.mongodb.com/docs/atlas/performance-advisor/
+2. Connect to your cluster using MongoDB shell or compass and enable full logging:
+   ```
+   db.setProfilingLevel(0, -1)
+   ```
+3. [Download the logs](https://www.mongodb.com/docs/atlas/mongodb-logs/) from the Atlas console
+4. **After completing the compatibility analysis**, enable the Atlas-Managed Slow Operation Threshold
+
+If Atlas-managed slow operation threshold is not enabled, follow the same steps as local or on-premise installations above.
+
+#### NOTE:
+Query profiling can cause additional overhead, it is recommended to use a dev/test environment to capture the queries.
+See the MongoDB [documentation](https://www.mongodb.com/docs/manual/reference/method/db.setProfilingLevel/) for additional information.
 
 ## Requirements
-Python 3.6 or later
+- Python 3.6 or later
+
 
 ## Installation
 Clone the repository and go to the tool folder:
@@ -180,34 +223,8 @@ List of skipped directories - excluded directories
 * With the exception of operators used, there is no logging of the file contents.
 * Using the `--directory` argument will scan all the files, including subdirectories which will be scanned resursively.
 
-### Enable query logging in MongoDB
-#### For local or on-premise installations:
-By default, MongoDB logs the slow queries, over the 100ms threshold, to the configured log file.
-To view the current profiling status, use the `getProfilingStatus()` in MongoDB shell:
+## Contributing
+Contributions are always welcome! See the [contributing page](https://github.com/awslabs/amazon-documentdb-tools/blob/master/CONTRIBUTING.md) for ways to get involved.
 
-```
-> db.getProfilingStatus()
-{
-  "was": 0,
-  "slowms": 100,
-  "sampleRate": 1
-}
-```
-
-To enable logging of all queries, set the `slowms` parameter to `-1`:
-
-```
-> db.setProfilingLevel(0, -1)
-```
-
-To set the slow logging threshold to the prvious level:
-```
-> db.setProfilingLevel(0, 100)
-```
-
-#### For MongoDB Atlas:
-Check the MongoDB Atlas documentation for how to [enable profiling](https://www.mongodb.com/docs/atlas/tutorial/profile-database/#access-the-query-profiler) and [download the logs](https://www.mongodb.com/docs/atlas/mongodb-logs/).
-
-#### NOTE:
-Query profiling can cause additional overhead, it is recommended to use a dev/test environment to capture the queries.
-See the MongoDB [documentation](https://www.mongodb.com/docs/manual/reference/method/db.setProfilingLevel/) for additional information.
+## License
+Apache 2.0
