@@ -82,14 +82,25 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
         numInstances = 0
         engineVersionFull = thisCluster['EngineVersion']
         engineVersionMajor = int(engineVersionFull.split('.')[0])
+        clusterContainsServerless = False
         for thisInstance in thisCluster['DBClusterMembers']:
             # get instance type
             responseInstance = client.describe_db_instances(DBInstanceIdentifier=thisInstance['DBInstanceIdentifier'])
             numInstances += 1
-            thisStandardIoCompute = round(float(pricingDict['compute|'+appConfig['region']+'|'+responseInstance['DBInstances'][0]['DBInstanceClass']+'|standard']['price'])*30*24,0)
-            thisOptimizedIoCompute = round(float(pricingDict['compute|'+appConfig['region']+'|'+responseInstance['DBInstances'][0]['DBInstanceClass']+'|iopt1']['price'])*30*24,0)
+            dbInstanceClass = responseInstance['DBInstances'][0]['DBInstanceClass']
+            if dbInstanceClass == 'db.serverless':
+                clusterContainsServerless = True
+                continue
+
+            thisStandardIoCompute = round(float(pricingDict['compute|'+appConfig['region']+'|'+dbInstanceClass+'|standard']['price'])*30*24,0)
+            thisOptimizedIoCompute = round(float(pricingDict['compute|'+appConfig['region']+'|'+dbInstanceClass+'|iopt1']['price'])*30*24,0)
             thisMonthlyStandardIoCompute += thisStandardIoCompute
             thisMonthlyOptimizedIoCompute += thisOptimizedIoCompute
+
+        if clusterContainsServerless:
+            print("")
+            print("cluster = {} | contains one or more serverless instances, this utility does not support this instance type".format(thisCluster['DBClusterIdentifier']))
+            continue
             
         print("")
         print("cluster = {} | IO type = {} | version = {} | instances = {:d}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances))
@@ -282,12 +293,33 @@ def get_pricing(appConfig):
             thisPricingDictKey = "{}|{}".format('ec-vcpu',thisRegion)
             pd[thisPricingDictKey] = {'type':'ec-vcpu','region':thisRegion,'price':thisPrice}
              
+        elif (thisProduct["productFamily"] == "Serverless"):
+            # Serverless
+            thisSku = thisProduct['sku']
+            thisRegion = thisProduct["attributes"]["regionCode"]
+            thisPrice = terms[thisSku]
+            if thisProduct["attributes"]["volume_optimization"] in ["IO-Optimized"]:
+                volumeType = 'iopt1'
+            elif thisProduct["attributes"]["volume_optimization"] in ["General Purpose"]:
+                volumeType = 'standard'
+            else:
+                print("*** Unknown volumeType {}, exiting".format(thisProduct["attributes"]["volume_optimization"]))
+                sys.exit(1)
+            thisPricingDictKey = "{}|{}|{}".format('dcu',thisRegion,volumeType)
+            pd[thisPricingDictKey] = {'type':'dcu','region':thisRegion,'price':thisPrice,'volumeType':volumeType}
+
         elif (thisProduct["productFamily"] == "CPU Credits"):
             # CPU Credits
-            # using db.t4g.medium for all burstable [conserving cloudwatch calls - cluster only, minor price difference]
-            if (thisProduct["attributes"]["instanceType"] == 'db.t4g.medium'):
+            # using db.t4g.medium for all burstable [conserving cloudwatch calls - cluster only, minor price difference] but use t3g if that is all that is available
+            thisRegion = thisProduct["attributes"]["regionCode"]
+            if (thisProduct["attributes"]["instanceType"] == 'db.t3.medium' and 'cpu-credits|'+thisRegion not in pd):
                 thisSku = thisProduct['sku']
-                thisRegion = thisProduct["attributes"]["regionCode"]
+                thisPrice = terms[thisSku]
+                thisInstanceType = thisProduct["attributes"]["instanceType"]
+                thisPricingDictKey = "{}|{}".format('cpu-credits',thisRegion)
+                pd[thisPricingDictKey] = {'type':'cpu-credits','region':thisRegion,'price':thisPrice,'instanceType':thisInstanceType}
+            elif (thisProduct["attributes"]["instanceType"] == 'db.t4g.medium'):
+                thisSku = thisProduct['sku']
                 thisPrice = terms[thisSku]
                 thisInstanceType = thisProduct["attributes"]["instanceType"]
                 thisPricingDictKey = "{}|{}".format('cpu-credits',thisRegion)
@@ -320,8 +352,8 @@ def main():
 
     if (args.start_date is None) and (args.end_date is None):
         # use last 30 days
-        startTime = (datetime.datetime.utcnow() - datetime.timedelta(days=30)).strftime("%Y-%m-%dT00:00:00")
-        endTime = (datetime.datetime.utcnow() - datetime.timedelta(days=0)).strftime("%Y-%m-%dT00:00:00")
+        startTime = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=30)).strftime("%Y-%m-%dT00:00:00")
+        endTime = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=0)).strftime("%Y-%m-%dT00:00:00")
     else:
         # use provided start/end dates
         startTime = "{}-{}-{}T00:00:00".format(args.start_date[0:4],args.start_date[4:6],args.start_date[6:8])

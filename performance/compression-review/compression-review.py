@@ -93,17 +93,21 @@ def getData(appConfig):
                 totTimeNs = 0
 
                 # build the dictionary if needed (and there are enough documents)
-                if compressor in ['lz4-fast-dict','lz4-high-dict','zstd-1-dict','zstd-5-dict']:
+                if compressor in ['lz4-fast-dict','lz4-high-dict','zstd-1-dict','zstd-3-dict','zstd-5-dict']:
                     if collectionCount >= 100:
                         zstdDict = createDictionary(appConfig, thisDbName, thisCollName)
 
                 # instantiate the compressor for zstandard (it doesn't support 1-shot compress)
                 if compressor == 'zstd-1' or (compressor == 'zstd-1-dict' and collectionCount < 100):
                     zstdCompressor = zstd.ZstdCompressor(level=1,dict_data=None)
+                elif compressor == 'zstd-3' or (compressor == 'zstd-3-dict' and collectionCount < 100):
+                    zstdCompressor = zstd.ZstdCompressor(level=3,dict_data=None)
                 elif compressor == 'zstd-5' or (compressor == 'zstd-5-dict' and collectionCount < 100):
                     zstdCompressor = zstd.ZstdCompressor(level=5,dict_data=None)
                 elif compressor == 'zstd-1-dict':
                     zstdCompressor = zstd.ZstdCompressor(level=1,dict_data=zstdDict)
+                elif compressor == 'zstd-3-dict':
+                    zstdCompressor = zstd.ZstdCompressor(level=3,dict_data=zstdDict)
                 elif compressor == 'zstd-5-dict':
                     zstdCompressor = zstd.ZstdCompressor(level=5,dict_data=zstdDict)
 
@@ -131,7 +135,7 @@ def getData(appConfig):
                             compressed = lz4.block.compress(docAsString.encode(),mode='fast',acceleration=1,dict=zstdDict.as_bytes())
                         elif compressor == 'lz4-high-dict':
                             compressed = lz4.block.compress(docAsString.encode(),mode='high_compression',compression=1,dict=zstdDict.as_bytes())
-                        elif compressor in ['zstd-1','zstd-5','zstd-1-dict','zstd-5-dict']:
+                        elif compressor in ['zstd-1','zstd-3','zstd-5','zstd-1-dict','zstd-3-dict','zstd-5-dict']:
                             compressed = zstdCompressor.compress(docAsString.encode())
                         elif compressor == 'bz2-1':
                             compressed = bz2.compress(docAsString.encode(),compresslevel=1)
@@ -203,7 +207,7 @@ def main():
 
     parser.add_argument('--compressor',
                         required=False,
-                        choices=['lz4-fast','lz4-high','lz4-fast-dict','lz4-high-dict','zstd-1','zstd-5','zstd-1-dict','zstd-5-dict','bz2-1','lzma-0','zlib-1'],
+                        choices=['lz4-fast','lz4-high','lz4-fast-dict','lz4-high-dict','zstd-1','zstd-3','zstd-5','zstd-1-dict','zstd-3-dict','zstd-5-dict','bz2-1','lzma-0','zlib-1'],
                         type=str,
                         default='lz4-fast',
                         help='Compressor')

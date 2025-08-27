@@ -665,3 +665,51 @@ DMSCDCThroughputRowsTarget = {
     }
 }
 
+
+# Serverless 1 ----------------------------------------------
+ServerlessHeading = {
+    "type": "text",
+    "properties": {"markdown": "# Serverless Metrics"}
+}
+# Serverless 2 ----------------------------------------------
+ServerlessDatabaseCapacity = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "ServerlessDatabaseCapacity", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
+        "title": "Serverless Database Capacity"
+    }
+}
+DCUUtilization = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "DCUUtilization", "DBInstanceIdentifier"]],
+        "title": "DCU Utilization",
+        "yAxis": {"left": {"max": 100,"min": 0}}
+    }
+}
+# Serverless 3 ----------------------------------------------
+TempStorageIops = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "TempStorageIops", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
+        "title": "Temp Storage Iops"
+    }
+}
+TempStorageThroughput = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "TempStorageThroughput", "DBInstanceIdentifier"]],
+        "title": "Temp Storage Throughput",
+        "yAxis": {"left": {"min": 0}}
+    }
+}

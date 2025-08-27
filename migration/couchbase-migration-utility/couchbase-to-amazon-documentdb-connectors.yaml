@@ -1,0 +1,222 @@
+Parameters:
+  DocumentDbSinkMcuCount:
+    Description: Each MCU provides 1 vCPU of compute and 4 GiB of memory.
+    Type: Number
+    AllowedValues:
+      - 1
+      - 2
+      - 4
+      - 8
+  DocumentDbSinkMcuWorkers:
+    Description: A worker is a Java virtual machine (JVM) connect process. There will be one worker per instance.
+    Type: Number
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+  CouchbaseSourceMcuCount:
+    Description: Each MCU provides 1 vCPU of compute and 4 GiB of memory.
+    Type: Number
+    AllowedValues:
+      - 1
+      - 2
+      - 4
+      - 8
+  CouchbaseSourceMcuWorkers:
+    Description: A worker is a Java virtual machine (JVM) connect process. There will be one worker per instance.
+    Type: Number
+    AllowedValues:
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+  S3BucketName:
+    Description: Name of general purpose S3 bucket to store connector resources (output from couchbase-to-amazon-documentdb.yaml).
+    Type: String
+  BootstrapServers:
+    Description: Comma-separated list of Amazon MSK cluster bootstrap servers. 
+    Type: String
+  SecurityGroupId:
+    Description: EC2 security group ID used for all resources (output from couchbase-to-amazon-documentdb.yaml).
+    Type: String
+  PrivateSubnets:
+    # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cloudformation-supplied-parameter-types.html#cloudformation-supplied-parameter-types-overview
+    Description: Select private subnets within the specified VPC.
+    Type: List<AWS::EC2::Subnet::Id>
+  MigrationMSKRoleARN:
+    Description: ARN of IAM role that allows resources to call Amazon MSK on your behalf (output from couchbase-to-amazon-documentdb.yaml).
+    Type: String
+  LogGroupName:
+    Description: The name of the CloudWatch log group for Amazon MSK logs.
+    Type: String
+    Default: '/couchbase/migration'
+
+
+Resources:
+# CloudWatch resources
+  MigrationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupClass: "STANDARD"
+      RetentionInDays: 5
+      LogGroupName: !Ref LogGroupName
+
+# KafkaConnect resources
+  DocumentDBCustomPlugin:
+    Type: AWS::KafkaConnect::CustomPlugin
+    Properties:
+      ContentType: 'ZIP'
+      Description: 'Amazon DocumentDB plug-in.'
+      Location: 
+        S3Location: 
+          BucketArn: !Join
+            - ''
+            - - 'arn:aws:s3:::'
+              - !Ref S3BucketName
+          FileKey: "docdb-custom-plugin.zip"
+      Name: cfn-documentdb-plugin
+
+  CouchbaseCustomPlugin:
+    Type: AWS::KafkaConnect::CustomPlugin
+    Properties:
+      ContentType: 'ZIP'
+      Description: 'Couchbase plug-in.'
+      Location: 
+        S3Location: 
+          BucketArn: !Join
+            - ''
+            - - 'arn:aws:s3:::'
+              - !Ref S3BucketName
+          FileKey: "couchbase-kafka-connect-couchbase-4.2.8.zip"
+      Name: cfn-couchbase-plugin
+
+  DocumentDbSinkConnector:
+    DependsOn:
+      - DocumentDBCustomPlugin
+      - MigrationLogGroup
+    Type: AWS::KafkaConnect::Connector
+    Properties:
+      Capacity:
+        ProvisionedCapacity:
+          McuCount: !Ref DocumentDbSinkMcuCount
+          WorkerCount: !Ref DocumentDbSinkMcuWorkers
+      ConnectorConfiguration:
+        database: '<REPLACE WITH TARGET DOCUMENTDB DATABASE NAME>'
+        collection: '<REPLACE WITH TARGET DOCUMENTDB COLLECTION NAME>'
+        connection.uri: '<REPLACE WITH TARGET DOCUMENTDB CLUSTER ENDPOINT>'
+        config.providers: 's3import,ssm,sm'
+        config.providers.s3import.class: 'com.amazonaws.kafka.config.providers.S3ImportConfigProvider'
+        config.providers.s3import.param.region: !Ref 'AWS::Region'
+        connection.ssl.truststore: !Join
+          - ''
+          - - "${s3import:"
+            - !Ref 'AWS::Region'
+            - ":"
+            - !Ref S3BucketName
+            - "/docdb-truststore.jks}"
+        connection.ssl.truststorePassword: 'password'
+        connector.class: 'com.mongodb.kafka.connect.MongoSinkConnector'
+        document.id.strategy: 'com.mongodb.kafka.connect.sink.processor.id.strategy.ProvidedInKeyStrategy'
+        document.id.strategy.overwrite.existing: 'true'
+        errors.tolerance: 'all'
+        key.converter: 'org.apache.kafka.connect.storage.StringConverter'
+        key.converter.schemas.enable: 'false'
+        max.batch.size: '100'
+        tasks.max: '15'
+        topics: 'couchbase-to-documentdb'
+        transforms: 'hk'
+        transforms.hk.field: '_id'
+        transforms.hk.type: 'org.apache.kafka.connect.transforms.HoistField$Key'
+        value.converter: 'org.apache.kafka.connect.json.JsonConverter'
+        value.converter.schemas.enable: 'false'
+        writemodel.strategy: 'com.mongodb.kafka.connect.sink.writemodel.strategy.ReplaceOneDefaultStrategy'
+      ConnectorName: 'cfn-documentdb-sink-connector'
+      KafkaCluster: 
+        ApacheKafkaCluster: 
+          BootstrapServers: !Ref BootstrapServers
+          Vpc:
+            SecurityGroups:
+              - !Ref SecurityGroupId
+            Subnets: !Split [',', !Join [',', !Ref PrivateSubnets]]
+      KafkaClusterClientAuthentication:
+        AuthenticationType: 'IAM' 
+      KafkaClusterEncryptionInTransit:
+        EncryptionType: 'TLS' 
+      KafkaConnectVersion: '2.7.1'
+      LogDelivery:
+        WorkerLogDelivery:
+          CloudWatchLogs:
+            Enabled: true
+            LogGroup: !Ref LogGroupName
+      Plugins: 
+        - CustomPlugin:
+            CustomPluginArn: !GetAtt DocumentDBCustomPlugin.CustomPluginArn
+            Revision: !GetAtt DocumentDBCustomPlugin.Revision
+      ServiceExecutionRoleArn: !Ref MigrationMSKRoleARN
+
+  CouchbaseSourceConnector:
+    DependsOn:
+      - CouchbaseCustomPlugin
+      - MigrationLogGroup
+    Type: AWS::KafkaConnect::Connector
+    Properties:
+      Capacity:
+        ProvisionedCapacity:
+          McuCount: !Ref CouchbaseSourceMcuCount
+          WorkerCount: !Ref CouchbaseSourceMcuWorkers
+      ConnectorConfiguration:
+        couchbase.seed.nodes: '<REPLACE WITH COUCHBASE SOURCE SEED NODES>'
+        couchbase.bucket: '<REPLACE WITH COUCHBASE SOURCE BUCKET>'
+        couchbase.username: '<REPLACE WITH COUCHBASE SOURCE USERNAME>'
+        couchbase.password: '<REPLACE WITH COUCHBASE SOURCE PASSWORD>'
+        connector.class: 'com.couchbase.connect.kafka.CouchbaseSourceConnector'
+        couchbase.bootstrap.timeout: '10s'
+        couchbase.enable.tls: 'false'
+        couchbase.env.timeout.kvTimeout: '10s'
+        couchbase.event.filter: 'com.couchbase.connect.kafka.filter.AllPassFilter'
+        couchbase.flow.control.buffer: '16m'
+        couchbase.log.document.lifecycle: 'false'
+        couchbase.persistence.polling.interval: '100ms'
+        couchbase.replicate.to: 'NONE'
+        couchbase.source.handler: 'com.couchbase.connect.kafka.handler.source.RawJsonSourceHandler'
+        couchbase.stream.from: 'SAVED_OFFSET_OR_BEGINNING'
+        couchbase.topic: 'couchbase-to-documentdb'
+        key.converter: 'org.apache.kafka.connect.storage.StringConverter'
+        value.converter: 'org.apache.kafka.connect.converters.ByteArrayConverter'
+        tasks.max: '15'
+      ConnectorName: 'cfn-couchbase-source-connector'
+      KafkaCluster: 
+        ApacheKafkaCluster: 
+          BootstrapServers: !Ref BootstrapServers
+          Vpc:
+            SecurityGroups:
+              - !Ref SecurityGroupId
+            Subnets: !Split [',', !Join [',', !Ref PrivateSubnets]]
+      KafkaClusterClientAuthentication:
+        AuthenticationType: 'IAM' 
+      KafkaClusterEncryptionInTransit:
+        EncryptionType: 'TLS' 
+      KafkaConnectVersion: '2.7.1'
+      LogDelivery:
+        WorkerLogDelivery:
+          CloudWatchLogs:
+            Enabled: true
+            LogGroup: !Ref LogGroupName
+      Plugins: 
+        - CustomPlugin:
+            CustomPluginArn: !GetAtt CouchbaseCustomPlugin.CustomPluginArn
+            Revision: !GetAtt CouchbaseCustomPlugin.Revision
+      ServiceExecutionRoleArn: !Ref MigrationMSKRoleARN
