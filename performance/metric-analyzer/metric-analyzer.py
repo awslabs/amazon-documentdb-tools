@@ -189,7 +189,7 @@ def get_docdb_instance_specs(region_name):
     instance_data = []
     for price_item in response['PriceList']:
         price_dict = json.loads(price_item)
-        required_fields = ['instanceType', 'volumeoptimization', 'networkPerformance', 'memory', 'vcpu']
+        required_fields = ['instanceType', 'volume_optimization', 'networkPerformance', 'memory', 'vcpu']
         if 'product' not in price_dict or 'attributes' not in price_dict['product']:
             continue
             
@@ -243,7 +243,7 @@ def get_docdb_instance_specs(region_name):
             'currency': currency,
             'standard_price_per_hour': price_value,
             'connections': connection_limits[instance_type],
-            'Type': attributes['volumeoptimization'],
+            'Type': attributes['volume_optimization'],
             'networkPerformance': attributes['networkPerformance'],
             'memory_GiB': memory_value,
             'vcpu': vcpu_value
