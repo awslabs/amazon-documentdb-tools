@@ -5,6 +5,11 @@ import os
 import sys
 import re
 import argparse
+import json
+try:
+    import pymongo
+except:
+    pass
 
 
 versions = ['3.6','4.0','5.0','EC5.0']
@@ -16,6 +21,32 @@ skippedFileList = []
 exceptionFileList = []
 numProcessedFiles = 0
 skippedDirectories = []
+
+
+def ensureDirect(uri):
+    # make sure we are directly connecting to the server requested, not via replicaSet
+
+    connInfo = {}
+    parsedUri = pymongo.uri_parser.parse_uri(uri)
+
+    for thisKey in sorted(parsedUri['options'].keys()):
+        if thisKey.lower() not in ['replicaset','readpreference']:
+            connInfo[thisKey] = parsedUri['options'][thisKey]
+
+    # make sure we are using directConnection=true
+    connInfo['directconnection'] = True
+
+    connInfo['username'] = parsedUri['username']
+    connInfo['password'] = parsedUri['password']
+    connInfo['host'] = parsedUri['nodelist'][0][0]
+    connInfo['port'] = parsedUri['nodelist'][0][1]
+
+    print("connecting to the server at {}:{}".format(connInfo['host'],connInfo['port']))
+
+    if parsedUri.get('database') is not None:
+        connInfo['authSource'] = parsedUri['database']
+
+    return connInfo
 
 
 def double_check(checkOperator, checkLine, checkLineLength):
@@ -135,31 +166,123 @@ def scan_code(args, keywords):
                 if (fileLineNum % processingFeedbackLines) == 0:
                     print("  processing line {}".format(fileLineNum))
                 fileLineNum += 1
-        
+
+
+def getOperatorsFromServer(args):
+    fullListDict = {}
+    filteredOpsList = ['$alwaysFalse','$alwaysTrue','$const','$listCachedAndActiveUsers','$listCatalog','$mergeCursors','$operationMetrics','$queue','$searchBeta','$setVariableFromSubPipeline']
+
+    client = pymongo.MongoClient(**ensureDirect(args.uri))
+    serverStatus = client.admin.command("serverStatus")
+    client.close()
+
+    # get/check version
+    majorVersion = int(serverStatus.get('version','0').split('.')[0])
+    print("database server major version is {}".format(majorVersion))
+    if majorVersion < 5:
+        print("This tool is only supported for version 5+")
+        sys.exit(1)
+
+    for thisKey in serverStatus['metrics']['aggStageCounters']:
+        if type(serverStatus['metrics']['aggStageCounters'][thisKey]) is dict:
+            for thisKey2 in serverStatus['metrics']['aggStageCounters'][thisKey]:
+                if not thisKey2.startswith("$_") and thisKey2 not in filteredOpsList:
+                    if thisKey2 in fullListDict:
+                        fullListDict[thisKey2] += serverStatus['metrics']['aggStageCounters'][thisKey][thisKey2]
+                    else:
+                        fullListDict[thisKey2] = serverStatus['metrics']['aggStageCounters'][thisKey][thisKey2]
+        else:
+            if not thisKey.startswith("$_") and thisKey not in filteredOpsList:
+               if thisKey in fullListDict:
+                   fullListDict[thisKey] += serverStatus['metrics']['aggStageCounters'][thisKey]
+               else:
+                   fullListDict[thisKey] = serverStatus['metrics']['aggStageCounters'][thisKey]
+
+    for thisKey in serverStatus['metrics']['operatorCounters']:
+        if type(serverStatus['metrics']['operatorCounters'][thisKey]) is dict:
+            for thisKey2 in serverStatus['metrics']['operatorCounters'][thisKey]:
+                if not thisKey2.startswith("$_") and thisKey2 not in filteredOpsList:
+                    if thisKey2 in fullListDict:
+                        fullListDict[thisKey2] = serverStatus['metrics']['operatorCounters'][thisKey][thisKey2]
+                    else:
+                        fullListDict[thisKey2] = serverStatus['metrics']['operatorCounters'][thisKey][thisKey2]
+        else:
+            if not thisKey.startswith("$_") and thisKey not in filteredOpsList:
+                if thisKey in fullListDict:
+                    fullListDict[thisKey] += serverStatus['metrics']['operatorCounters'][thisKey]
+                else:
+                    fullListDict[thisKey] = serverStatus['metrics']['operatorCounters'][thisKey]
+
+    return fullListDict
+
 
 def main(args):
     parser = argparse.ArgumentParser(description="Parse the command line.")
-    parser.add_argument("--version", dest="version", action="store", default="5.0", help="Check for DocumentDB version compatibility (default is 5.0)", choices=versions, required=False)
-    parser.add_argument("--directory", dest="scanDir", action="store", help="Directory containing files to scan for compatibility", required=False)
-    parser.add_argument("--file", dest="scanFile", action="store", help="Specific file to scan for compatibility", required=False)
+
+    group = parser.add_argument_group('scan mode','technique to test compatibility')
+    exclusiveGroup = group.add_mutually_exclusive_group(required=True)
+
+    exclusiveGroup.add_argument("--directory", dest="scanDir", action="store", help="Directory containing profiled log files or source code files to scan for compatibility", required=False)
+    exclusiveGroup.add_argument("--file", dest="scanFile", action="store", help="Specific log file or source code file to scan for compatibility", required=False)
+    exclusiveGroup.add_argument("--uri", dest="uri", action="store", help="URI of MongoDB server for compatibility check", required=False)
+
     parser.add_argument("--excluded-extensions", dest="excludedExtensions", action="store", default="NONE", help="Filename extensions to exclude from scanning, comma separated", required=False)
     parser.add_argument("--included-extensions", dest="includedExtensions", action="store", default="ALL", help="Filename extensions to include in scanning, comma separated", required=False)
     parser.add_argument("--excluded-directories", dest="excludedDirectories", action="store", default="NONE", help="directories to exclude from scanning, comma separated", required=False)
+    parser.add_argument("--version", dest="version", action="store", default="5.0", help="Check for DocumentDB version compatibility (default is 5.0)", choices=versions, required=False)
+
     args = parser.parse_args()
     
-    if args.scanDir is None and args.scanFile is None:
-        parser.error("at least one of --directory and --file required")
-
-    elif args.scanDir is not None and args.scanFile is not None:
-        parser.error("must provide exactly one of --directory or --file required, not both")
-    
-    elif args.scanFile is not None and not os.path.isfile(args.scanFile):
+    if args.scanFile is not None and not os.path.isfile(args.scanFile):
         parser.error("unable to locate file {}".format(args.scanFile))
     
     elif args.scanDir is not None and not os.path.isdir(args.scanDir):
         parser.error("unable to locate directory {}".format(args.scanDir))
         
     keywords = load_keywords()
+
+
+    if args.uri is not None:
+        # check for compatibility using db.serverStatus()
+        ver = args.version
+        notCompatCounter = 0
+        compatCounter = 0
+        usageDict = getOperatorsFromServer(args)
+        print("checking compatibility using db.serverStatus()")
+
+        # get count of compatible and incompatible operators found
+        for thisKey in sorted(usageDict.keys()):
+            if (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'No'):
+                notCompatCounter += 1
+            elif (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'Yes'):
+                compatCounter += 1
+
+        print("")
+        # unsupported operators
+        if notCompatCounter > 0:
+            print("The following {} unsupported operators were found:".format(notCompatCounter))
+            for thisKey in sorted(usageDict.keys()):
+                if (thisKey not in keywords):
+                    print("  {} | executed {} time(s) - WARNING - operator is missing from compa tool, please file an issue".format(thisKeyPair[0],thisKeyPair[1]))
+                elif (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'No'):
+                    print("  {} | executed {} time(s)".format(thisKey,usageDict[thisKey]))
+        else:
+            print("No unsupported operators found.")
+
+        print("")
+        # supported operators
+        if compatCounter > 0:
+            print("The following {} supported operators were found:".format(compatCounter))
+            for thisKey in sorted(usageDict.keys()):
+                if (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'Yes'):
+                    print("  {} | executed {} time(s)".format(thisKey,usageDict[thisKey]))
+        else:
+            print("WARNING - No supported operators found, check that the URI provided is correct")
+
+        print("")
+
+        sys.exit(0)
+
     scan_code(args, keywords)
     
     print("")
@@ -187,10 +310,10 @@ def main(args):
         print("")
         print("The following {} supported operators were found:".format(len(supportedDict)))
         for thisKeyPair in sorted(supportedDict.items(), key=lambda x: (-x[1],x[0])):
-            print("  - {} | found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
+            print("  {} | found {} time(s)".format(thisKeyPair[0],thisKeyPair[1]))
     else:
         print("")
-        print("WARNING - No supported operators found, check that profiling is enabled if scanning logs or using the correct path to scan source code ")
+        print("WARNING - No supported operators found, check that profiling is enabled if scanning logs or using the correct path to scan source code")
 
     if len(skippedFileList) > 0:
         print("")
@@ -264,6 +387,7 @@ def load_keywords():
         "$ceil":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$center":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$centerSphere":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$changeStream":{"mongodbversion":"3.6","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"No"},
         "$changeStreamSplitLargeEvent":{"mongodbversion":"7.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$cmp":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$collStats":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
@@ -391,6 +515,7 @@ def load_keywords():
         "$pull":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$pullAll":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$push":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
+        "$querySettings":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$queryStats":{"mongodbversion":"7.1","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$radiansToDegrees":{"mongodbversion":"4.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$rand":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
@@ -460,8 +585,10 @@ def load_keywords():
         "$toObjectId":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$top":{"mongodbversion":"5.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$topN":{"mongodbversion":"5.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$toHashedIndexKey":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$toString":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$toUpper":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
+        "$toUUID":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$trim":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$trunc":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$tsIncrement":{"mongodbversion":"5.1","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
@@ -472,6 +599,7 @@ def load_keywords():
         "$unset":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$unsetField":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$unwind":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
+        "$vectorSearch":{"mongodbversion":"6.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$week":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$where":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$year":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
