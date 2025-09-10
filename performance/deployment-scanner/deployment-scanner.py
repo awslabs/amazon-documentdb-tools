@@ -209,8 +209,12 @@ def get_pricing(appConfig):
     # get the pricing
     for thisProductKey in pricingDict['products']:
         thisProduct = pricingDict['products'][thisProductKey]
+        if 'ExtendedSupport' in thisProduct['attributes'].get('usagetype','***MISSING***'):
+            # not yet
+            print("  **  skipping extended support  **")
+            continue
 
-        if 'productFamily' not in thisProduct and thisProduct['attributes']['group'] == 'Global Cluster I/O Operation':
+        elif 'productFamily' not in thisProduct and thisProduct['attributes']['group'] == 'Global Cluster I/O Operation':
             # Global Cluster IO cost
             thisSku = thisProduct['sku']
             thisRegion = thisProduct["attributes"]["regionCode"]
