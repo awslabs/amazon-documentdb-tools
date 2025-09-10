@@ -1,5 +1,11 @@
 # Amazon DocumentDB Compatibility Tool
-The tool examines **MongoDB log files** or **source code** from MongoDB applications to determine if there are any queries which use operators that are not supported in Amazon DocumentDB. This tool produces a simple report of unsupported operators and file names with line numbers for further investigation.
+The tool examines **MongoDB serverStatus() counters**, **MongoDB log files**, or **application source code** from MongoDB applications to determine if there are any operators in use that are not supported in Amazon DocumentDB. It produces a simple report of both supported and unsupported operator usage.
+
+## Recommended compatibility testing for MongoDB 5.0 and newer
+* run the tool once using directConnection=true to the primary instance in your cluster
+  * ```python3 compat.py --uri "mongodb://<username>:<password>@<primary-hostname>:<port>/admin?directConnection=true"```
+* if using secondary instances for read-scale run the tool again on one secondary (again using &directConnection)
+  * ```python3 compat.py --uri "mongodb://<username>:<password>@<secondary-hostname>:<port>/admin?directConnection=true"```
 
 ## Prerequisites for MongoDB Log File Analysis
 
@@ -45,6 +51,7 @@ See the MongoDB [documentation](https://www.mongodb.com/docs/manual/reference/me
 
 ## Requirements
 - Python 3.6 or later
+- pymongo (if testing compatibility using the --uri option)
 
 
 ## Installation
@@ -57,6 +64,7 @@ cd amazon-documentdb-tools/compat-tool/
 ## Usage/Examples
 This tool supports examining compatibility with either the 3.6, 4.0, 5.0, or Elastic Clusters 5.0 versions of Amazon DocumentDB. The script has the following arguments:
 ```
+--uri MONGO_URI                             -> Use db.serverStatus() output to scan for compatibility (requires MongoDB 5.0+)
 --version {3.6,4.0,5.0,EC5.0}               -> Check for DocumentDB version compatibility (default is 5.0)
 --directory SCANDIR                         -> Directory containing files to scan for compatibility
 --file SCANFILE                             -> Specific file to scan for compatibility
@@ -66,6 +74,28 @@ This tool supports examining compatibility with either the 3.6, 4.0, 5.0, or Ela
 ```
 
 #### Example 1:
+Check for compatibility using a MongoDB 5.0+ instance:
+```
+python compat.py --uri "mongodb://<username>:<password>@<hostname>:<port>/admin?directConnection=true" 
+
+connecting to the server at <hostname>:27017
+database server major version is 5
+checking compatibility using db.serverStatus()
+
+The following 2 unsupported operators were found:
+  $bucket | executed 1 time(s)
+  $facet | executed 1 time(s)
+
+The following 6 supported operators were found:
+  $eq | executed 12 time(s)
+  $group | executed 3 time(s)
+  $gt | executed 6 time(s)
+  $match | executed 1 time(s)
+  $switch | executed 1 time(s)
+  $unwind | executed 1 time(s)
+```
+
+#### Example 2:
 Check for compatibility with Amazon DocumentDB version 5.0, files from the folder called test, excluding the ones with extension `.txt`:
 ```
 python3 compat.py --version 5.0 --directory test --excluded-extensions txt
@@ -104,7 +134,7 @@ List of skipped files - excluded extensions
   test/testlog2.txt
 ```
 
-#### Example 2:
+#### Example 3:
 Check a specific file and show the supported operators found:
 
 ```
@@ -138,7 +168,7 @@ The following 9 supported operators were found
   - $sum | found 1 time(s)
 ```
 
-### Example 3:
+### Example 4:
 Check for compatibility with Amazon DocumentDB, files from the folder called test, excluding the ones with extension `.txt` and excluding directories `exclude1` and `exclude2`:
 
 ```
