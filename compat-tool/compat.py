@@ -170,7 +170,7 @@ def scan_code(args, keywords):
 
 def getOperatorsFromServer(args):
     fullListDict = {}
-    filteredOpsList = ['$alwaysFalse','$alwaysTrue','$const','$listCachedAndActiveUsers','$listCatalog','$mergeCursors','$operationMetrics','$queue','$searchBeta','$setVariableFromSubPipeline']
+    filteredOpsList = ['$alwaysFalse','$alwaysTrue','$backupCursor','$backupCursorExtend','$const','$listCachedAndActiveUsers','$listCatalog','$mergeCursors','$operationMetrics','$queue','$searchBeta','$setVariableFromSubPipeline']
 
     client = pymongo.MongoClient(**ensureDirect(args.uri))
     serverStatus = client.admin.command("serverStatus")
@@ -263,7 +263,7 @@ def main(args):
             print("The following {} unsupported operators were found:".format(notCompatCounter))
             for thisKey in sorted(usageDict.keys()):
                 if (thisKey not in keywords):
-                    print("  {} | executed {} time(s) - WARNING - operator is missing from compa tool, please file an issue".format(thisKey,usageDict[thisKey]))
+                    print("  {} | executed {} time(s) - WARNING - operator is missing from compat tool, please file an issue".format(thisKey,usageDict[thisKey]))
                 elif (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'No'):
                     print("  {} | executed {} time(s)".format(thisKey,usageDict[thisKey]))
         else:
