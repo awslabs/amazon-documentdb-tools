@@ -163,25 +163,41 @@ def evalIndexes(appConfig):
 
             elif appConfig['priorIndexReviewFile'] is not None:
                 # calculate churn from prior primary instance index-review file
-                numSecondsUptime = idxDict["start"]["uptime"] - appConfig['priorDict']['start']['uptime']
-                numDaysUptime = numSecondsUptime / 86400
-                insPerDay = int((thisCollInfo['opCounter']['numDocsIns'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsIns']) / numDaysUptime)
-                updPerDay = int((thisCollInfo['opCounter']['numDocsUpd'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsUpd']) / numDaysUptime)
-                delPerDay = int((thisCollInfo['opCounter']['numDocsDel'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsDel']) / numDaysUptime)
-                insPerSec = int((thisCollInfo['opCounter']['numDocsIns'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsIns']) / numSecondsUptime)
-                updPerSec = int((thisCollInfo['opCounter']['numDocsUpd'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsUpd']) / numSecondsUptime)
-                delPerSec = int((thisCollInfo['opCounter']['numDocsDel'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsDel']) / numSecondsUptime)
+                try:
+                    numSecondsUptime = idxDict["start"]["uptime"] - appConfig['priorDict']['start']['uptime']
+                    numDaysUptime = numSecondsUptime / 86400
+                    insPerDay = int((thisCollInfo['opCounter']['numDocsIns'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsIns']) / numDaysUptime)
+                    updPerDay = int((thisCollInfo['opCounter']['numDocsUpd'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsUpd']) / numDaysUptime)
+                    delPerDay = int((thisCollInfo['opCounter']['numDocsDel'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsDel']) / numDaysUptime)
+                    insPerSec = int((thisCollInfo['opCounter']['numDocsIns'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsIns']) / numSecondsUptime)
+                    updPerSec = int((thisCollInfo['opCounter']['numDocsUpd'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsUpd']) / numSecondsUptime)
+                    delPerSec = int((thisCollInfo['opCounter']['numDocsDel'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsDel']) / numSecondsUptime)
+                except:
+                    insPerDay = 0
+                    updPerDay = 0
+                    delPerDay = 0
+                    insPerSec = 0
+                    updPerSec = 0
+                    delPerSec = 0
 
             else:
                 # calculate churn as estimate using operations since instance startup
-                numSecondsUptime = idxDict["start"]["uptime"]
-                numDaysUptime = numSecondsUptime / 86400
-                insPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsIns'] / numDaysUptime)
-                updPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsUpd'] / numDaysUptime)
-                delPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsDel'] / numDaysUptime)
-                insPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsIns'] / numSecondsUptime)
-                updPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsUpd'] / numSecondsUptime)
-                delPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsDel'] / numSecondsUptime)
+                try:
+                    numSecondsUptime = idxDict["start"]["uptime"]
+                    numDaysUptime = numSecondsUptime / 86400
+                    insPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsIns'] / numDaysUptime)
+                    updPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsUpd'] / numDaysUptime)
+                    delPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsDel'] / numDaysUptime)
+                    insPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsIns'] / numSecondsUptime)
+                    updPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsUpd'] / numSecondsUptime)
+                    delPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsDel'] / numSecondsUptime)
+                except:
+                    insPerDay = 0
+                    updPerDay = 0
+                    delPerDay = 0
+                    insPerSec = 0
+                    updPerSec = 0
+                    delPerSec = 0
 
             outFile1.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize',0),thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,collectionUnusedPct,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb,insPerDay,updPerDay,delPerDay,insPerSec,updPerSec,delPerSec))
             
