@@ -263,7 +263,7 @@ def main(args):
             print("The following {} unsupported operators were found:".format(notCompatCounter))
             for thisKey in sorted(usageDict.keys()):
                 if (thisKey not in keywords):
-                    print("  {} | executed {} time(s) - WARNING - operator is missing from compa tool, please file an issue".format(thisKeyPair[0],thisKeyPair[1]))
+                    print("  {} | executed {} time(s) - WARNING - operator is missing from compa tool, please file an issue".format(thisKey,usageDict[thisKey]))
                 elif (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'No'):
                     print("  {} | executed {} time(s)".format(thisKey,usageDict[thisKey]))
         else:
