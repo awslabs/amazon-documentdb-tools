@@ -134,10 +134,10 @@ def evalIndexes(appConfig):
             addlIdxCount += 1
 
     outFile1 = open(appConfig['serverAlias']+'-collections.csv','wt')
-    outFile1.write("{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','ins/day','upd/day','del/day'))
+    outFile1.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','ins/day','upd/day','del/day','ins/sec','upd/sec','del/sec'))
 
     outFile2 = open(appConfig['serverAlias']+'-indexes.csv','wt')
-    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','index-unused-pct','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day'))
+    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','index-unused-pct','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day','ins/sec','upd/sec','del/sec'))
 
     # for each database
     for thisDb in idxDict["start"]["collstats"]:
@@ -148,15 +148,42 @@ def evalIndexes(appConfig):
             printedCollection = False
             thisCollInfo = idxDict["start"]["collstats"][thisDb][thisColl]
             bToGb = 1024*1024*1024
-
-            thisNs = "{}.{}".format(thisDb,thisColl)
-            thisInsUpdDel = appConfig['opsDict'].get(thisNs,{"ins":"","upd":"","del":""})
-            insPerDay = thisInsUpdDel['ins']
-            updPerDay = thisInsUpdDel['upd']
-            delPerDay = thisInsUpdDel['del']
             collectionUnusedPct = thisCollInfo.get('unusedStorageSize', {}).get('unusedPercent', -1.0)
 
-            outFile1.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize',0),thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,collectionUnusedPct,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb,insPerDay,updPerDay,delPerDay))
+            if appConfig['opsFile'] is not None:
+                # calculate churn from oplog/changestream data
+                thisNs = "{}.{}".format(thisDb,thisColl)
+                thisInsUpdDel = appConfig['opsDict'].get(thisNs,{"ins":0,"upd":0,"del":0})
+                insPerDay = thisInsUpdDel['ins']
+                updPerDay = thisInsUpdDel['upd']
+                delPerDay = thisInsUpdDel['del']
+                insPerSec = int(thisInsUpdDel['ins'] / 86400)
+                updPerSec = int(thisInsUpdDel['upd'] / 86400)
+                delPerSec = int(thisInsUpdDel['del'] / 86400)
+
+            elif appConfig['priorIndexReviewFile'] is not None:
+                # calculate churn from prior primary instance index-review file
+                numSecondsUptime = idxDict["start"]["uptime"] - appConfig['priorDict']['start']['uptime']
+                numDaysUptime = numSecondsUptime / 86400
+                insPerDay = int((thisCollInfo['opCounter']['numDocsIns'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsIns']) / numDaysUptime)
+                updPerDay = int((thisCollInfo['opCounter']['numDocsUpd'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsUpd']) / numDaysUptime)
+                delPerDay = int((thisCollInfo['opCounter']['numDocsDel'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsDel']) / numDaysUptime)
+                insPerSec = int((thisCollInfo['opCounter']['numDocsIns'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsIns']) / numSecondsUptime)
+                updPerSec = int((thisCollInfo['opCounter']['numDocsUpd'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsUpd']) / numSecondsUptime)
+                delPerSec = int((thisCollInfo['opCounter']['numDocsDel'] - appConfig['priorDict']['start']['collstats'][thisDb][thisColl]['opCounter']['numDocsDel']) / numSecondsUptime)
+
+            else:
+                # calculate churn as estimate using operations since instance startup
+                numSecondsUptime = idxDict["start"]["uptime"]
+                numDaysUptime = numSecondsUptime / 86400
+                insPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsIns'] / numDaysUptime)
+                updPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsUpd'] / numDaysUptime)
+                delPerDay = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsDel'] / numDaysUptime)
+                insPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsIns'] / numSecondsUptime)
+                updPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsUpd'] / numSecondsUptime)
+                delPerSec = int(idxDict["start"]["collstats"][thisDb][thisColl]['opCounter']['numDocsDel'] / numSecondsUptime)
+
+            outFile1.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize',0),thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,collectionUnusedPct,thisCollInfo['nindexes'],thisCollInfo['totalIndexSize']/bToGb,insPerDay,updPerDay,delPerDay,insPerSec,updPerSec,delPerSec))
             
             # for each index
             for thisIdx in idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"]:
@@ -194,9 +221,9 @@ def evalIndexes(appConfig):
                 #with open('output.log', 'a') as fpDet:
                 #    fpDet.write("{:40s} {:40s} {:40s} {:12d} {:12d}\n".format(thisDb,thisColl,thisIdx["name"],thisIdx["accesses"]["ops"],numXtraOps))
 
-                outFile2.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{:.2f},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize'),
+                outFile2.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{:.2f},{},{},{},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize'),
                   thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,collectionUnusedPct,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,indexUnusedPct,thisIdx["name"],
-                  thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList,insPerDay,updPerDay,delPerDay))
+                  thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList,insPerDay,updPerDay,delPerDay,insPerSec,updPerSec,delPerSec))
 
     outFile1.close()
     outFile2.close()
@@ -260,6 +287,17 @@ def readOpsFile(appConfig):
     return oD
 
 
+def readPriorIndexReviewFile(appConfig):
+    oD = {}
+
+    print("loading prior index review file from {}".format(appConfig['priorIndexReviewFile']))
+
+    with open(appConfig['priorIndexReviewFile'], 'r') as file:
+        oD = json.load(file)
+
+    return oD
+
+
 def main():
     parser = argparse.ArgumentParser(description='Check for redundant and unused indexes.')
         
@@ -288,6 +326,11 @@ def main():
                         type=str,
                         help='File created by mongodb-oplog-review tool containing collection level operations per day.')
 
+    parser.add_argument('--prior-index-review-file',
+                        required=False,
+                        type=str,
+                        help='File from prior run of index-review tool on primary instance, used to calculate collection level operations per day.')
+
     args = parser.parse_args()
     
     # check for minimum Python version
@@ -305,6 +348,7 @@ def main():
     appConfig['connectionString'] = args.uri
     appConfig['serverAlias'] = args.server_alias
     appConfig['opsFile'] = args.ops_file
+    appConfig['priorIndexReviewFile'] = args.prior_index_review_file
     
     #checkReplicaSet(appConfig)
 
@@ -321,6 +365,11 @@ def main():
         appConfig['opsDict'] = readOpsFile(appConfig)
     else:
         appConfig['opsDict'] = {}
+
+    if appConfig['priorIndexReviewFile'] is not None:
+        appConfig['priorDict'] = readPriorIndexReviewFile(appConfig)
+    else:
+        appConfig['priorDict'] = {}
 
     evalIndexes(appConfig)
 
