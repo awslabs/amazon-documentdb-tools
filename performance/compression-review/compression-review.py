@@ -50,7 +50,7 @@ def getData(appConfig):
     logFileHandle.write("\n")
 
     # output header to csv
-    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','minSample','maxSample','avgSample','minComp','maxComp','avgComp','compRatio','exceptions','compTime(ms)'))
+    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','compEnabled','minSample','maxSample','avgSample','minComp','maxComp','avgComp','compRatio','exceptions','compTime(ms)'))
 
     # get databases - filter out admin, config, local, and system
     dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":['admin','config','local','system']}})['databases']
@@ -80,6 +80,17 @@ def getData(appConfig):
                 collectionAvgObjSize = int(collStats.get('avgObjSize',0))
                 collectionSizeGB = collStats['size']/gbDivisor
                 collectionStorageSizeGB = collStats['storageSize']/gbDivisor
+                # check if compression is enabled
+                compressionInfo = collStats.get('compression',{'enable':False,'threshold':-1})
+                compressionEnabled = compressionInfo.get('enable',False)
+                compressionThreshold = compressionInfo.get('threshold',0)
+                if compressionEnabled:
+                    #compressionEnabledString = 'Y'
+                    compCsvString = "{}/{}".format('Y',compressionThreshold)
+                else:
+                    #compressionEnabledString = 'N'
+                    compCsvString = ""
+
 
                 numExceptions = 0
                 minDocBytes = 999999999
@@ -173,8 +184,8 @@ def getData(appConfig):
                     avgLz4Bytes = int(totLz4Bytes / totDocs)
                     lz4Ratio = collectionAvgObjSize / avgLz4Bytes
 
-                logFileHandle.write("{},{},{:d},{:d},{:.4f},{:.4f},{:.4f},{:d},{:d},{:d},{:d},{:d},{:d},{:.4f},{:d},{:.4f}\n".format(thisDb['name'],thisColl['name'],collectionCount,
-                    collectionAvgObjSize,collectionSizeGB,collectionStorageSizeGB,collectionCompressionRatio,minDocBytes,maxDocBytes,avgDocBytes,minLz4Bytes,maxLz4Bytes,avgLz4Bytes,lz4Ratio,numExceptions,totTimeNs/1000000))
+                logFileHandle.write("{},{},{:d},{:d},{:.4f},{:.4f},{:.4f},{},{:d},{:d},{:d},{:d},{:d},{:d},{:.4f},{:d},{:.4f}\n".format(thisDb['name'],thisColl['name'],collectionCount,
+                    collectionAvgObjSize,collectionSizeGB,collectionStorageSizeGB,collectionCompressionRatio,compCsvString,minDocBytes,maxDocBytes,avgDocBytes,minLz4Bytes,maxLz4Bytes,avgLz4Bytes,lz4Ratio,numExceptions,totTimeNs/1000000))
 
 
     logFileHandle.close() 
