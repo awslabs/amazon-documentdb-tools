@@ -1,5 +1,5 @@
 import argparse
-from datetime import datetime, timedelta
+import datetime as dt
 import sys
 import json
 import pymongo
@@ -40,7 +40,7 @@ def getData(appConfig):
     sampleSize = appConfig['sampleSize']
 
     # log output to file
-    logTimeStamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    logTimeStamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d%H%M%S')
     logFileName = "{}-{}-compression-review.csv".format(appConfig['serverAlias'],logTimeStamp)
     logFileHandle = open(logFileName, "w")
 
