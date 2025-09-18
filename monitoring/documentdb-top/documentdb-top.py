@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+import datetime as dt
 import sys
 import json
 import pymongo
@@ -29,8 +29,8 @@ def reportCollectionInfo(appConfig):
         opsString = ""
 
     mustCrud = appConfig['mustCrud']
-    
-    logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
+   
+    logTimeStamp = dt.datetime.now(dt.timezone.utc).isoformat()[:-3] + 'Z'
     logAndPrint(appConfig,"{} | {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s} {:>10s}".format(logTimeStamp,'collection','ins'+opsString,'upd'+opsString,'del'+opsString,'colBlkHit','colBlkRead','colRatio','idxBlkHit','idxBlkRead','idxRatio'))
     
     client = pymongo.MongoClient(host=appConfig['uri'],appname='ddbtop')
@@ -74,7 +74,7 @@ def reportCollectionInfo(appConfig):
                 displayLine = True
 
             if displayLine:
-                logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
+                logTimeStamp = dt.datetime.now(dt.timezone.utc).isoformat()[:-3] + 'Z'
                 logAndPrint(appConfig,"{} | {:>10s} {:10,d} {:10,d} {:10,d} {:10,d} {:10,d} {:10.4f} {:10,d} {:10,d} {:10.4f}".format(logTimeStamp,thisCollName,diffOI,diffOU,diffOD,diffCCH,diffCCR,diffCCHR,diffICH,diffICR,diffICHR))
 
             collections[thisCollName]['opCounter']['numDocsIns'] = collStats['opCounter']['numDocsIns']
@@ -109,7 +109,7 @@ def main():
     parser.add_argument('--update-frequency-seconds',
                         required=False,
                         type=int,
-                        default=60,
+                        default=10,
                         help='Number of seconds before update')
 
     parser.add_argument('--must-crud',
