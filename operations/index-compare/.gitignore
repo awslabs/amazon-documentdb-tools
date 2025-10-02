@@ -1,0 +1,8 @@
+doit-compare.bash
+doit-create.bash
+doit-drop.bash
+doit-index-tool.bash
+megatest-both.js
+megatest-drop.js
+megatest-source.js
+megatest-target.js
