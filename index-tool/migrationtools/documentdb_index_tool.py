@@ -69,7 +69,7 @@ class DocumentDbUnsupportedFeatures(object):
     UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
     UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
-    IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion']
+    IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion','default_language','language_override','textIndexVersion']
 
 
 class IndexToolConstants(object):
@@ -455,11 +455,9 @@ class DocumentDbIndexTool(IndexToolConstants):
         """Restore compatible indexes to a DocumentDB instance"""
         for db_name in metadata:
             for collection_name in metadata[db_name]:
-                for index_name in metadata[db_name][collection_name][
-                        self.INDEXES]:
+                for index_name in metadata[db_name][collection_name][self.INDEXES]:
                     # convert the keys dict to a list of tuples as pymongo requires
-                    index_keys = metadata[db_name][collection_name][
-                        self.INDEXES][index_name][self.INDEX_KEY]
+                    index_keys = metadata[db_name][collection_name][self.INDEXES][index_name][self.INDEX_KEY]
                     keys_to_create = []
                     index_options = OrderedDict()
                     
@@ -475,47 +473,50 @@ class DocumentDbIndexTool(IndexToolConstants):
                         index_options[self.INDEX_NAME] = short_index_name
                     else:   
                         index_options[self.INDEX_NAME] = index_name
-                  
-                    for key in index_keys:
-                        index_direction = index_keys[key]
 
-                        if type(index_direction) is float:
-                            index_direction = int(index_direction)
-                        elif type(index_direction) is dict and '$numberInt' in index_direction:
-                            index_direction = int(index_direction['$numberInt'])
-                        elif type(index_direction) is dict and '$numberDouble' in index_direction:
-                            index_direction = int(float(index_direction['$numberDouble']))
+                    if 'textIndexVersion' in metadata[db_name][collection_name][self.INDEXES][index_name]:
+                        # special case text indexes
+                        for key in metadata[db_name][collection_name][self.INDEXES][index_name]['weights']:
+                            keys_to_create.append((key, 'text'))
 
-                        keys_to_create.append((key, index_direction))
+                        for k in metadata[db_name][collection_name][self.INDEXES][index_name]:
+                            if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
+                                # this key is an additional index option
+                                index_options[k] = metadata[db_name][collection_name][self.INDEXES][index_name][k]
+                    else:
+                        for key in index_keys:
+                            index_direction = index_keys[key]
 
-                    for k in metadata[db_name][collection_name][
-                            self.INDEXES][index_name]:
-                        if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
-                            # this key is an additional index option
-                            index_options[k] = metadata[db_name][
-                                collection_name][self.INDEXES][index_name][k]
+                            if type(index_direction) is float:
+                                index_direction = int(index_direction)
+                            elif type(index_direction) is dict and '$numberInt' in index_direction:
+                                index_direction = int(index_direction['$numberInt'])
+                            elif type(index_direction) is dict and '$numberDouble' in index_direction:
+                                index_direction = int(float(index_direction['$numberDouble']))
+
+                            keys_to_create.append((key, index_direction))
+
+                        for k in metadata[db_name][collection_name][self.INDEXES][index_name]:
+                            if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
+                                # this key is an additional index option
+                                index_options[k] = metadata[db_name][collection_name][self.INDEXES][index_name][k]
 
                     if self.args.dry_run is True:
                         if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
                             logging.info("(dry run) skipping _id index creation on %s.%s",db_name,collection_name)
                         else:
-                            logging.info(
-                                "(dry run) %s.%s: would attempt to add index: %s",
-                                db_name, collection_name, index_options[self.INDEX_NAME] )
+                            logging.info("(dry run) %s.%s: would attempt to add index: %s",db_name, collection_name, index_options[self.INDEX_NAME] )
                             logging.info("  (dry run) index options: %s", index_options)
                             logging.info("  (dry run) index keys: %s", keys_to_create)
                     else:
                         if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
                             logging.info("Skipping _id index creation on %s.%s",db_name,collection_name)
                         else:
-                            logging.debug("Adding index %s -> %s", keys_to_create,
-                                          index_options)
+                            logging.debug("Adding index %s -> %s", keys_to_create,index_options)
                             database = connection[db_name]
                             collection = database[collection_name]
-                            collection.create_index(keys_to_create,
-                                                    **index_options)
-                            logging.info("%s.%s: added index: %s", db_name,
-                                         collection_name, index_options[self.INDEX_NAME] )
+                            collection.create_index(keys_to_create,**index_options)
+                            logging.info("%s.%s: added index: %s", db_name, collection_name, index_options[self.INDEX_NAME] )
 
     def run(self):
         """Entry point
