@@ -500,6 +500,9 @@ class DocumentDbIndexTool(IndexToolConstants):
                             if k != self.INDEX_KEY and k != self.INDEX_VERSION and k not in DocumentDbUnsupportedFeatures.IGNORED_INDEX_OPTIONS:
                                 # this key is an additional index option
                                 index_options[k] = metadata[db_name][collection_name][self.INDEXES][index_name][k]
+                                # fix for current lack of camelCase of dotProduct
+                                if k == 'vectorOptions' and index_options[k].get('similarity','**missing**') == 'dotproduct':
+                                    index_options[k]['similarity'] = 'dotProduct'
 
                     if self.args.dry_run is True:
                         if self.args.skip_id_indexes and index_options[self.INDEX_NAME] == '_id_':
