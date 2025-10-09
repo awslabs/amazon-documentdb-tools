@@ -28,12 +28,14 @@ def get_param():
     global args
     parser = argparse.ArgumentParser(prog='python detect-cardinality.py',
                     description='This program samples documents in each collection to find index cardinality. Sample count is set at default 100K and can be changed with --sample-count parameter. ')
-    parser.add_argument("-s", "--uri",  help="DocumentDB connnection string", required=True)
-    parser.add_argument("-m", "--max-collections",default="100", help="Maximum number of collections to scan per database. Default 100")
-    parser.add_argument("-t", "--threshold",default="1", help="Percentage of Cardinality threshold. Default 1 percent")
-    parser.add_argument("-d", "--databases",default="All", help="Comma separated list of database names. Default=All")
-    parser.add_argument("-c", "--collections",default="All", help="Comma separated list of collection names. Default=All")
-    parser.add_argument("-sample", "--sample-count",default="100000", help="Numbers of documents to sample in a collection. Increasing this may increase the execution time for this script.")
+    parser.add_argument("--uri",  help="DocumentDB connnection string", required=True)
+    parser.add_argument("--max-collections",default="100", help="Maximum number of collections to scan per database. Default 100")
+    parser.add_argument("--threshold",default="1", help="Percentage of Cardinality threshold. Default 1 percent")
+    parser.add_argument("--databases",default="All", help="Comma separated list of database names. Default=All")
+    parser.add_argument("--collections",default="All", help="Comma separated list of collection names. Default=All")
+    # TODO indexes only supports single key indexes. Multi-key indexes require updates to get_index_cardinality function. For planned indexes only single key indexes are supported. 
+    parser.add_argument("--indexes", default="All", help="Comma separated list of index names. Default=All")
+    parser.add_argument("--sample-count",default="100000", help="Numbers of documents to sample in a collection. Increasing this may increase the execution time for this script.")
     
     args = parser.parse_args()
 
@@ -60,7 +62,6 @@ def print_output(results):
     
     low_cardinal_results = results[results["isLowCardinality"]=="Y"]
     low_cardinal_results = low_cardinal_results.sort_values('cardinality', ascending=True)
-    #print(low_cardinal_results)
     print("######Found {} indexes that may have low cardinality values.".format( len(low_cardinal_results) ))
     header=["No","Index Name", "Index Keys", "Cardinality"]
     data =[ ]
@@ -68,7 +69,7 @@ def print_output(results):
     print("Top index(es) with lowest cardinality:" )
     i = 1
     for index, row in low_cardinal_results.iterrows():
-        keys = ','.join(list(row['index_keys'].keys()))
+        keys = ','.join(row['index_keys'])
         
         data.append( [str(i), row['index_name'], keys, str(row['cardinality']) + '%'] )
         i = i + 1
@@ -93,6 +94,30 @@ def save_file(results):
     print("Detailed report is generated and saved at `{}`".format(file_name))
     print("##### Done #####")
 
+def get_indexes(coll, arg_indexes):
+        # only extract indexes supplied if supplied in --indexes, else get all indexes
+        indexes = []
+        existing_indexes = coll.index_information()
+        if arg_indexes[0] != 'All':
+            for index in arg_indexes:
+                obj = {}
+                obj['name'] = []
+                obj['name'].append(index)
+                obj['key'] = index + "_1"
+                indexes.append(obj)
+        else:
+            for key in existing_indexes.keys():
+                if key != '_id_':
+                    obj = {}
+                    obj['key'] = key
+                    obj['name'] = []
+                    for val in  existing_indexes[key]['key']:
+                        obj['name'].append(val[0])
+                    
+                    indexes.append(obj)
+      
+        return indexes
+        
 def get_index_cardinality(db_name, coll_name, index):
     """
     Calculates the cardinality for a given database, collection and index_name. This function is called for each index in the database. 
@@ -106,7 +131,7 @@ def get_index_cardinality(db_name, coll_name, index):
     sample_count = int(args.sample_count)
     
     index_keys = []
-    for val in list(index["key"]):
+    for val in index["name"]:
         index_keys.append('$'+val)
     
     pipeline = [  
@@ -120,11 +145,9 @@ def get_index_cardinality(db_name, coll_name, index):
     
     #removing 'None' results as they does not need to be counted towards cardinality
     for index, row in df.iterrows():
-        if row['_id'][0] == None and len(row['_id']) == 1:
+        if row['_id'][0] == None:
            df.drop(index, inplace=True)
-    
-    #print(index_keys[])
-    #print(df)
+   
     distinct = len(df)
 
     if distinct > 0:    
@@ -181,36 +204,37 @@ def start_cardinality_check():
                 print("### Starting cardinality check for collection - {} .... ".format(coll_name)) 
                 coll_counter = coll_counter + 1
                 collection = database[coll_name]
-                indexes = collection.list_indexes()
+                indexes = get_indexes(collection, args.indexes.split(','))
+                
                 for index in indexes:
                     result_row = {}
-                    if index['name'] != '_id_':
-                        index_name = index['name']
+                    
+                    index_name = index['key']
 
-                        print("###     checking index - {} .... ".format(index_name)) 
+                    print("###     checking index - {} .... ".format(index_name))
+                    
+                    cardinality = 0
+                    isLowCardinality = 'N'
+                   
+                    index_counter = index_counter + 1
+                    rs = get_index_cardinality(db_name, coll_name, index)
+                    if rs['total'] > 0:
+                        result_row['index_name'] = index_name
+                        result_row['index_keys'] = index['name']
+                        result_row['collection_name'] = coll_name
+                        result_row['cardinality'] = round(rs['cardinality'],4)
+                        if rs['cardinality'] < threshold:
+                            isLowCardinality = 'Y'
+                        result_row['isLowCardinality'] = isLowCardinality
+                        result_row['totalDocsWithIndexValue'] = rs['total']
+                        result_row['totalDistinctValues'] = rs['distinct']
+                        results.append(result_row)
                         
-                        cardinality = 0
-                        isLowCardinality = 'N'
-                       
-                        index_counter = index_counter + 1
-                        rs = get_index_cardinality(db_name, coll_name, index)
-                        if rs['total'] > 0:
-                            result_row['index_name'] = index_name
-                            result_row['index_keys'] = index['key']
-                            result_row['collection_name'] = index['ns']
-                            result_row['cardinality'] = round(rs['cardinality'],4)
-                            if rs['cardinality'] < threshold:
-                                isLowCardinality = 'Y'
-                            result_row['isLowCardinality'] = isLowCardinality
-                            result_row['totalDocsWithIndexValue'] = rs['total']
-                            result_row['totalDistinctValues'] = rs['distinct']
-                            results.append(result_row)
-                        
-                print("### Finished cardinality check for collection - {}\n".format(coll_name))        
+                print("### Finished cardinality check for collection - {}\n".format(coll_name))
+                
             args.db_counter = db_counter
             args.coll_counter = coll_counter
             args.index_counter = index_counter
-        
         return pd.DataFrame(results)
         
         
@@ -237,7 +261,8 @@ def main():
             print("All indexes are in good health. Cardinality detection script did not find any low cardinality indexes. ")
         else:
             print_output(results)
-            save_file(results)
+        
+        save_file(results)
     except Exception as e:
         traceback.print_exception(*sys.exc_info())
         print(e)        
