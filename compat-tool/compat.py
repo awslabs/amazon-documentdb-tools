@@ -176,6 +176,10 @@ def getOperatorsFromServer(args):
     serverStatus = client.admin.command("serverStatus")
     client.close()
 
+    # uptime
+    upSeconds = serverStatus.get('uptime',-1)
+    print("database server has been up for {:.2f} days".format(upSeconds/86400))
+
     # get/check version
     majorVersion = int(serverStatus.get('version','0').split('.')[0])
     print("database server major version is {}".format(majorVersion))
