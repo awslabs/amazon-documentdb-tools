@@ -2,13 +2,13 @@
 
 This repository contains several tools to help users with Amazon DocumentDB including migration, monitoring, and performance. A few of the most popular tools are listed below but there are additional tools in the [migration](./migration), [monitoring](./monitoring), [operations](./operations), and [performance](./performance) folders.
 
-## Amazon DocumentDB Index Tool 
-
-The [DocumentDB Index Tool](./index-tool) makes it easy to migrate only indexes (not data) between a source MongoDB deployment and an Amazon DocumentDB cluster.
-
 ## Amazon DocumentDB Compatibility Tool 
 
 The [DocumentDB Compatibility Tool](./compat-tool) examines log files from MongoDB or source code from MongoDB applications to determine if there are any queries which use operators that are not supported in Amazon DocumentDB.
+
+## Amazon DocumentDB Index Tool 
+
+The [DocumentDB Index Tool](./index-tool) makes it easy to migrate only indexes (not data) between a source MongoDB deployment and an Amazon DocumentDB cluster.
 
 ## Support
 
