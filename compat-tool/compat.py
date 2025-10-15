@@ -41,7 +41,7 @@ def ensureDirect(uri):
     connInfo['host'] = parsedUri['nodelist'][0][0]
     connInfo['port'] = parsedUri['nodelist'][0][1]
 
-    print("connecting to the server at {}:{}".format(connInfo['host'],connInfo['port']))
+    print(" + connecting to the server at {}:{}".format(connInfo['host'],connInfo['port']))
 
     if parsedUri.get('database') is not None:
         connInfo['authSource'] = parsedUri['database']
@@ -170,7 +170,8 @@ def scan_code(args, keywords):
 
 def getOperatorsFromServer(args):
     fullListDict = {}
-    filteredOpsList = ['$alwaysFalse','$alwaysTrue','$backupCursor','$backupCursorExtend','$const','$listCachedAndActiveUsers','$listCatalog','$mergeCursors','$operationMetrics','$queue','$searchBeta','$setVariableFromSubPipeline']
+    filteredOpsList = ['$alwaysFalse','$alwaysTrue','$backupCursor','$backupCursorExtend','$const','$listCachedAndActiveUsers','$listCatalog','$listClusterCatalog','$mergeCursors','$operationMetrics',
+                       '$queue','$searchBeta','$setMetadata','$setVariableFromSubPipeline']
 
     client = pymongo.MongoClient(**ensureDirect(args.uri))
     serverStatus = client.admin.command("serverStatus")
@@ -178,11 +179,11 @@ def getOperatorsFromServer(args):
 
     # uptime
     upSeconds = serverStatus.get('uptime',-1)
-    print("database server has been up for {:.2f} days".format(upSeconds/86400))
+    print(" + database server has been up for {:.2f} days".format(upSeconds/86400))
 
     # get/check version
     majorVersion = int(serverStatus.get('version','0').split('.')[0])
-    print("database server major version is {}".format(majorVersion))
+    print(" + database server major version is {}".format(majorVersion))
     if majorVersion < 5:
         print("This tool is only supported for version 5+")
         sys.exit(1)
@@ -248,11 +249,13 @@ def main(args):
 
     if args.uri is not None:
         # check for compatibility using db.serverStatus()
+        print("Gathering usage data for analysis")
+
         ver = args.version
         notCompatCounter = 0
         compatCounter = 0
         usageDict = getOperatorsFromServer(args)
-        print("checking compatibility using db.serverStatus()")
+        print(" + checking compatibility using db.serverStatus()")
 
         # get count of compatible and incompatible operators found
         for thisKey in sorted(usageDict.keys()):
@@ -427,6 +430,10 @@ def load_keywords():
         "$documents":{"mongodbversion":"5.1","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$each":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$elemMatch":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
+        "$encStrContains":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$encStrEndsWith":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$encStrNormalizedEq":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$encStrStartsWith":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$eq":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$exists":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$exp":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
@@ -469,6 +476,7 @@ def load_keywords():
         "$limit":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$linearFill":{"mongodbversion":"5.3","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$listLocalSessions":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$listMqlEntities":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$listSampledQueries":{"mongodbversion":"7.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$listSearchIndexes":{"mongodbversion":"7.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$listSessions":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
@@ -493,6 +501,7 @@ def load_keywords():
         "$millisecond":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$min":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$minDistance":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
+        "$minMaxScalar":{"mongodbversion":"8.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$minN":{"mongodbversion":"5.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$minute":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$mod":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
@@ -525,6 +534,7 @@ def load_keywords():
         "$rand":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$range":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$rank":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$rankFusion":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$redact":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$reduce":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$regex":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
@@ -541,6 +551,8 @@ def load_keywords():
         "$rtrim":{"mongodbversion":"4.0","3.6":"No","4.0":"Yes","5.0":"Yes","EC5.0":"No"},
         "$sample":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
         "$sampleRate":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$score":{"mongodbversion":"8.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$scoreFusion":{"mongodbversion":"8.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$search":{"mongodbversion":"4.0","3.6":"No","4.0":"No","5.0":"Yes","EC5.0":"No"},
         "$searchMeta":{"mongodbversion":"atlas","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$second":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
@@ -555,6 +567,10 @@ def load_keywords():
         "$setWindowFields":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$shardedDataDistribution":{"mongodbversion":"6.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$shift":{"mongodbversion":"5.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$sigmoid":{"mongodbversion":"6.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$similarityCosine":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$similarityDotProduct":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
+        "$similarityEuclidean":{"mongodbversion":"8.0","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$sin":{"mongodbversion":"4.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$sinh":{"mongodbversion":"4.2","3.6":"No","4.0":"No","5.0":"No","EC5.0":"No"},
         "$size":{"mongodbversion":"4.0","3.6":"Yes","4.0":"Yes","5.0":"Yes","EC5.0":"Yes"},
