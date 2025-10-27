@@ -64,7 +64,7 @@ echo "executing createTruststore.sh ..." >> setup.log
 ./createTruststore.sh
 
 echo "copying docdb-truststore.jks to s3://$1 ..." >> setup.log
-aws s3 cp docdb-truststore.jks s3://$1
+aws s3 cp /home/ec2-user/docdb-truststore.jks s3://$1
 
 # create Kafka client properties file
 echo "creating /home/ec2-user/kafka_2.13-4.0.0/config/client.properties ..." >> setup.log

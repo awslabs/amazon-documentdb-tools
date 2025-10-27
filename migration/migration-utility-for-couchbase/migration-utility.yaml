@@ -221,14 +221,14 @@ Resources:
             #!/bin/bash
             cd /home/ec2-user
 
-            echo "downloading https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh ..." >> setup.log
-            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh -O createTruststore.sh 2> wget.log
+            echo "createTruststore.sh from downloading https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh ..." >> setup.log
+            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh -O createTruststore.sh 2> wget.log
 
             echo "making createTruststore.sh executable ..." >> setup.log
             chmod 755 createTruststore.sh
 
-            echo "downloading setup.sh from https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/setup.sh ..." >> setup.log
-            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/setup.sh -O setup.sh 2> wget.log
+            echo "downloading setup.sh from https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/migration-utility-for-couchbase/static/scripts/setup.sh ..." >> setup.log
+            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/migration-utility-for-couchbase/static/scripts/setup.sh -O setup.sh 2> wget.log
 
             echo "making setup.sh executable ..." >> setup.log
             chmod 755 setup.sh
@@ -237,60 +237,60 @@ Resources:
             ./setup.sh ${S3BucketName} ${AWS::Region}
 
 # Amazon DocumentDB resources
-  MigrationDocumentDBParameterGroup:
-    Type: AWS::DocDB::DBClusterParameterGroup
-    Properties:
-      Description: '5.0 custom parameter group with collection compression enabled'
-      Family: 'docdb5.0'
-      Name: 'cfn-migration-parameter-group'
-      Parameters:
-          default_collection_compression: "enabled"
-  MigrationDocumentDBSubnetGroup:
-    Type: AWS::DocDB::DBSubnetGroup
-    Properties:
-      DBSubnetGroupName: 'cfn-migration-subnet-group'
-      DBSubnetGroupDescription: 'Private subnet group for Amazon DocumentDB'
-      SubnetIds: !Split [',', !Join [',', !Ref PrivateSubnets]]
-  MigrationDocumentDBCluster:
-    DependsOn:
-      - MigrationDocumentDBParameterGroup
-      - MigrationDocumentDBSubnetGroup
-      - MigrationEc2SecurityGroup
-    Type: AWS::DocDB::DBCluster
-    Properties:
-        DBClusterIdentifier: 'cfn-documentdb-target'
-        DBClusterParameterGroupName: !Ref MigrationDocumentDBParameterGroup
-        DBSubnetGroupName: !Ref MigrationDocumentDBSubnetGroup
-        MasterUsername: !Ref DocumentdbUsername
-        MasterUserPassword: !Ref DocumentdbPassword
-        VpcSecurityGroupIds:
-          - !GetAtt MigrationEc2SecurityGroup.GroupId
-  MigrationDocumentDBPrimaryInstance:
-    DependsOn: MigrationDocumentDBCluster
-    Type: AWS::DocDB::DBInstance
-    Properties:
-      DBClusterIdentifier: !Ref MigrationDocumentDBCluster
-      DBInstanceClass: !Ref DocumentdbInstanceType
-      DBInstanceIdentifier: cfn-primary-instance
-      EnablePerformanceInsights: true
+#  MigrationDocumentDBParameterGroup:
+#    Type: AWS::DocDB::DBClusterParameterGroup
+#    Properties:
+#      Description: '5.0 custom parameter group with collection compression enabled'
+#      Family: 'docdb5.0'
+#      Name: 'cfn-migration-parameter-group'
+#      Parameters:
+#          default_collection_compression: "enabled"
+#  MigrationDocumentDBSubnetGroup:
+#    Type: AWS::DocDB::DBSubnetGroup
+#    Properties:
+#      DBSubnetGroupName: 'cfn-migration-subnet-group'
+#      DBSubnetGroupDescription: 'Private subnet group for Amazon DocumentDB'
+#      SubnetIds: !Split [',', !Join [',', !Ref PrivateSubnets]]
+#  MigrationDocumentDBCluster:
+#    DependsOn:
+#      - MigrationDocumentDBParameterGroup
+#      - MigrationDocumentDBSubnetGroup
+#      - MigrationEc2SecurityGroup
+#    Type: AWS::DocDB::DBCluster
+#    Properties:
+#        DBClusterIdentifier: 'cfn-documentdb-target'
+#        DBClusterParameterGroupName: !Ref MigrationDocumentDBParameterGroup
+#        DBSubnetGroupName: !Ref MigrationDocumentDBSubnetGroup
+#        MasterUsername: !Ref DocumentdbUsername
+#        MasterUserPassword: !Ref DocumentdbPassword
+#        VpcSecurityGroupIds:
+#          - !GetAtt MigrationEc2SecurityGroup.GroupId
+#  MigrationDocumentDBPrimaryInstance:
+#    DependsOn: MigrationDocumentDBCluster
+#    Type: AWS::DocDB::DBInstance
+#    Properties:
+#      DBClusterIdentifier: !Ref MigrationDocumentDBCluster
+#      DBInstanceClass: !Ref DocumentdbInstanceType
+#      DBInstanceIdentifier: cfn-primary-instance
+#      EnablePerformanceInsights: true
 
 # MSK resources
   # not including custom plugins as there is a dependency on execution of EC2 user data script
-  MigrationMSKCluster:
-    Type: AWS::MSK::Cluster
-    Properties:
-      BrokerNodeGroupInfo:
-        SecurityGroups:
-          - !GetAtt MigrationEc2SecurityGroup.GroupId
-        ClientSubnets: !Split [',', !Join [',', !Ref PrivateSubnets]]
-        InstanceType: !Ref MskClusterBrokerInstanceType
-      ClientAuthentication:
-        Sasl:
-          Iam:
-            Enabled: true
-      ClusterName: cfn-msk-cluster
-      KafkaVersion: 3.6.0
-      NumberOfBrokerNodes: !Ref MskBrokerNodes
+#  MigrationMSKCluster:
+#    Type: AWS::MSK::Cluster
+#    Properties:
+#      BrokerNodeGroupInfo:
+#        SecurityGroups:
+#          - !GetAtt MigrationEc2SecurityGroup.GroupId
+#        ClientSubnets: !Split [',', !Join [',', !Ref PrivateSubnets]]
+#        InstanceType: !Ref MskClusterBrokerInstanceType
+#      ClientAuthentication:
+#        Sasl:
+#          Iam:
+#            Enabled: true
+#      ClusterName: cfn-msk-cluster
+#      KafkaVersion: 3.6.0
+#      NumberOfBrokerNodes: !Ref MskBrokerNodes
 
 Outputs:
   SecurityGroupId:
