@@ -1,4 +1,4 @@
-# Couchbase Discovery Tool
+# Discovery Tool for Couchbase
 This tool gathers information from a Couchbase cluster to aid in discovery and planning for a migration to Amazon DocumentDB. This tool does not modify any data or settings and is read-only. The following information is gathered and written to .csv and .txt files:
 
 * Details for all collections in the cluster written to ```collection-stats.csv```:
@@ -35,10 +35,10 @@ The [cbstats tool](https://docs.couchbase.com/server/current/cli/cbstats-intro.h
 Python 3.9 or later
 
 ## Installation
-Clone the repository and go to the tool folder:
+Clone the repository and go to the Discovery Tool for Couchbase folder:
 ```
 git clone https://github.com/awslabs/amazon-documentdb-tools.git
-cd amazon-documentdb-tools/migration/couchbase-discover-utility/
+cd amazon-documentdb-tools/migration/discovery-tool-for-couchbase/
 ```
 
 ## Usage/Examples
