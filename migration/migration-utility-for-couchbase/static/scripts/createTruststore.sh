@@ -1,5 +1,4 @@
-mydir=.
-truststore=${mydir}/docdb-truststore.jks
+truststore=/home/ec2-user/docdb-truststore.jks
 storepassword=password
 
 curl -sS "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem" > ${mydir}/global-bundle.pem

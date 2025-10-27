@@ -37,7 +37,7 @@ echo "creating docdb-custom-plugin.zip ..." >> /home/ec2-user/setup.log
 cd /home/ec2-user
 zip -r docdb-custom-plugin.zip docdb-custom-plugin
 
-echo "creating docdb-custom-plugin.zip to s3://$1 ..." >> setup.log
+echo "copying docdb-custom-plugin.zip to s3://$1 ..." >> setup.log
 aws s3 cp docdb-custom-plugin.zip s3://$1
 
 # Kafka
