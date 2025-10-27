@@ -1,6 +1,6 @@
 # install Java
 echo "installing java-21-amazon-corretto-devel ..." >> setup.log
-sudo yum install -y -v java-21-amazon-corretto-devel
+sudo yum install -y -v java-21-amazon-corretto-devel >> setup.log
 
 echo "\ncopying cacerts to kafka_truststore.jks ..." >> setup.log
 cp /usr/lib/jvm/java-21-amazon-corretto.x86_64/lib/security/cacerts kafka_truststore.jks
