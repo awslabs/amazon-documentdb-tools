@@ -221,7 +221,7 @@ Resources:
             #!/bin/bash
             cd /home/ec2-user
 
-            echo "createTruststore.sh from downloading https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh ..." >> setup.log
+            echo "downoading createTruststore.sh from downloading https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh ..." >> setup.log
             wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/couchbase-migration/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh -O createTruststore.sh 2> wget.log
 
             echo "making createTruststore.sh executable ..." >> setup.log
