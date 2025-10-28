@@ -232,7 +232,7 @@ def main():
     parser.add_argument('--dictionary-size',
                         required=False,
                         type=int,
-                        default=2048,
+                        default=4096,
                         help='Size of dictionary (bytes)')
 
     args = parser.parse_args()
