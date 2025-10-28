@@ -228,7 +228,7 @@ Resources:
             chmod 755 createTruststore.sh
 
             echo "downloading setup.sh from https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/setup.sh ..." >> setup.log
-            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/setup.sh -O createTruststore.sh 2> setup.log
+            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/setup.sh -O setup.sh 2> setup.log
 
             echo "making setup.sh executable ..." >> setup.log
             chmod 755 setup.sh
