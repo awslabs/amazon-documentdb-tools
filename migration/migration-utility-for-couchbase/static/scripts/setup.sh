@@ -1,6 +1,6 @@
 # install Java
 echo "installing java-21-amazon-corretto-devel ..." >> setup.log
-sudo yum install -y java-21-amazon-corretto-devel
+sudo yum install -y -v java-21-amazon-corretto-devel >> setup.log
 
 echo "copying cacerts to kafka_truststore.jks ..." >> setup.log
 cp /usr/lib/jvm/java-21-amazon-corretto.x86_64/lib/security/cacerts kafka_truststore.jks
@@ -37,7 +37,7 @@ echo "creating docdb-custom-plugin.zip ..." >> /home/ec2-user/setup.log
 cd /home/ec2-user
 zip -r docdb-custom-plugin.zip docdb-custom-plugin
 
-echo "creating docdb-custom-plugin.zip to s3://$1 ..." >> setup.log
+echo "copying docdb-custom-plugin.zip to s3://$1 ..." >> setup.log
 aws s3 cp docdb-custom-plugin.zip s3://$1
 
 # Kafka
@@ -57,14 +57,14 @@ cp aws-msk-iam-auth-2.3.2-all.jar kafka_2.13-4.0.0/libs/.
 # Mongo shell
 echo "installing mongodb-mongosh-shared-openssl3 ..." >> setup.log
 echo -e "[mongodb-org-5.0] \nname=MongoDB Repository\nbaseurl=https://repo.mongodb.org/yum/amazon/2023/mongodb-org/5.0/x86_64/\ngpgcheck=1 \nenabled=1 \ngpgkey=https://pgp.mongodb.com/server-5.0.asc" | sudo tee /etc/yum.repos.d/mongodb-org-5.0.repo
-sudo yum install -y mongodb-mongosh-shared-openssl3
+sudo yum install -y -v mongodb-mongosh-shared-openssl3 >> setup.log
 
 # create Amazon DocumentDB trust store
 echo "executing createTruststore.sh ..." >> setup.log
 ./createTruststore.sh
 
 echo "copying docdb-truststore.jks to s3://$1 ..." >> setup.log
-aws s3 cp docdb-truststore.jks s3://$1
+aws s3 cp /home/ec2-user/docdb-truststore.jks s3://$1
 
 # create Kafka client properties file
 echo "creating /home/ec2-user/kafka_2.13-4.0.0/config/client.properties ..." >> setup.log

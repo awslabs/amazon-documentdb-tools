@@ -42,6 +42,13 @@ Parameters:
     Type: String
     Default: "db.r6g.large"
     AllowedValues:
+      - "db.r8g.large"
+      - "db.r8g.xlarge"
+      - "db.r8g.2xlarge"
+      - "db.r8g.4xlarge"
+      - "db.r8g.8xlarge"
+      - "db.r8g.12xlarge"
+      - "db.r8g.16xlarge"
       - "db.r6g.large"
       - "db.r6g.xlarge"
       - "db.r6g.2xlarge"
@@ -49,7 +56,12 @@ Parameters:
       - "db.r6g.8xlarge"
       - "db.r6g.12xlarge"
       - "db.r6g.16xlarge"
-      - "db.t4g.medium"
+      - "db.r6gd.xlarge"
+      - "db.r6gd.2xlarge"
+      - "db.r6gd.4xlarge"
+      - "db.r6gd.8xlarge"
+      - "db.r6gd.12xlarge"
+      - "db.r6gd.16xlarge"
       - "db.r5.large"
       - "db.r5.xlarge"
       - "db.r5.2xlarge"
@@ -65,9 +77,10 @@ Parameters:
       - "db.r4.8xlarge"
       - "db.r4.12xlarge"
       - "db.r4.16xlarge"
+      - "db.t4g.medium"
       - "db.t3.medium"
   S3BucketName:
-    Description: Name of general purpose S3 bucket to store connector resources.
+    Description: Name of existing general purpose S3 bucket to store connector resources.
     Type: String
   MskClusterBrokerInstanceType:
     Description: MSK cluster broker size
@@ -208,14 +221,14 @@ Resources:
             #!/bin/bash
             cd /home/ec2-user
 
-            echo "downloading https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/couchbase-migration-utility/static/scripts/createTruststore.sh ..." >> setup.log
-            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/couchbase-migration-utility/static/scripts/createTruststore.sh -O createTruststore.sh 2> wget.log
+            echo "downloading createTruststore.sh from https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh ..." >> setup.log
+            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/createTruststore.sh -O createTruststore.sh 2> setup.log
 
             echo "making createTruststore.sh executable ..." >> setup.log
             chmod 755 createTruststore.sh
 
-            echo "downloading setup.sh from https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/couchbase-migration-utility/static/scripts/setup.sh ..." >> setup.log
-            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/couchbase-migration-utility/static/scripts/setup.sh -O setup.sh 2> wget.log
+            echo "downloading setup.sh from https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/setup.sh ..." >> setup.log
+            wget https://raw.githubusercontent.com/awslabs/amazon-documentdb-tools/refs/heads/master/migration/migration-utility-for-couchbase/static/scripts/setup.sh -O setup.sh 2> setup.log
 
             echo "making setup.sh executable ..." >> setup.log
             chmod 755 setup.sh

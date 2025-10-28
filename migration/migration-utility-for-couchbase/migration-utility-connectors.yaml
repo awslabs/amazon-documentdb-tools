@@ -44,25 +44,25 @@ Parameters:
       - 9
       - 10
   S3BucketName:
-    Description: Name of general purpose S3 bucket to store connector resources (output from couchbase-to-amazon-documentdb.yaml).
+    Description: Name of general purpose S3 bucket to store connector resources (output from migration-utility.yaml).
     Type: String
   BootstrapServers:
     Description: Comma-separated list of Amazon MSK cluster bootstrap servers. 
     Type: String
   SecurityGroupId:
-    Description: EC2 security group ID used for all resources (output from couchbase-to-amazon-documentdb.yaml).
+    Description: EC2 security group ID used for all resources (output from migration-utility.yaml).
     Type: String
   PrivateSubnets:
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cloudformation-supplied-parameter-types.html#cloudformation-supplied-parameter-types-overview
     Description: Select private subnets within the specified VPC.
     Type: List<AWS::EC2::Subnet::Id>
   MigrationMSKRoleARN:
-    Description: ARN of IAM role that allows resources to call Amazon MSK on your behalf (output from couchbase-to-amazon-documentdb.yaml).
+    Description: ARN of IAM role that allows resources to call Amazon MSK on your behalf (output from migration-utility.yaml).
     Type: String
   LogGroupName:
     Description: The name of the CloudWatch log group for Amazon MSK logs.
     Type: String
-    Default: '/couchbase/migration'
+    Default: '/migration-utility/migration'
 
 
 Resources:
@@ -136,7 +136,7 @@ Resources:
         key.converter.schemas.enable: 'false'
         max.batch.size: '100'
         tasks.max: '15'
-        topics: 'couchbase-to-documentdb'
+        topics: 'migration-utility'
         transforms: 'hk'
         transforms.hk.field: '_id'
         transforms.hk.type: 'org.apache.kafka.connect.transforms.HoistField$Key'
@@ -182,7 +182,6 @@ Resources:
         couchbase.bucket: '<REPLACE WITH COUCHBASE SOURCE BUCKET>'
         couchbase.username: '<REPLACE WITH COUCHBASE SOURCE USERNAME>'
         couchbase.password: '<REPLACE WITH COUCHBASE SOURCE PASSWORD>'
-        connector.class: 'com.couchbase.connect.kafka.CouchbaseSourceConnector'
         couchbase.bootstrap.timeout: '10s'
         couchbase.enable.tls: 'false'
         couchbase.env.timeout.kvTimeout: '10s'
@@ -193,7 +192,7 @@ Resources:
         couchbase.replicate.to: 'NONE'
         couchbase.source.handler: 'com.couchbase.connect.kafka.handler.source.RawJsonSourceHandler'
         couchbase.stream.from: 'SAVED_OFFSET_OR_BEGINNING'
-        couchbase.topic: 'couchbase-to-documentdb'
+        couchbase.topic: 'migration-utility'
         key.converter: 'org.apache.kafka.connect.storage.StringConverter'
         value.converter: 'org.apache.kafka.connect.converters.ByteArrayConverter'
         tasks.max: '15'

@@ -13,7 +13,7 @@ The solution also uses:
 - [AWS Cloudformation](https://aws.amazon.com/cloudformation/) to deploy the solution.
 - [AWS Identity and Access Management (IAM)](https://aws.amazon.com/iam/) to manage access to the AWS services and resources used in this solution.
 - [Amazon CloudWatch](https://aws.amazon.com/cloudwatch/) for logging and monitoring of the migration.
-- [Amazon DocumentDB](https://aws.amazon.com/documentdb/) a single instance cluser as the migration target. You can scale out as necessary.
+- [Amazon DocumentDB](https://aws.amazon.com/documentdb/) for a single instance cluser as the migration target. You can scale out as necessary.
 - [Amazon Elastic Compute Cloud (EC2)](https://aws.amazon.com/ec2/) for a bastion host (and associated resources) you can use to manage the Kafka topic.
 - [Amazon MSK](https://aws.amazon.com/msk/) to stream data from Couchbase to Amazon DocumentDB.
 
@@ -32,7 +32,7 @@ To deploy this solution you will need the following:
 
 
 ## Step 1 - Deploy IAM, EC2, & Amazon DocumentDB resources and MSK cluster
-* Download [couchbase-to-amazon-documentdb.yaml](./couchbase-to-amazon-documentdb.yaml).
+* Download [migration-utility.yaml](./migration-utility.yaml).
 * This CloudFormation template creates all required IAM, EC2, and Amazon DocumentDB resources and the MSK cluster. The Amazon DocumentDB cluster is configured to use a custom parameter group with collection-level document compression enabled. The default compression threshold is 2KB. A different value can be specified for new collections using the `createCollection` command, and changed for existing collections using `collMod` command. See [Managing collection-level document compression](https://docs.aws.amazon.com/documentdb/latest/developerguide/doc-compression.html) for more information.
 
 ### [CloudFormation console](https://console.aws.amazon.com/cloudformation/home)
@@ -41,11 +41,11 @@ To deploy this solution you will need the following:
 * **Create stack** step:
    * **Specify template** section:
       * Select **Upload a template file**.
-      * Select **Choose file** and choose the `couchbase-to-amazon-documentdb.yaml` file downloaded above.
+      * Select **Choose file** and choose the `migration-utility.yaml` file downloaded above.
    * Select **Next**.
 * **Specify stack details** step:
    * **Provide a stack name** section:
-      * **Stack name**: `couchbase-to-documentdb`
+      * **Stack name**: `migration-utility`
    * **Parameters** section
       * **DocumentdbInstanceType**: select desired instance type of DocumentDB cluster primary instance
       * **DocumentdbPassword**: specify password of DocumentDB user
@@ -72,9 +72,18 @@ To deploy this solution you will need the following:
    * Select **Submit**.
 * It will take ~40 minutes for the stack to fully deploy.
 * Select the **Outputs** tab and note the **MigrationMSKRoleARN**, **S3BucketName**, and **SecurityGroupId** values. These will be used as parameters when deploying the next CloudFormation template. 
-![CloudFormation Couchbase to Amazon DocumentDB output](./static/images/cloudformation-couchbase-to-amazon-documentdb-output.png)
+![CloudFormation Couchbase to Amazon DocumentDB output](./static/images/cloudformation-migration-utility-output.png)
+
+Confirm the following files exist in the S3 bucket you specified:
+* `couchbase-kafka-connect-couchbase-4.2.8.zip`
+* `docdb-custom-plugin.zip`
+* `docdb-truststore.jks`
+
+If they do not exist, SSH to the EC2 instance and check these log files:
+* `createTruststore.log`
+* `setup.log`
       
-## Step 2 - Modify Couchbase security group to allow inbound traffic from `cfn-security-group`.
+## Step 2 - Modify Couchbase cluster security group to allow inbound traffic from `cfn-migration-security-group`.
 If you are migrating from self-managed Couchbase on EC2, modify the security group of the EC2 instance(s) to allow inbound traffic from the MSK cluster.
 
 ### [EC2 console](https://console.aws.amazon.com/ec2/home)
@@ -98,7 +107,7 @@ If you are migrating from self-managed Couchbase on EC2, modify the security gro
 * Select the **cfn-msk-ec2** instance checkbox and then select **Connect**.
 * Copy the example SSH command.
 ![EC2 copy SSH command](./static/images/ec2-copy-ssh-command.png)
-* Go to the server or system represented by the **SshIngressIpAddress** value you specified when deploying `couchbase-to-amazon-documentdb.yaml`.
+* Go to the server or system represented by the **SshIngressIpAddress** value you specified when deploying `migration-utility.yaml`.
 * Paste and execute the copied command.
 * Confirm that you can login to the EC2 instance.
 ```
@@ -121,7 +130,7 @@ Last login: Mon Jun  9 15:33:18 2025 from XXX.XXX.XXX.XXX
 * Select the **Connectivity & security** tab.
 * **Connect** section:
    * Select **Copy** next to **Connect to this cluster with the mongo shell**.
-   * Replace `<insertYourPassword>` with the **DocumentdbPassword** value you specified when deploying `couchbase-to-amazon-documentdb.yaml`.
+   * Replace `<insertYourPassword>` with the **DocumentdbPassword** value you specified when deploying `migration-utility.yaml`.
 ![Amazon DocumentDB connect with mongo shell](./static/images/amazon-documentdb-connect-with-mongo-shell.png)
 
 ### EC2 bastion host
@@ -174,8 +183,8 @@ exit
 ```
 ## Step 4 - Deploy MSK Connect resources.
 *This guide assumes you are using the `test` collection in the `beer-sample` database. If you specify a different collection and database, modify the commands accordingly.*
-* Download [couchbase-to-amazon-documentdb-connectors.yaml](./couchbase-to-amazon-documentdb-connectors.yaml).
-* Edit `couchbase-to-amazon-documentdb-connectors.yaml`.
+* Download [migration-utility-connectors.yaml](./migration-utility-connectors.yaml).
+* Edit `migration-utility-connectors.yaml`.
    * Provide the values for the following in the `DocumentDbSinkConnector.Properties.ConnectorConfiguration` section:
       * **database** (line 117): target Amazon DocumentDB database name (e.g. `beer-sample`)
       * **collection** (line 118): target Amazon DocumentDB collection name (e.g. `test`)
@@ -190,10 +199,10 @@ exit
 ![Amazon DocumentDB connect with an application](./static/images/amazon-documentdb-connect-with-an-application.png)
 
    * Provide the values for the following in the `CouchbaseSourceSinkConnector.Properties.ConnectorConfiguration` section:
-      * **couchbase.seed.nodes** (line 175): Couchbase source seed nodes
-      * **couchbase.bucket** (line 176): source Couchbase bucket
-      * **couchbase.username** (line 177): Couchbase user username
-      * **couchbase.password** (line 178): Couchbase user password
+      * **couchbase.seed.nodes** (line 181): Couchbase source seed nodes
+      * **couchbase.bucket** (line 182): source Couchbase bucket
+      * **couchbase.username** (line 183): Couchbase user username
+      * **couchbase.password** (line 184): Couchbase user password
 
 ### [CloudFormation console](https://console.aws.amazon.com/cloudformation/home)
 * Select **Stacks**.
@@ -201,11 +210,11 @@ exit
 * **Create stack** step:
    * **Specify template** section:
       * Select **Upload a template file**.
-      * Select **Choose file** and choose the `couchbase-to-amazon-documentdb-connectors.yaml` file downloaded above.
+      * Select **Choose file** and choose the `migration-utility-connectors.yaml` file downloaded above.
    * Select **Next**.
 * **Specify stack details** step:
    * **Provide a stack name** section:
-      * **Stack name**: `couchbase-to-documentdb-connectors`
+      * **Stack name**: `migration-utility-connectors`
    * **Parameters** section
       * **BootstrapServers**: copy the private endpoint value from the Amazon MSK console
          * [Amazon MSK console](https://console.aws.amazon.com/msk/home)
@@ -219,10 +228,10 @@ exit
       * **CouchbaseSourceMcuWorkers**: specify the number of workers (e.g. 1). A worker is a Java virtual machine (JVM) process that executes the logic of a Kafka Connect connector in Amazon MSK Connect.
       * **DocumentDbSinkMcuCount**: specify the number of MCUs per worker (e.g. 2)
       * **DocumentDbSinkMcuWorkers**: specify the number of workers (e.g. 2). For Amazon DocumentDB, more workers provide more parallelism and higher update rates.
-      * **MigrationMSKRoleARN**: use the value of the **MigrationMSKRoleARN** key from the `couchbase-to-amazon-documentdb.yaml` **Outputs** tab
-      * **PrivateSubnets**: select 3 private subnets in VPC specified in VpcId. These must be the same 3 private subnets used when deploying couchbase-to-amazon-documentdb.yaml.
-      * **S3BucketName**: use the value of this Key from the `couchbase-to-amazon-documentdb.yaml` **Outputs** tab.
-      * **SecurityGroupId**: use the value of this Key from the `couchbase-to-amazon-documentdb.yaml` **Outputs** tab.
+      * **MigrationMSKRoleARN**: use the value of the **MigrationMSKRoleARN** key from the `migration-utility.yaml` **Outputs** tab
+      * **PrivateSubnets**: select 3 private subnets in VPC specified in VpcId. These must be the same 3 private subnets used when deploying migration-utility.yaml.
+      * **S3BucketName**: use the value of this Key from the `migration-utility.yaml` **Outputs** tab.
+      * **SecurityGroupId**: use the value of this Key from the `migration-utility.yaml` **Outputs** tab.
    * Select **Next**.
 * **Configure stack options** step:
    * **Stack failure options** section:
@@ -235,7 +244,7 @@ exit
 * It will take ~15 minutes for the stack to fully deploy.
 
 ## Step 5 - Create Kafka topic to use for live migration.
-*Note that the migration will start immediately after creating the Kafka topic. When you deployed `couchbase-to-amazon-documentdb-connectors.yaml`, the Couchbase source and Amazon DocumentDB sink connectors were created and they will start writing to and reading from the **couchbase-to-documentdb** topic when it exists.*
+*Note that the migration will start immediately after creating the Kafka topic. When you deployed `migration-utility-connectors.yaml`, the Couchbase source and Amazon DocumentDB sink connectors were created and they will start writing to and reading from the **migration-utility** topic when it exists.*
 
 [Amazon MSK console](https://console.aws.amazon.com/msk/home)
 * Select **MSK Clusters → Clusters**.
@@ -254,7 +263,7 @@ echo 'export BOOTSTRAP_SERVER="<private-endpoint-single-vpc>"' >> ~/.bashrc
 ```
 source ~/.bashrc
 ```
-* Create the `couchbase-to-documentdb` topic that will be used for the migration. **At this point the migration will begin.**
+* Create the `migration-utility` topic that will be used for the migration. **At this point the migration will begin.**
 ```
 kafka_2.13-4.0.0/bin/kafka-topics.sh \
 --create \
@@ -262,11 +271,11 @@ kafka_2.13-4.0.0/bin/kafka-topics.sh \
 --command-config kafka_2.13-4.0.0/config/client.properties \
 --replication-factor 3 \
 --partitions 15 \
---topic couchbase-to-documentdb
+--topic migration-utility
 ```
 * You will see the following message if successful.
 ```
-created topic couchbase-to-documentdb.
+created topic migration-utility.
 ```
 * List all topics in the cluster.
 ```
@@ -275,40 +284,40 @@ kafka_2.13-4.0.0/bin/kafka-topics.sh \
 --bootstrap-server $BOOTSTRAP_SERVER \
 --command-config kafka_2.13-4.0.0/config/client.properties
 ```
-* You will see the `couchbase-to-documentdb` topic and additional topics created by Amazon MSK.
+* You will see the `migration-utility` topic and additional topics created by Amazon MSK.
 ```
 __amazon_msk_canary
 __amazon_msk_connect_configs_cfn-couchbase-source-*
 __amazon_msk_connect_configs_cfn-documentdb-sink-*
 __consumer_offsets
-couchbase-to-documentdb
+migration-utility
 ```
-* Finally, describe the `couchbase-to-documentdb` topic.
+* Finally, describe the `migration-utility` topic.
 ```
 kafka_2.13-4.0.0/bin/kafka-topics.sh \
 --describe \
 --bootstrap-server $BOOTSTRAP_SERVER \
 --command-config kafka_2.13-4.0.0/config/client.properties \
---topic couchbase-to-documentdb
+--topic migration-utility
 ```
 * Confirm that it has the specified number of partitions (15).
 ```
-Topic: couchbase-to-documentdb	TopicId: xb7TyMzvSkiiRb329G9ThA	PartitionCount: 15	ReplicationFactor: 3	Configs: message.format.version=3.0-IV1,min.insync.replicas=2,unclean.leader.election.enable=false,message.timestamp.after.max.ms=86400000,message.timestamp.before.max.ms=86400000,message.timestamp.difference.max.ms=86400000
-	Topic: couchbase-to-documentdb	Partition: 0	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 1	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 2	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 3	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 4	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 5	Leader: 1	Replicas: 1,2,3	Isr: 1,2,3	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 6	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 7	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 8	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 9	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 10	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 11	Leader: 1	Replicas: 1,2,3	Isr: 1,2,3	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 12	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 13	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
-	Topic: couchbase-to-documentdb	Partition: 14	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
+Topic: migration-utility	TopicId: xb7TyMzvSkiiRb329G9ThA	PartitionCount: 15	ReplicationFactor: 3	Configs: message.format.version=3.0-IV1,min.insync.replicas=2,unclean.leader.election.enable=false,message.timestamp.after.max.ms=86400000,message.timestamp.before.max.ms=86400000,message.timestamp.difference.max.ms=86400000
+	Topic: migration-utility	Partition: 0	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 1	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 2	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 3	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 4	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 5	Leader: 1	Replicas: 1,2,3	Isr: 1,2,3	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 6	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 7	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 8	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 9	Leader: 3	Replicas: 3,1,2	Isr: 3,1,2	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 10	Leader: 2	Replicas: 2,3,1	Isr: 2,3,1	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 11	Leader: 1	Replicas: 1,2,3	Isr: 1,2,3	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 12	Leader: 3	Replicas: 3,2,1	Isr: 3,2,1	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 13	Leader: 2	Replicas: 2,1,3	Isr: 2,1,3	Elr: N/A	LastKnownElr: N/A
+	Topic: migration-utility	Partition: 14	Leader: 1	Replicas: 1,3,2	Isr: 1,3,2	Elr: N/A	LastKnownElr: N/A
 ```
 * Confirm that the documents from the `beer-sample` Couchbase bucket exist in the `beer-sample.test` collection in the Amazon DocumentDB cluster. Use the `mongosh` command you used earlier when validating the connection to the cluster from the EC2 instance.
 * Switch to the `beer-sample` database.
@@ -400,13 +409,13 @@ db.test.find({"type":"brewery"}).count()
 
 ### [CloudFormation console](https://console.aws.amazon.com/cloudformation/home)
 * Select **CloudFormation → Stacks**.
-* Select the **couchbase-to-documentdb-connectors** stack.
+* Select the **migration-utility-connectors** stack.
 * Select **Delete**.
 * **Delete stack?** popup:
    * Select **Delete**.
 * It will take ~1 minute for the stack to fully delete
 * Select **CloudFormation → Stacks**.
-* Select the **couchbase-to-documentdb** stack.
+* Select the **migration-utility** stack.
 * Select **Delete**.
 * **Delete stack?** popup:
    * Select **Delete**.
@@ -418,7 +427,7 @@ db.test.find({"type":"brewery"}).count()
 kafka_2.13-4.0.0/bin/kafka-console-producer.sh \
 --bootstrap-server $BOOTSTRAP_SERVER \
 --producer.config kafka_2.13-4.0.0/config/client.properties \
---topic couchbase-to-documentdb \
+--topic migration-utility \
 --property "parse.key=true" \
 --property "key.separator=:"
 > msg1:{"msg": "this is a test"}
@@ -430,7 +439,7 @@ Press `ctrl-d` to exit.
 kafka_2.13-4.0.0/bin/kafka-console-consumer.sh \
 --bootstrap-server $BOOTSTRAP_SERVER \
 --consumer.config kafka_2.13-4.0.0/config/client.properties \
---topic couchbase-to-documentdb \
+--topic migration-utility \
 --property print.key=true \
 --from-beginning
 ```
@@ -441,5 +450,5 @@ kafka_2.13-4.0.0/bin/kafka-topics.sh \
 --delete \
 --bootstrap-server $BOOTSTRAP_SERVER \
 --command-config kafka_2.13-4.0.0/config/client.properties \
---topic couchbase-to-documentdb
+--topic migration-utility
 ```
