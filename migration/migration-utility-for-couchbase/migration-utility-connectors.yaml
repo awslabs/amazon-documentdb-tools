@@ -178,6 +178,7 @@ Resources:
           McuCount: !Ref CouchbaseSourceMcuCount
           WorkerCount: !Ref CouchbaseSourceMcuWorkers
       ConnectorConfiguration:
+        connector.class: 'com.couchbase.connect.kafka.CouchbaseSourceConnector'
         couchbase.seed.nodes: '<REPLACE WITH COUCHBASE SOURCE SEED NODES>'
         couchbase.bucket: '<REPLACE WITH COUCHBASE SOURCE BUCKET>'
         couchbase.username: '<REPLACE WITH COUCHBASE SOURCE USERNAME>'
