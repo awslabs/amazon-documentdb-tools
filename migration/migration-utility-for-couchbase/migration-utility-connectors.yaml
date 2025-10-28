@@ -114,9 +114,9 @@ Resources:
           McuCount: !Ref DocumentDbSinkMcuCount
           WorkerCount: !Ref DocumentDbSinkMcuWorkers
       ConnectorConfiguration:
-        database: 'beer-sample'
-        collection: 'test'
-        connection.uri: 'mongodb://dbonser:password@cfn-documentdb-target.cluster-c9hsim63oezo.us-west-2.docdb.amazonaws.com:27017/?tls=true&tlsCAFile=global-bundle.pem&replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false'
+        database: '<REPLACE WITH TARGET DOCUMENTDB DATABASE NAME>'
+        collection: '<REPLACE WITH TARGET DOCUMENTDB COLLECTION NAME>'
+        connection.uri: '<REPLACE WITH TARGET DOCUMENTDB CLUSTER ENDPOINT>'
         config.providers: 's3import,ssm,sm'
         config.providers.s3import.class: 'com.amazonaws.kafka.config.providers.S3ImportConfigProvider'
         config.providers.s3import.param.region: !Ref 'AWS::Region'
@@ -178,11 +178,10 @@ Resources:
           McuCount: !Ref CouchbaseSourceMcuCount
           WorkerCount: !Ref CouchbaseSourceMcuWorkers
       ConnectorConfiguration:
-        couchbase.seed.nodes: 'couchbase://10.0.130.123'
-        couchbase.bucket: 'beer-sample'
-        couchbase.username: 'dbonser'
-        couchbase.password: 'password'
-        connector.class: 'com.couchbase.connect.kafka.CouchbaseSourceConnector'
+        couchbase.seed.nodes: '<REPLACE WITH COUCHBASE SOURCE SEED NODES>'
+        couchbase.bucket: '<REPLACE WITH COUCHBASE SOURCE BUCKET>'
+        couchbase.username: '<REPLACE WITH COUCHBASE SOURCE USERNAME>'
+        couchbase.password: '<REPLACE WITH COUCHBASE SOURCE PASSWORD>'
         couchbase.bootstrap.timeout: '10s'
         couchbase.enable.tls: 'false'
         couchbase.env.timeout.kvTimeout: '10s'

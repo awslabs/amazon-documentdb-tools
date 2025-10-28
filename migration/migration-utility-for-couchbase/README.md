@@ -73,8 +73,17 @@ To deploy this solution you will need the following:
 * It will take ~40 minutes for the stack to fully deploy.
 * Select the **Outputs** tab and note the **MigrationMSKRoleARN**, **S3BucketName**, and **SecurityGroupId** values. These will be used as parameters when deploying the next CloudFormation template. 
 ![CloudFormation Couchbase to Amazon DocumentDB output](./static/images/cloudformation-migration-utility-output.png)
+
+Confirm the following files exist in the S3 bucket you specified:
+* `couchbase-kafka-connect-couchbase-4.2.8.zip`
+* `docdb-custom-plugin.zip`
+* `docdb-truststore.jks`
+
+If they do not exist, SSH to the EC2 instance and check these log files:
+* `createTruststore.log`
+* `setup.log`
       
-## Step 2 - Modify Couchbase security group to allow inbound traffic from `cfn-migration-security-group`.
+## Step 2 - Modify Couchbase cluster security group to allow inbound traffic from `cfn-migration-security-group`.
 If you are migrating from self-managed Couchbase on EC2, modify the security group of the EC2 instance(s) to allow inbound traffic from the MSK cluster.
 
 ### [EC2 console](https://console.aws.amazon.com/ec2/home)
