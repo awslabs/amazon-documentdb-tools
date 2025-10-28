@@ -199,10 +199,10 @@ exit
 ![Amazon DocumentDB connect with an application](./static/images/amazon-documentdb-connect-with-an-application.png)
 
    * Provide the values for the following in the `CouchbaseSourceSinkConnector.Properties.ConnectorConfiguration` section:
-      * **couchbase.seed.nodes** (line 181): Couchbase source seed nodes
-      * **couchbase.bucket** (line 182): source Couchbase bucket
-      * **couchbase.username** (line 183): Couchbase user username
-      * **couchbase.password** (line 184): Couchbase user password
+      * **couchbase.seed.nodes** (line 182): Couchbase source seed nodes
+      * **couchbase.bucket** (line 183): source Couchbase bucket
+      * **couchbase.username** (line 184): Couchbase user username
+      * **couchbase.password** (line 185): Couchbase user password
 
 ### [CloudFormation console](https://console.aws.amazon.com/cloudformation/home)
 * Select **Stacks**.
