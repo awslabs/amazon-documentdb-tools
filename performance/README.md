@@ -6,3 +6,4 @@
 * [index-review](./index-review) - provide analysis of all collections and indexes including sizing, index usage, and redundant indexes.
 * [metric-collector](./metric-collector) - collect and summarize major cluster and instance level metrics in a single view.
 * [metric-analyzer](./metric-analyzer) - process the output of metric-collector for size, cost, and performance recommendations.
+* [documentdb-top-operations-report](./documentdb-top-operations-report) - analyze DocumentDB profiler logs to identify top operations and performance bottlenecks.

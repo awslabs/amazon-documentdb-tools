@@ -1,0 +1,6 @@
+pytest
+boto3
+requests
+moto[logs,ses]
+pandas
+aws-lambda-powertools[tracer]

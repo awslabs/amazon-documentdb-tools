@@ -1,0 +1,4 @@
+{
+    "test": true,
+    "description": "Manual test invocation for DocumentDB profiler"
+}
