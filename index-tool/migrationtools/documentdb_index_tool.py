@@ -22,7 +22,6 @@ import os
 import sys
 import string
 import random
-import re
 
 from bson.json_util import dumps
 from pymongo import MongoClient
@@ -70,7 +69,7 @@ class DocumentDbUnsupportedFeatures(object):
     UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
     UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
-    UNSUPPORTED_FIELD_NAMES_PATTERN = r'^\$\*{2,}$'
+    UNSUPPORTED_WILDCARD_INDEXES = ['$**', '$***', '$****']
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion','default_language','language_override','textIndexVersion']
 
 
@@ -453,7 +452,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                                             UNSUPPORTED_INDEX_TYPES_KEY] = key_value
                                 
                                 # Check for unsupported field names
-                                if re.match(DocumentDbUnsupportedFeatures.UNSUPPORTED_FIELD_NAMES_PATTERN, index_key_name):
+                                if index_key_name in DocumentDbUnsupportedFeatures.UNSUPPORTED_WILDCARD_INDEXES or index_key_name.startswith('$**'):
                                     if self.UNSUPPORTED_FIELD_NAMES_KEY not in compatibility_issues[
                                             db_name][collection_name][index_name]:
                                         compatibility_issues[db_name][collection_name][
