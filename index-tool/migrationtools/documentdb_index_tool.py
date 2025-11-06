@@ -70,7 +70,7 @@ class DocumentDbUnsupportedFeatures(object):
     UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
     UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
-    UNSUPPORTED_FIELD_NAMES_PATTERN = r'^\$\**$'
+    UNSUPPORTED_FIELD_NAMES_PATTERN = r'^\$\*{2,}$'
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion','default_language','language_override','textIndexVersion']
 
 
