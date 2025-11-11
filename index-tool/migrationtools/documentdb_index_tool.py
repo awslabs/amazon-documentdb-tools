@@ -50,7 +50,7 @@ class DocumentDbLimits(object):
         pass
 
     COLLECTION_QUALIFIED_INDEX_NAME_MAX_LENGTH = 255
-    COLLECTION_NAME_MAX_LENGTH = 57
+    COLLECTION_NAME_MAX_LENGTH = 255
     COMPOUND_INDEX_MAX_KEYS = 32
     DATABASE_NAME_MAX_LENGTH = 63
     FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH = 377
@@ -69,6 +69,7 @@ class DocumentDbUnsupportedFeatures(object):
     UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
     UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
+    UNSUPPORTED_WILDCARD_INDEXES = ['$**', '$***', '$****']
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion','default_language','language_override','textIndexVersion']
 
 
@@ -98,6 +99,7 @@ class IndexToolConstants(object):
     UNSUPPORTED_INDEX_OPTIONS_KEY = 'unsupported_index_options'
     UNSUPPORTED_COLLECTION_OPTIONS_KEY = 'unsupported_collection_options'
     UNSUPPORTED_INDEX_TYPES_KEY = 'unsupported_index_types'
+    UNSUPPORTED_FIELD_NAMES_KEY = 'unsupported_field_names'
 
 
 class DocumentDbIndexTool(IndexToolConstants):
@@ -448,6 +450,20 @@ class DocumentDbIndexTool(IndexToolConstants):
                                         collection_name][index_name][
                                             self.
                                             UNSUPPORTED_INDEX_TYPES_KEY] = key_value
+                                
+                                # Check for unsupported field names
+                                if index_key_name in DocumentDbUnsupportedFeatures.UNSUPPORTED_WILDCARD_INDEXES or index_key_name.startswith('$**'):
+                                    if self.UNSUPPORTED_FIELD_NAMES_KEY not in compatibility_issues[
+                                            db_name][collection_name][index_name]:
+                                        compatibility_issues[db_name][collection_name][
+                                            index_name][
+                                                self.
+                                                UNSUPPORTED_FIELD_NAMES_KEY] = []
+
+                                    compatibility_issues[db_name][collection_name][
+                                        index_name][
+                                            self.UNSUPPORTED_FIELD_NAMES_KEY].append(
+                                                index_key_name)
 
         return compatibility_issues
 
