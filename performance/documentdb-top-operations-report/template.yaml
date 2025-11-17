@@ -1,0 +1,135 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  docdb-profiler-top-ops
+
+Globals: 
+  Function:
+    Timeout: 900
+    MemorySize: 128
+    Runtime: python3.13
+    Tracing: Active
+    LoggingConfig:
+      LogFormat: JSON
+
+Parameters:
+  LambdaTriggerSchedule:
+    Type: String
+    Default: "cron(0 13 * * ? *)"
+    Description: "Provide cron schedule to trigger Lambda in UTC. Example: cron(0 13 * * ? *)"
+  DocDBProfilerLogGrpsName:
+    Type: String
+    Description: "Comma separated list of CloudWatch Profile log group names for DocumentDB"
+  TopOpsCount:
+    Type: String
+    Default: ""
+    Description: "Number of top operations to be reported. If left empty then it will report all operations"
+  ReportStartTime:
+    Type: String
+    Default: ""
+    Description: "Start time of the report in UTC. Example: 2024-02-11 00:00:00. If left empty then it will run the report for the last one day"
+  ReportEndTime:
+    Type: String
+    Default: ""
+    Description: "End time of the report in UTC. Example: 2024-02-11 00:00:00. If left empty then it will run the report for the last one day"
+  SenderEmail:
+    Type: String
+    Description: "Sender email address for the report"
+  RecipientEmailList:
+    Type: String
+    Description: "Comma separated list of recipient email addresses for the report"
+  
+Conditions:
+  HasReportStartTime: 
+    !Not [!Equals [!Ref ReportStartTime, ""]]
+  HasReportEndTime:
+    !Not [!Equals [!Ref ReportEndTime, ""]]
+  HasTopOpsCount:
+    !Not [!Equals [!Ref TopOpsCount, ""]]
+
+Resources:
+  DocDBProfilerScheduleRule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: docdb-profiler-daily-schedule
+      Description: "Triggers DocDB Profiler function every day at 8:00 AM"
+      ScheduleExpression: !Ref LambdaTriggerSchedule
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt DocDBProfilerFunction.Arn
+        RoleArn: !GetAtt DocDBProfilerSchedulerRole.Arn
+  
+  DocDBProfilerSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt DocDBProfilerFunction.Arn
+  
+  DocDBProfilerFunction:
+    Type: AWS::Serverless::Function     
+    Properties:
+      Handler: lambda_handler.lambda_handler
+      CodeUri: src
+      Description: DocDB profiler top operations
+      Architectures:
+      - x86_64
+      Tracing: Active
+      Layers:
+        - !Sub arn:aws:lambda:${AWS::Region}:336392948345:layer:AWSSDKPandas-Python313:1
+        - !Sub arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python313-x86_64:6
+      Environment:
+        Variables:
+          POWERTOOLS_SERVICE_NAME: DocDBProfilerService
+          POWERTOOLS_METRICS_NAMESPACE: DocDBProfilerMetrics
+          DOCDB_LOG_GROUP_NAME: !Ref DocDBProfilerLogGrpsName
+          TOP_OPS_COUNT: !If 
+            - HasTopOpsCount
+            - !Ref TopOpsCount
+            - !Ref AWS::NoValue
+          REPORT_START_TIME: !If
+            - HasReportStartTime
+            - !Ref ReportStartTime
+            - !Ref AWS::NoValue
+          REPORT_END_TIME: !If
+            - HasReportEndTime
+            - !Ref ReportEndTime
+            - !Ref AWS::NoValue
+          SENDER_EMAIL: !Ref SenderEmail
+          RECIPIENT_EMAIL_LIST: !Ref RecipientEmailList
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:StartQuery
+                - logs:GetQueryResults
+                - logs:StopQuery
+                - logs:DescribeLogGroups
+                - logs:DescribeLogStreams
+              Resource:
+                - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/docdb/*/profiler:*'
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+              Resource:
+                - !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*'
+      Tags:
+        LambdaPowertools: python
+
+Outputs:
+  DocDBProfilerFunction:
+    Description: DocDBProfilerFunction Lambda Function ARN
+    Value: !GetAtt DocDBProfilerFunction.Arn
