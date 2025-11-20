@@ -59,55 +59,87 @@ def change_stream_processor(threadnum, appConfig, perfQ):
             if ((time.time() - startTime) > appConfig['durationSeconds']) and (appConfig['durationSeconds'] != 0):
                 allDone = True
                 break
-            applyLastbatch=False
-            if change is  None and waitcount <=appConfig["maxSecondsBetweenBatches"]+1:
-                waitcount=waitcount+1
-                time.sleep(1)
-                continue
-            elif waitcount>(appConfig["maxSecondsBetweenBatches"]+1):
-                waitcount=0
-                applyLastbatch=True 
-          
-            if not applyLastbatch:
-                endTs = change['clusterTime']
-                resumeToken = change['_id']['_data']
-                thisDb = change['ns']['db']
-                thisCol=change['ns']['coll']
-                thisNs=thisDb+'.'+thisCol
-                thisOp = change['operationType']
-                if ((int(hashlib.sha512(str(change['documentKey']).encode('utf-8')).hexdigest(), 16) % appConfig["numProcessingThreads"]) == threadnum):
-                    threadOplogEntries += 1
-                    if (not printedFirstTs) and (thisOp in ['insert','update','replace','delete']):
+            
+            # FIXED: Separate the timeout logic from change processing
+            if change is None:
+                waitcount += 1
+                if waitcount <= appConfig["maxSecondsBetweenBatches"]:
+                    time.sleep(1)
+                    continue
+                else:
+                    # Timeout reached - process any pending batch and reset
+                    waitcount = 0
+                    if numCurrentBulkOps > 0:
+                        # Force batch processing due to timeout
                         if appConfig['verboseLogging']:
-                            logIt(threadnum,'first timestamp = {} aka {}'.format(change['clusterTime'],change['clusterTime'].as_datetime()))
-                        printedFirstTs = True
+                            logIt(threadnum, f'Timeout reached, processing batch of {numCurrentBulkOps} operations')
+                        
+                        bulkOpList=[]
+                        bulkOpListReplace=[]
+                        if not appConfig['dryRun']:
+                            for ns in nsBulkOpDict:
+                                destDatabase=destConnection[(ns.split('.',1)[0])]
+                                destCollection=destDatabase[(ns.split('.',1)[1])]
+                                bulkOpList=nsBulkOpDict[ns]
+                                try:
+                                    result = destCollection.bulk_write(bulkOpList,ordered=True)
+                                except:
+                                    # replace inserts as replaces
+                                    bulkOpListReplace=nsBulkOpDictReplace[ns]
+                                    result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
+                        perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum,"resumeToken":"N/A"})
+                        nsBulkOpDict = defaultdict(list)
+                        nsBulkOpDictReplace= defaultdict(list)
+                        numCurrentBulkOps = 0
+                        numTotalBatches += 1
+                        lastBatch = time.time()
+                    continue
+            
+            # Reset wait count when we get a real change
+            waitcount = 0
+            
+            # Process the actual change
+            endTs = change['clusterTime']
+            resumeToken = change['_id']['_data']
+            thisDb = change['ns']['db']
+            thisCol=change['ns']['coll']
+            thisNs=thisDb+'.'+thisCol
+            thisOp = change['operationType']
+            
+            if ((int(hashlib.sha512(str(change['documentKey']).encode('utf-8')).hexdigest(), 16) % appConfig["numProcessingThreads"]) == threadnum):
+                threadOplogEntries += 1
+                if (not printedFirstTs) and (thisOp in ['insert','update','replace','delete']):
+                    if appConfig['verboseLogging']:
+                        logIt(threadnum,'first timestamp = {} aka {}'.format(change['clusterTime'],change['clusterTime'].as_datetime()))
+                    printedFirstTs = True
 
-                    if (thisOp == 'insert'):
+                if (thisOp == 'insert'):
+                    myClusterOps += 1
+                    nsBulkOpDict[thisNs].append(pymongo.InsertOne(change['fullDocument']))
+                    nsBulkOpDictReplace[thisNs].append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                    numCurrentBulkOps += 1
+                elif (thisOp in ['update','replace']):
+                    # update/replace
+                    if (change['fullDocument'] is not None):
                         myClusterOps += 1
-                        nsBulkOpDict[thisNs].append(pymongo.InsertOne(change['fullDocument']))
+                        nsBulkOpDict[thisNs].append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
                         nsBulkOpDictReplace[thisNs].append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
-                    elif (thisOp in ['update','replace']):
-                        # update/replace
-                        if (change['fullDocument'] is not None):
-                            myClusterOps += 1
-                            nsBulkOpDict[thisNs].append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
-                            nsBulkOpDictReplace[thisNs].append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
-                            numCurrentBulkOps += 1
-                        else:
-                            pass
-                    elif (thisOp == 'delete'):
-                        myClusterOps += 1
-                        nsBulkOpDict[thisNs].append(pymongo.DeleteOne({'_id':change['documentKey']['_id']}))
-                        nsBulkOpDictReplace[thisNs].append(pymongo.DeleteOne({'_id':change['documentKey']['_id']}))
-                        numCurrentBulkOps += 1
-                    elif (thisOp in ['drop','rename','dropDatabase','invalidate']):
-                        # operations we do not track
-                        pass
                     else:
-                        print(change)
-                        sys.exit(1)
+                        pass
+                elif (thisOp == 'delete'):
+                    myClusterOps += 1
+                    nsBulkOpDict[thisNs].append(pymongo.DeleteOne({'_id':change['documentKey']['_id']}))
+                    nsBulkOpDictReplace[thisNs].append(pymongo.DeleteOne({'_id':change['documentKey']['_id']}))
+                    numCurrentBulkOps += 1
+                elif (thisOp in ['drop','rename','dropDatabase','invalidate']):
+                    # operations we do not track
+                    pass
+                else:
+                    print(change)
+                    sys.exit(1)
             
+            # Check if we need to process batch (either by count or time)
             if ((numCurrentBulkOps >= appConfig["maxOperationsPerBatch"]) or (time.time() >= (lastBatch + appConfig["maxSecondsBetweenBatches"])) ) and (numCurrentBulkOps > 0):
                 bulkOpList=[]
                 bulkOpListReplace=[]
