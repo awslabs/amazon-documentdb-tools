@@ -85,6 +85,12 @@ def display_server_stats(previous_stats, current_stats, header_interval_counter,
         'Timestamp': current_stats['localTime']
     }
 
+    if 'nvme_writes' in fields:
+        metrics['nvme_writes'] = (current_stats['metrics']['nvme_cache']['nvme_writes'] - previous_stats['metrics']['nvme_cache']['nvme_writes']) / polling_interval
+
+    if 'nvme_missed_writes' in fields:
+        metrics['nvme_missed_writes'] = (current_stats['metrics']['nvme_cache']['nvme_missed_writes'] - previous_stats['metrics']['nvme_cache']['nvme_missed_writes']) / polling_interval
+
     fields = [field.lower() for field in fields]
     selected_metrics = {key: value for key, value in metrics.items() if key.lower() in fields}
 
@@ -128,9 +134,14 @@ if __name__ == "__main__":
     parser.add_argument("--uri", required=True, help="DocumentDB connection URI.")
     parser.add_argument("-i", "--interval", type=int, default=1, help="Polling interval in seconds (Default: 1s).")
     parser.add_argument("-hi", "--header-interval", type=int, default=10, help="Interval to display the header in iterations (Default: 10).")
-    parser.add_argument("-f", "--field", type=str, default='Host,Status,Connections,Inserts,Query,Updates,Deletes,GetMore,Command,CursorsTotal,CursorsNoTimeout,Transactions,Timestamp',
-                        help="Comma-separated fields to display in the output.")
+    parser.add_argument("-f", "--field", type=str, default='Host,Status,Connections,Inserts,Query,Updates,Deletes,GetMore,Command,CursorsTotal,CursorsNoTimeout,Transactions,Timestamp',help="Comma-separated fields to display in the output.")
+    parser.add_argument('--include-nvme',required=False,action='store_true',help='Include NVMe metrics')
     args = parser.parse_args()
 
     fields = [field.strip() for field in args.field.split(',')]
+
+    if args.include_nvme:
+        fields.append('nvme_writes')
+        fields.append('nvme_missed_writes')
+
     main(args.uri, args.interval, args.header_interval, fields)
