@@ -114,13 +114,14 @@ def getCollectionStats(client):
                 #print("  skipping view {}".format(thisColl['name']))
                 pass
             else:
-                collStats = client[thisDb['name']].command("collstats",thisColl['name']).copy()
+                collStats = client[thisDb['name']].command("collStats",thisColl['name']).copy()
                 if thisDb['name'] not in returnDict:
                     returnDict[thisDb['name']] = {}
 
                 returnDict[thisDb['name']][thisColl['name']] = {}
-                returnDict[thisDb['name']][thisColl['name']]['wiredTiger'] = {}
-                returnDict[thisDb['name']][thisColl['name']]['wiredTiger']['cursor'] = collStats['wiredTiger']['cursor']
+                if collStats.get('wiredTiger') is not None:
+                    returnDict[thisDb['name']][thisColl['name']]['wiredTiger'] = {}
+                    returnDict[thisDb['name']][thisColl['name']]['wiredTiger']['cursor'] = collStats['wiredTiger']['cursor']
                 returnDict[thisDb['name']][thisColl['name']]['ns'] = collStats['ns']
                 returnDict[thisDb['name']][thisColl['name']]['size'] = collStats['size']
                 returnDict[thisDb['name']][thisColl['name']]['count'] = collStats['count']
