@@ -1,6 +1,6 @@
 # Detecting low cardinality indexes for DocumentDB Performance 
 
-Amazon DocumentDB indexes are a data structure using a hierarchical and sorted organisation, also known as B-tree. B-tree indexes are highly effective data structures for rapid data retrieval when the cardinality is high (a large number of unique values).  As a best practice, it is recommended to limit the creation of indexes to fields where the number of duplicate values is less than 1% of the total number of documents in the collection.  The following script analyses the collections in all or a specified database, by taking a sample of documents and identifies indexes where the total number of distinct values is less than a threshold (default 1%) 
+Amazon DocumentDB indexes are a data structure using a hierarchical and sorted organization, also known as B-tree. B-tree indexes are highly effective data structures for rapid data retrieval when the cardinality is high (a large number of unique values).  As a best practice, it is recommended to limit the creation of indexes to fields where the number of duplicate values is less than 1% of the total number of documents in the collection.  The following script analyses the collections in all or a specified database, by taking a sample of documents and identifies indexes where the total number of distinct values is less than a threshold (default 1%) 
 
 ### Requirements 
 * Python 3.9+ installed 
@@ -11,12 +11,13 @@ Amazon DocumentDB indexes are a data structure using a hierarchical and sorted o
 
 | Parameter        | Details          | Default  | Supported Values |
 | ------------- |:-------------:| -----:| -----: |
-| -s, --uri      | Connection String of Amazon DocumentDB Instance |  | |
-| -m, --max-collections     | Maximum number of collections to scan in a database     | 100   | |
-| -t, --threshold | Index Cardinality threshold percentage. Indexes with less than this % will be reported | 1 | |
-| -d, --databases | Command separated list of databases to check cardinality | All | |
-| -c, --collections | Command separated list of collections to check cardinality | All | |
-| -sample, --sample-count | Max documents to sample for each index. Increasing this limit may result in higher IOPS cost and extended execution time | 100000 | |
+| --uri      | Connection String of Amazon DocumentDB Instance |  | |
+| --max-collections     | Maximum number of collections to scan in a database     | 100   | |
+| --threshold | Index Cardinality threshold percentage. Indexes with less than this % will be reported | 1 | |
+| --databases | Comma separated list of databases to check cardinality | All | |
+| --collections | Comma separated list of collections to check cardinality | All | |
+| --indexes | Comma separated list of indexes to evaluate. Supplying specific list of indexes reduces the scope of scan and can speed up cardinality detection. | All | |
+| --sample-count | Max documents to sample for each index. Increasing this limit may result in higher IOPS cost and extended execution time | 100000 | |
 
 ### How to run the script 
 1. Download CA cert file
@@ -29,8 +30,8 @@ Amazon DocumentDB indexes are a data structure using a hierarchical and sorted o
     ```
 3. Install mongo client and mongoimport util. This command requires an update if running on non-linux environments
     ```
-    sudo yum install mongodb-org-tools
-    echo -e "[mongodb-org-4.0] \nname=MongoDB Repository\nbaseurl=https://repo.mongodb.org/yum/amazon/2013.03/mongodb-org/4.0/x86_64/\ngpgcheck=1 \nenabled=1 \ngpgkey=https://www.mongodb.org/static/pgp/server-4.0.asc" | sudo tee /etc/yum.repos.d/mongodb-org-4.0.rep
+    echo -e "[mongodb-org-4.0] \nname=MongoDB Repository\nbaseurl=https://repo.mongodb.org/yum/amazon/2013.03/mongodb-org/4.0/x86_64/\ngpgcheck=1 \nenabled=1 \ngpgkey=https://www.mongodb.org/static/pgp/server-4.0.asc" | sudo tee /etc/yum.repos.d/mongodb-org-4.0.repo
+    sudo yum install -y mongodb-org-shell
     ```
 3. Create test database, collection and indexes ( Skip this step if you are testing with your own database )
     ```
@@ -106,7 +107,21 @@ Amazon DocumentDB indexes are a data structure using a hierarchical and sorted o
     ```
 
     Above output shows that 3 out of 5 indexes in the supplied DocumentDB clusters are of low cardinality. 
-    
+6. (OPTIONAL) This script can also evaluate planned indexes where you can evaluate a field for cardinality before you decide to create an index. Parameter `--indexes` accepts comma separated list of indexes in a collection and returns the cardinality. By default if cardinality of planned index is higher than 1% then it is not reported in console and only available in the CSV file generated. Here is example of how you can check cardinality for planned indexes:
+```
+python3 detect-cardinality.py --uri "[DOCDB-CONNECTING-STRING]" --indexes Combined_Key
+```
+Above will result:
+```
+### Starting cardinality check for collection - samplecollection .... 
+
+###     checking index - Combined_Key_1 .... 
+### Finished cardinality check for collection - samplecollection
+
+All indexes are in good health. Cardinality detection script did not find any low cardinality indexes. 
+```
+If you open the csv file `cardinality_output*` from the same directory then you will notice that `Combined_Key` has cardinality of `3.521` which is higher than `1%`
+
 ### How do you fix low cardinality indexes
 1. Check if indexes are not utilized anymore. If so then go ahead and delete it. More details are available [Here](https://docs.aws.amazon.com/documentdb/latest/developerguide/user_diagnostics.html#user_diagnostics-identify_unused_indexes)
 1. Convert low cardinality indexes into compound indexes if possible. This requires accessing your query patterns where more than 1 index is utilized in a query then it make sense to build a compound index instead. 
