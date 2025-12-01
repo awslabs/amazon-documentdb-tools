@@ -177,36 +177,39 @@ def start_cardinality_check():
             
             if args.collections != "All":
                 coll_names = args.collections.split(",")
-            for coll_name in coll_names[:max_collections]:
-                print("### Starting cardinality check for collection - {} .... ".format(coll_name)) 
-                coll_counter = coll_counter + 1
-                collection = database[coll_name]
-                indexes = collection.list_indexes()
-                for index in indexes:
-                    result_row = {}
-                    if index['name'] != '_id_':
-                        index_name = index['name']
 
-                        print("###     checking index - {} .... ".format(index_name)) 
-                        
-                        cardinality = 0
-                        isLowCardinality = 'N'
-                       
-                        index_counter = index_counter + 1
-                        rs = get_index_cardinality(db_name, coll_name, index)
-                        if rs['total'] > 0:
-                            result_row['index_name'] = index_name
-                            result_row['index_keys'] = index['key']
-                            result_row['collection_name'] = index['ns']
-                            result_row['cardinality'] = round(rs['cardinality'],4)
-                            if rs['cardinality'] < threshold:
-                                isLowCardinality = 'Y'
-                            result_row['isLowCardinality'] = isLowCardinality
-                            result_row['totalDocsWithIndexValue'] = rs['total']
-                            result_row['totalDistinctValues'] = rs['distinct']
-                            results.append(result_row)
-                        
-                print("### Finished cardinality check for collection - {}\n".format(coll_name))        
+            for coll_name in coll_names[:max_collections]:
+                if coll_name not in ("oplog.rs"):
+                    print("### Starting cardinality check for collection - {} .... ".format(coll_name))
+                    coll_counter = coll_counter + 1
+                    collection = database[coll_name]
+                    indexes = collection.list_indexes()
+                    for index in indexes:
+                        result_row = {}
+                        if index['name'] != '_id_':
+                            index_name = index['name']
+
+                            print("###     checking index - {} .... ".format(index_name))
+
+                            cardinality = 0
+                            isLowCardinality = 'N'
+
+                            index_counter = index_counter + 1
+                            rs = get_index_cardinality(db_name, coll_name, index)
+                            print(index)
+                            if rs['total'] > 0:
+                                result_row['index_name'] = index_name
+                                result_row['index_keys'] = index['key']
+                                result_row['collection_name'] = coll_name
+                                result_row['cardinality'] = round(rs['cardinality'],4)
+                                if rs['cardinality'] < threshold:
+                                    isLowCardinality = 'Y'
+                                result_row['isLowCardinality'] = isLowCardinality
+                                result_row['totalDocsWithIndexValue'] = rs['total']
+                                result_row['totalDistinctValues'] = rs['distinct']
+                                results.append(result_row)
+                                    
+                    print("### Finished cardinality check for collection - {}\n".format(coll_name))        
             args.db_counter = db_counter
             args.coll_counter = coll_counter
             args.index_counter = index_counter
