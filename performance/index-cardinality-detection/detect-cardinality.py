@@ -178,7 +178,7 @@ def start_cardinality_check():
             if args.collections != "All":
                 coll_names = args.collections.split(",")
             for coll_name in coll_names[:max_collections]:
-                if coll_name not in ("oplog.rs"):
+                if coll_name in ("oplog.rs"):
                     continue
 
                 print("### Starting cardinality check for collection - {} .... ".format(coll_name)) 
