@@ -178,6 +178,9 @@ def start_cardinality_check():
             if args.collections != "All":
                 coll_names = args.collections.split(",")
             for coll_name in coll_names[:max_collections]:
+                if coll_name not in ("oplog.rs"):
+                    continue
+
                 print("### Starting cardinality check for collection - {} .... ".format(coll_name)) 
                 coll_counter = coll_counter + 1
                 collection = database[coll_name]
@@ -197,7 +200,7 @@ def start_cardinality_check():
                         if rs['total'] > 0:
                             result_row['index_name'] = index_name
                             result_row['index_keys'] = index['key']
-                            result_row['collection_name'] = index['ns']
+                            result_row['collection_name'] = coll_name
                             result_row['cardinality'] = round(rs['cardinality'],4)
                             if rs['cardinality'] < threshold:
                                 isLowCardinality = 'Y'
