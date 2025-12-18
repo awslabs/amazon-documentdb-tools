@@ -45,25 +45,33 @@ def exportUsers(appConfig):
 
             print(f"Checking roles for user:  {user['user']}")
             for userRole in user['roles']:
-                checkRole(database, userRole)
+                checkRole(database, userRole, database_name)
     
     f.close()
     print(f"Done! Users exported to {appConfig['usersFile']}")
 
 
-def checkRole(database, userRole):
+def checkRole(database, userRole, database_name):
     print (f"Checking role {userRole}")
     """ A role can be assigned to multiple users so we only want to export the role definition once """
     """ Build a dictionary to keep track of all user-defined roles assigned to users being exported """
-    roleInfo = database.command({'rolesInfo': {'role': userRole['role'], 'db': userRole['db']}, 'showPrivileges': True, 'showBuiltinRoles': False})
+    try:
+        roleInfo = database.command({'rolesInfo': {'role': userRole['role'], 'db': userRole['db']}, 'showPrivileges': True, 'showBuiltinRoles': False})
 
-    if len(roleInfo['roles']) == 1:
-        role = roleInfo['roles'][0]
-        if (role['isBuiltin'] == False):
-            """ Check role against list of roles supported by DocumentDB """
-            if not role['role'] in rolesToExport:
-                """ If this is a user-defined role not already marked for export, mark it for export """
-                rolesToExport[role['role']] = role
+        if len(roleInfo['roles']) == 1:
+            role = roleInfo['roles'][0]
+            if (role['isBuiltin'] == False):
+                """ Check role against list of roles supported by DocumentDB """
+                if not role['role'] in rolesToExport:
+                    """ If this is a user-defined role not already marked for export, mark it for export """
+                    rolesToExport[role['role']] = role
+
+    except pymongo.errors.OperationFailure as e:
+        # DocumentDB does not allow custom roles in $external database
+        if (database_name == "$external"):
+            pass
+        else:
+            raise e
 
 
 def exportRoles(appConfig):
