@@ -66,8 +66,6 @@ def main():
     parser.add_argument('--name', type=str, required=True, help="Name of CloudWatch dashboard to create")
     parser.add_argument('--region', type=str, required=True, help="Region of Amazon DocumentDB cluster(s)")
     parser.add_argument('--clusterID', type=str, required=True, help="Single Amazon DocumentDB cluster ID or comma separated list of cluster IDs")
-    parser.add_argument('--include-nvme',required=False,action='store_true',help='Include NVMe-backed instance metrics')
-    parser.add_argument('--include-serverless',required=False,action='store_true',help='Include serverless instance metrics')
     parser.add_argument('--monitor-migration',required=False,action='store_true',help='Include MongoDB to DocumentDB migration metrics')
     parser.add_argument('--endpoint-url',type=str,required=False,help='Override default endpoint URL')
     parser.add_argument('--monitor-dms', required=False, action='store_true', help='Include AWS DMS task metrics')
@@ -75,12 +73,12 @@ def main():
     args = parser.parse_args()
 
     if args.monitor_migration and args.monitor_dms:
-        print("Error: Only one monitoring option can be selected. Use either --monitor-migration OR --monitor-dms, not both.")
+        print("\u2717 Error: Only one monitoring option can be selected. Use either --monitor-migration OR --monitor-dms, not both.")
         return
     
     # Validate DMS task ID is provided when monitoring DMS
     if args.monitor_dms and not args.dms_task_id:
-        print("Error: --dms-task-id is required when using --monitor-dms")
+        print("\u2717 Error: --dms-task-id is required when using --monitor-dms")
         return
     # DocumentDB Configurations
     if args.endpoint_url is not None:
@@ -88,12 +86,26 @@ def main():
     else:
         docdbclient = boto3.client('docdb', region_name=args.region)
 
+    burstableInstances = ["db.t3.medium", "db.t4g.medium"]
+    nvmeInstances = ['db.r6gd.xlarge','db.r6gd.2xlarge','db.r6gd.4xlarge','db.r6gd.8xlarge','db.r6gd.12xlarge','db.r6gd.16xlarge']
+    serverlessInstances = ['db.serverless']
+
     clusterList = args.clusterID.split(',')
     instanceList = []
+    foundBurstable = False
+    foundNvme = False
+    foundServerless = False
     for thisCluster in clusterList:
         response = docdbclient.describe_db_clusters(DBClusterIdentifier=thisCluster,Filters=[{'Name': 'engine','Values': ['docdb']}])
         for thisInstance in response["DBClusters"][0]["DBClusterMembers"]:
             instanceList.append(thisInstance)
+            dbInstanceResponse = docdbclient.describe_db_instances(DBInstanceIdentifier=thisInstance["DBInstanceIdentifier"])
+            if dbInstanceResponse["DBInstances"][0]["DBInstanceClass"] in burstableInstances:
+                foundBurstable = True
+            if dbInstanceResponse["DBInstances"][0]["DBInstanceClass"] in nvmeInstances:
+                foundNvme = True
+            if dbInstanceResponse["DBInstances"][0]["DBInstanceClass"] in serverlessInstances:
+                foundServerless = True
 
     # CloudWatch client
     client = boto3.client('cloudwatch', region_name=args.region)
@@ -116,41 +128,43 @@ def main():
         {"height":7,"panels":[w.VolumeBytesUsed,w.BackupRetentionPeriodStorageUsed,w.TotalBackupStorageBilled]},
     ]
 
-    # Optional NVMe Metrics
-    if args.include_nvme:
-        print("{}".format("Adding NVMe-backed instance metrics"))
+    # NVMe Metrics
+    if foundNvme:
+        print("{}".format("\u2713 Adding NVMe-backed instance metrics"))
         widgets.append({"height":2,"panels":[w.NVMeHeading]})
         widgets.append({"height":7,"panels":[w.FreeNVMeStorage,w.NVMeStorageCacheHitRatio]})
         widgets.append({"height":7,"panels":[w.ReadIopsNVMeStorage,w.ReadLatencyNVMeStorage,w.ReadThroughputNVMeStorage]})
         widgets.append({"height":7,"panels":[w.WriteIopsNVMeStorage,w.WriteLatencyNVMeStorage,w.WriteThroughputNVMeStorage]})
 
-    # Optional serverless Metrics
-    if args.include_serverless:
-        print("{}".format("Adding serverless instance metrics"))
+    # Serverless Metrics
+    if foundServerless:
+        print("{}".format("\u2713 Adding serverless instance metrics"))
         widgets.append({"height":2,"panels":[w.ServerlessHeading]})
         widgets.append({"height":7,"panels":[w.ServerlessDatabaseCapacity,w.DCUUtilization]})
         widgets.append({"height":7,"panels":[w.TempStorageIops,w.TempStorageThroughput]})
+
+    # Burstable Metrics
+    if foundBurstable:
+        print("{}".format("\u2713 Adding burstable instance metrics"))
+        widgets.append({"height":2,"panels":[w.BurstableHeading]})
+        widgets.append({"height":7,"panels":[w.CPUCreditUsage,w.CPUCreditBalance]})
+        widgets.append({"height":7,"panels":[w.CPUSurplusCreditsCharged,w.CPUSurplusCreditBalance]})
 
     # Determine monitoring type
     monitoring_type = None
     if args.monitor_migration:
         monitoring_type = 'migration'
-        print("{}".format("Adding MongoDB to DocumentDB Migration Monitoring metrics"))
+        print("{}".format("\u2713 Adding MongoDB to DocumentDB Migration Monitoring metrics"))
         widgets.append({"height":2,"panels":[w.MigrationMonitoringHeading]})
-        # Add Full Load Migration metrics
-        print("{}".format("Adding Full Load Migration metrics"))
         widgets.append({"height":2,"panels":[w.FullLoadMigrationHeading]})
         widgets.append({"height":7,"panels":[w.MigratorFLInsertsPerSecond,w.MigratorFLRemainingSeconds]})
-        
-        # Add CDC Replication metrics
-        print("{}".format("Adding CDC Replication metrics"))
         widgets.append({"height":2,"panels":[w.CDCReplicationHeading]})
         widgets.append({"height":7,"panels":[w.MigratorCDCNumSecondsBehind,w.MigratorCDCOperationsPerSecond]})
 
     
     elif args.monitor_dms:
         monitoring_type = 'dms'
-        print("{}".format("Adding AWS DMS Task metrics"))
+        print("{}".format("\u2713 Adding AWS DMS Task metrics"))
         # Get the task ID
         task_id = args.dms_task_id
         #  Retrieve DMS task information and update widgets with task and instance identifiers
@@ -167,7 +181,7 @@ def main():
     # Create dashboard
     client.put_dashboard(DashboardName=args.name, DashboardBody=dashBody)
 
-    print("Dashboard {} deployed to CloudWatch".format(args.name))
+    print("\u2713 Dashboard {} deployed to CloudWatch".format(args.name))
 
 
 def update_dms_widgets(task_id, region, w):
@@ -222,15 +236,15 @@ def update_dms_widgets(task_id, region, w):
                             if instance_id_index != -1:
                                 widget["properties"]["metrics"][i][instance_id_index] = instance_name
                 else:
-                    print("Warning: Could not find replication instance name. Using instance ID from ARN.")
+                    print("\u2717 Warning: Could not find replication instance name. Using instance ID from ARN.")
                     
             except Exception as e:
-                print(f"Error getting replication instances: {str(e)}. Using instance ID from ARN.")
+                print(f"\u2717 Error getting replication instances: {str(e)}. Using instance ID from ARN.")
         else:
-            print("Warning: Could not find DMS task with ID '{}'.".format(task_id))
+            print("\u2717 Warning: Could not find DMS task with ID '{}'.".format(task_id))
             
     except Exception as e:
-        print("Error retrieving DMS task: {}".format(str(e)))
+        print("\u2717 Error retrieving DMS task: {}".format(str(e)))
 
 
 if __name__ == "__main__":

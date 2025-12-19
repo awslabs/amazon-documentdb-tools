@@ -713,3 +713,50 @@ TempStorageThroughput = {
         "yAxis": {"left": {"min": 0}}
     }
 }
+
+
+# Burstable 1 ----------------------------------------------
+BurstableHeading = {
+    "type": "text",
+    "properties": {"markdown": "# Burstable Instances"}
+}
+# Burstable 2 ----------------------------------------------
+CPUCreditUsage = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "CPUCreditUsage", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
+        "title": "CPU Credits Used"
+    }
+}
+CPUCreditBalance = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "CPUCreditBalance", "DBInstanceIdentifier"]],
+        "title": "CPU Credit Balance"
+    }
+}
+# Burstable 3 ----------------------------------------------
+CPUSurplusCreditsCharged = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "CPUSurplusCreditsCharged", "DBInstanceIdentifier"]],
+        "yAxis": {"left": {"min": 0}},
+        "title": "CPU Credits Charged"
+    }
+}
+CPUSurplusCreditBalance = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "CPUSurplusCreditBalance", "DBInstanceIdentifier"]],
+        "title": "CPU Credit Balance"
+    }
+}
