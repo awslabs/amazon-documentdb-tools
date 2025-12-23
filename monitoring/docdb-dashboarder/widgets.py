@@ -4,14 +4,6 @@ ClusterHeading = {
     "properties": {"markdown": "# Cluster Level Metrics"}
 }
 
-# ADDITIONAL HELP METRICS
-metricHelp = {
-    "type": "text",
-    "properties": {"markdown": "### Metrics Overview\nLearn more about metric information by visiting the Amazon DocumentDB Metrics section [here](https://docs.aws.amazon.com/documentdb/latest/developerguide/cloud_watch.html#cloud_watch-metrics_list)\n"}}
-bestPractices = {
-    "type": "text",
-    "properties": {"markdown": "### DocumentDB Specialist Optimization Tips\nLearn how to optimize your workload by visiting the DocDB Specialist recommended guidelines [here](https://docs.aws.amazon.com/documentdb/latest/developerguide/best_practices.html)"}}
-
 # ----------------------------------------------
 DBClusterReplicaLagMaximum = {
     "type": "metric",
@@ -211,8 +203,6 @@ NetworkReceiveThroughput = {
         "title": "Network Receive Throughput"
             }
         }
-
-# ----------------------------------------------
 StorageNetworkTransmitThroughput = {
     "type": "metric",
     "properties": {
@@ -740,7 +730,6 @@ CPUCreditBalance = {
         "title": "CPU Credit Balance"
     }
 }
-# Burstable 3 ----------------------------------------------
 CPUSurplusCreditsCharged = {
     "type": "metric",
     "properties": {
@@ -757,6 +746,6 @@ CPUSurplusCreditBalance = {
         "view": "timeSeries",
         "stacked": False,
         "metrics": [["AWS/DocDB", "CPUSurplusCreditBalance", "DBInstanceIdentifier"]],
-        "title": "CPU Credit Balance"
+        "title": "CPU Surplus Credit Balance"
     }
 }

@@ -112,26 +112,22 @@ def main():
 
     # All widgets to be displayed on the dashboard
     widgets = [
-        {"height":2,"panels":[w.ClusterHeading]},
-        {"height":2,"panels":[w.metricHelp,w.bestPractices]},
+        {"height":1,"panels":[w.ClusterHeading]},
         {"height":7,"panels":[w.DBClusterReplicaLagMaximum,w.DatabaseCursorsTimedOut,w.VolumeWriteIOPS,w.VolumeReadIOPS]},
         {"height":7,"panels":[w.OpscountersInsert,w.OpscountersUpdate,w.OpscountersDelete,w.OpscountersQuery]},
-        {"height":2,"panels":[w.InstanceHeading]},
+        {"height":1,"panels":[w.InstanceHeading]},
         {"height":7,"panels":[w.CPUUtilization,w.DatabaseConnections,w.DatabaseCursors]},
         {"height":7,"panels":[w.BufferCacheHitRatio,w.IndexBufferCacheHitRatio,w.FreeableMemory,w.FreeLocalStorage]},
-        {"height":7,"panels":[w.NetworkTransmitThroughput,w.NetworkReceiveThroughput]},
-        {"height":7,"panels":[w.StorageNetworkTransmitThroughput,w.StorageNetworkReceiveThroughput]},
+        {"height":7,"panels":[w.NetworkTransmitThroughput,w.NetworkReceiveThroughput,w.StorageNetworkTransmitThroughput,w.StorageNetworkReceiveThroughput]},
         {"height":7,"panels":[w.DocsInserted,w.DocsDeleted,w.DocsUpdated,w.DocsReturned]},
         {"height":7,"panels":[w.ReadLatency,w.WriteLatency,w.DiskQueueDepth,w.DBInstanceReplicaLag]},
         {"height":7,"panels":[w.WriteIops,w.WriteThroughput,w.ReadIops,w.ReadThroughput]},
-        {"height":2,"panels":[w.BackupStorageHeading]},
-        {"height":7,"panels":[w.VolumeBytesUsed,w.BackupRetentionPeriodStorageUsed,w.TotalBackupStorageBilled]},
     ]
 
     # NVMe Metrics
     if foundNvme:
         print("{}".format("\u2713 Adding NVMe-backed instance metrics"))
-        widgets.append({"height":2,"panels":[w.NVMeHeading]})
+        widgets.append({"height":1,"panels":[w.NVMeHeading]})
         widgets.append({"height":7,"panels":[w.FreeNVMeStorage,w.NVMeStorageCacheHitRatio]})
         widgets.append({"height":7,"panels":[w.ReadIopsNVMeStorage,w.ReadLatencyNVMeStorage,w.ReadThroughputNVMeStorage]})
         widgets.append({"height":7,"panels":[w.WriteIopsNVMeStorage,w.WriteLatencyNVMeStorage,w.WriteThroughputNVMeStorage]})
@@ -139,28 +135,25 @@ def main():
     # Serverless Metrics
     if foundServerless:
         print("{}".format("\u2713 Adding serverless instance metrics"))
-        widgets.append({"height":2,"panels":[w.ServerlessHeading]})
-        widgets.append({"height":7,"panels":[w.ServerlessDatabaseCapacity,w.DCUUtilization]})
-        widgets.append({"height":7,"panels":[w.TempStorageIops,w.TempStorageThroughput]})
+        widgets.append({"height":1,"panels":[w.ServerlessHeading]})
+        widgets.append({"height":7,"panels":[w.ServerlessDatabaseCapacity,w.DCUUtilization,w.TempStorageIops,w.TempStorageThroughput]})
 
     # Burstable Metrics
     if foundBurstable:
         print("{}".format("\u2713 Adding burstable instance metrics"))
-        widgets.append({"height":2,"panels":[w.BurstableHeading]})
-        widgets.append({"height":7,"panels":[w.CPUCreditUsage,w.CPUCreditBalance]})
-        widgets.append({"height":7,"panels":[w.CPUSurplusCreditsCharged,w.CPUSurplusCreditBalance]})
+        widgets.append({"height":1,"panels":[w.BurstableHeading]})
+        widgets.append({"height":7,"panels":[w.CPUCreditUsage,w.CPUCreditBalance,w.CPUSurplusCreditsCharged,w.CPUSurplusCreditBalance]})
 
     # Determine monitoring type
     monitoring_type = None
     if args.monitor_migration:
         monitoring_type = 'migration'
         print("{}".format("\u2713 Adding MongoDB to DocumentDB Migration Monitoring metrics"))
-        widgets.append({"height":2,"panels":[w.MigrationMonitoringHeading]})
-        widgets.append({"height":2,"panels":[w.FullLoadMigrationHeading]})
+        widgets.append({"height":1,"panels":[w.MigrationMonitoringHeading]})
+        widgets.append({"height":1,"panels":[w.FullLoadMigrationHeading]})
         widgets.append({"height":7,"panels":[w.MigratorFLInsertsPerSecond,w.MigratorFLRemainingSeconds]})
-        widgets.append({"height":2,"panels":[w.CDCReplicationHeading]})
+        widgets.append({"height":1,"panels":[w.CDCReplicationHeading]})
         widgets.append({"height":7,"panels":[w.MigratorCDCNumSecondsBehind,w.MigratorCDCOperationsPerSecond]})
-
     
     elif args.monitor_dms:
         monitoring_type = 'dms'
@@ -170,12 +163,15 @@ def main():
         #  Retrieve DMS task information and update widgets with task and instance identifiers
         update_dms_widgets(task_id, args.region, w)
         # Add DMS widgets to dashboard
-        widgets.append({"height":2,"panels":[w.DMSHeading]})
-        widgets.append({"height":7,"panels":[w.DMSFullLoadThroughputRowsTarget]})
-        widgets.append({"height":7,"panels":[w.DMSCDCLatencyTarget, w.DMSCDCThroughputRowsTarget]})
+        widgets.append({"height":1,"panels":[w.DMSHeading]})
+        widgets.append({"height":7,"panels":[w.DMSFullLoadThroughputRowsTarget,w.DMSCDCLatencyTarget, w.DMSCDCThroughputRowsTarget]})
+
+    # Backups
+    widgets.append({"height":1,"panels":[w.BackupStorageHeading]})
+    widgets.append({"height":7,"panels":[w.VolumeBytesUsed,w.BackupRetentionPeriodStorageUsed,w.TotalBackupStorageBilled]})
+
     # Create the CW data
-    dashboardWidgets = create_dashboard(widgets, args.region, instanceList, clusterList, 
-                                   monitoring_type=monitoring_type)
+    dashboardWidgets = create_dashboard(widgets, args.region, instanceList, clusterList, monitoring_type=monitoring_type)
     # Converting to json
     dashBody = json.dumps({"widgets":dashboardWidgets})
     # Create dashboard
