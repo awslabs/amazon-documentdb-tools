@@ -125,7 +125,7 @@ def get_cluster_connection_string(cluster_name):
     client = boto3.resource('dynamodb')
     logger.info("Getting the connection string of the cluster_name: %s.", cluster_name)
     connection_string = get_secret_value("migrator-app/{}".format(cluster_name))
-    logger.info("Successfully fetched the connection string of the cluster_name: %s. Connection string: %s", cluster_name, connection_string)
+    logger.info("Successfully fetched the connection string of the cluster_name: %s.", cluster_name)
     return connection_string
 
 def bulk_write_data_to_document_db(cluster_name, namespace, data):
