@@ -11,6 +11,7 @@ import hashlib
 import argparse
 import boto3
 import warnings
+from bson import encode
 
 
 def logIt(threadnum, message):
@@ -54,6 +55,7 @@ def full_load_loader(threadnum, appConfig, perfQ):
     # list with replace, not insert, in case document already exists (replaying old oplog)
     bulkOpListReplace = []
     numCurrentBulkOps = 0
+    numCurrentBytes = 0
 
     numTotalBatches = 0
 
@@ -76,6 +78,7 @@ def full_load_loader(threadnum, appConfig, perfQ):
 
     for doc in cursor:
         myCollectionOps += 1
+        numCurrentBytes += len(encode(doc))
         bulkOpList.append(pymongo.InsertOne(doc))
         # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
         #bulkOpListReplace.append(pymongo.ReplaceOne(doc['_id'],doc,upsert=True))
@@ -88,10 +91,11 @@ def full_load_loader(threadnum, appConfig, perfQ):
             #    except:
             #    # replace inserts as replaces
             #        result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
-            perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"processNum":threadnum})
+            perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"processNum":threadnum,"bytes":numCurrentBytes})
             bulkOpList = []
             bulkOpListReplace = []
             numCurrentBulkOps = 0
+            numCurrentBytes = 0
             numTotalBatches += 1
 
     if (numCurrentBulkOps > 0):
@@ -101,7 +105,7 @@ def full_load_loader(threadnum, appConfig, perfQ):
         #    except:
         #    # replace inserts as replaces
         #        result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
-        perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"processNum":threadnum})
+        perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"processNum":threadnum,"bytes":numCurrentBytes})
         bulkOpList = []
         bulkOpListReplace = []
         numCurrentBulkOps = 0
@@ -139,11 +143,13 @@ def reporter(appConfig, perfQ):
     while (numWorkersCompleted < appConfig["numProcessingThreads"]):
         time.sleep(appConfig["feedbackSeconds"])
         nowTime = time.time()
+        numThisBytes = 0
         
         while not perfQ.empty():
             qMessage = perfQ.get_nowait()
             if qMessage['name'] == "batchCompleted":
                 numProcessedOplogEntries += qMessage['operations']
+                numThisBytes += qMessage['bytes']
             elif qMessage['name'] == "processCompleted":
                 numWorkersCompleted += 1
                 numWorkersLoading -= 1
@@ -179,8 +185,10 @@ def reporter(appConfig, perfQ):
         intervalElapsedSeconds = nowTime - lastTime
         intervalOpsPerSecond = (numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds
 
+        numThisGbPerHour = numThisBytes / intervalElapsedSeconds * 60 * 60 / 1024 / 1024 / 1024
+
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
-        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot ops {4:16,d} | loading {5:5d} | pct {6:6.2f}% | done in {7}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,numWorkersLoading,pctDone,remainHMS))
+        print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot ops {4:16,d} | loading {5:5d} | pct {6:6.2f}% | done in {7} | GB/hr {8:6.2f}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,numWorkersLoading,pctDone,remainHMS,numThisGbPerHour))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
         
         lastTime = nowTime
