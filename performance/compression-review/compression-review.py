@@ -11,11 +11,10 @@ import zstandard as zstd
 import zlib
 
 
-def createDictionary(appConfig, databaseName, collectionName):
+def createDictionary(appConfig, databaseName, collectionName, client):
     dictionarySampleSize = appConfig['dictionarySampleSize']
     dictionarySize = appConfig['dictionarySize']
 
-    client = pymongo.MongoClient(host=appConfig['uri'],appname='comprevw')
     col = client[databaseName][collectionName]
 
     print("creating dictionary for {}.{} of {:d} bytes using {:d} samples".format(databaseName,collectionName,dictionarySize,dictionarySampleSize))
@@ -106,7 +105,7 @@ def getData(appConfig):
                 # build the dictionary if needed (and there are enough documents)
                 if compressor in ['lz4-fast-dict','lz4-high-dict','zstd-1-dict','zstd-3-dict','zstd-5-dict']:
                     if collectionCount >= 100:
-                        zstdDict = createDictionary(appConfig, thisDbName, thisCollName)
+                        zstdDict = createDictionary(appConfig, thisDbName, thisCollName, client)
 
                 # instantiate the compressor for zstandard (it doesn't support 1-shot compress)
                 if compressor == 'zstd-1' or (compressor == 'zstd-1-dict' and collectionCount < 100):
