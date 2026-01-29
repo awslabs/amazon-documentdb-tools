@@ -23,10 +23,14 @@ def oplog_processor(threadnum, appConfig, perfQ):
     if appConfig['verboseLogging']:
         logIt(threadnum,'thread started')
 
-    c = pymongo.MongoClient(host=appConfig["sourceUri"],appname='migrcdc')
+    myAppname = None
+    if (threadnum == 0):
+        myAppname = 'migrcdc'
+
+    c = pymongo.MongoClient(host=appConfig["sourceUri"],appname=myAppname)
     oplog = c.local.oplog.rs
 
-    destConnection = pymongo.MongoClient(host=appConfig["targetUri"],appname='migrcdc')
+    destConnection = pymongo.MongoClient(host=appConfig["targetUri"],appname=myAppname)
     destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
     destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
 
@@ -191,11 +195,15 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     if appConfig['verboseLogging']:
         logIt(threadnum,'thread started')
 
-    sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"],appname='migrcdc')
+    myAppname = None
+    if (threadnum == 0):
+        myAppname = 'migrcdc'
+
+    sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"],appname=myAppname)
     sourceDb = sourceConnection[appConfig["sourceNs"].split('.',1)[0]]
     sourceColl = sourceDb[appConfig["sourceNs"].split('.',1)[1]]
 
-    destConnection = pymongo.MongoClient(host=appConfig["targetUri"],appname='migrcdc')
+    destConnection = pymongo.MongoClient(host=appConfig["targetUri"],appname=myAppname)
     destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
     destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
 
@@ -352,7 +360,7 @@ def get_resume_token(appConfig):
 
     logIt(-1,'getting current change stream resume token')
 
-    sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"],appname='migrcdc')
+    sourceConnection = pymongo.MongoClient(host=appConfig["sourceUri"])
     sourceDb = sourceConnection[appConfig["sourceNs"].split('.',1)[0]]
     sourceColl = sourceDb[appConfig["sourceNs"].split('.',1)[1]]
 
@@ -619,7 +627,7 @@ def main():
     else:
         if appConfig["startPosition"] == "0":
             # start with first oplog entry
-            c = pymongo.MongoClient(host=appConfig["sourceUri"],appname='migrcdc')
+            c = pymongo.MongoClient(host=appConfig["sourceUri"])
             oplog = c.local.oplog.rs
             first = oplog.find().sort('$natural', pymongo.ASCENDING).limit(1).next()
             appConfig["startTs"] = first['ts']
