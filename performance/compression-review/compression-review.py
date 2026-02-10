@@ -26,8 +26,6 @@ def createDictionary(appConfig, databaseName, collectionName, client):
         dictTrainingDocs.append(docAsBytes)
     dict_data = zstd.train_dictionary(dictionarySize,dictTrainingDocs)
 
-    client.close()
-
     return dict_data
 
 
