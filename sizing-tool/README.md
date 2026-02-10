@@ -1,6 +1,6 @@
 # Amazon DocumentDB Sizing Tool
 
-The sizing tool analyzes your MongoDB database and generates a CSV file for use with the [DocumentDB Sizing Calculator](https://aws.improving.com/documentdb/cost-estimator/). The tool automatically measures compression ratios using zstd-5-dict (matching Amazon DocumentDB 8.0), collects database statistics, and produces a properly formatted CSV file ready for upload to the sizing calculator.
+The sizing tool analyzes your MongoDB database and generates a CSV file for use with the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/). The tool automatically measures compression ratios using zstd-5-dict (matching Amazon DocumentDB 8.0), collects database statistics, and produces a properly formatted CSV file ready for upload to the cost estimator.
 
 **Note:** The tool automatically excludes:
 - System databases: `admin`, `config`, `local`, and `system`
@@ -106,7 +106,7 @@ The generated CSV includes default placeholder values for workload metrics that 
 3. Locate the columns for the fields above
 4. Update each row with values based on your workload knowledge
 5. Save the file
-6. Upload to the [DocumentDB Sizing Calculator](https://aws.improving.com/documentdb/cost-estimator/)
+6. Upload to the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/)
 
 **Tips for determining values:**
 - **Working Sets**: Use MongoDB monitoring tools or `db.serverStatus()` to understand memory usage patterns
@@ -147,13 +147,13 @@ The test suite includes unit tests for:
 1. Runs compression-review.py to analyze compression ratios using zstd-5-dict
 2. Connects to MongoDB to gather collection statistics (document counts, sizes, indexes)
 3. Combines compression data with collection metadata
-4. Generates a CSV file formatted for the [DocumentDB Sizing Calculator](https://aws.improving.com/documentdb/cost-estimator/)
+4. Generates a CSV file formatted for the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/)
 5. Cleans up temporary files
 
 ## Next Steps
 1. Run the sizing tool to generate your CSV file
 2. Open the CSV and update workload metrics (working sets and daily operations) with your actual values
-3. Upload the CSV to the [DocumentDB Sizing Calculator](https://aws.improving.com/documentdb/cost-estimator/)
+3. Upload the CSV to the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/)
 4. Review the sizing recommendations
 
 ## License

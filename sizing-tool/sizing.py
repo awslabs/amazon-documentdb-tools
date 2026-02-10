@@ -15,9 +15,9 @@ limitations under the License.
 
 Description:
     This script analyzes MongoDB collections to generate sizing data for the 
-    Amazon DocumentDB Sizing Calculator. It runs compression analysis using 
+    Amazon DocumentDB Cost Estimator. It runs compression analysis using 
     compression-review.py and combines the results with collection statistics 
-    to produce a CSV file compatible with the sizing calculator.
+    to produce a CSV file compatible with the cost estimator.
 
 Usage:
     python sizing.py --uri <mongodb-connection-uri> \\
@@ -39,7 +39,7 @@ Script Parameters
 Output:
     Generates a CSV file named 'sizing-<timestamp>.csv' with 
     collection statistics and compression ratios for use in the DocumentDB 
-    Sizing Calculator.
+    Cost Estimator.
 """
 import argparse
 import sys
@@ -256,7 +256,7 @@ def parse_compression_csv(csv_filepath):
 
 def generate_sizing_csv(comp_data, uri):
     """
-    Generate sizing calculator CSV by combining compression data with MongoDB stats.
+    Generate cost estimator CSV by combining compression data with MongoDB stats.
     
     Args:
         comp_data: Dictionary of compression data from parse_compression_csv()
