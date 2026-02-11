@@ -1,6 +1,6 @@
 # Amazon DocumentDB Sizing Tool
 
-The sizing tool analyzes your MongoDB database and generates a CSV file for use with the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/). The tool automatically measures compression ratios using zstd-5-dict (matching Amazon DocumentDB 8.0), collects database statistics, and produces a properly formatted CSV file ready for upload to the cost estimator.
+The sizing tool analyzes your MongoDB database and generates a CSV file for use with the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/). The tool automatically measures compression ratios using zstd-3-dict (matching Amazon DocumentDB 8.0), collects database statistics, and produces a properly formatted CSV file ready for upload to the cost estimator.
 
 **Note:** The tool automatically excludes:
 - System databases: `admin`, `config`, `local`, and `system`
@@ -27,7 +27,7 @@ The sizing tool analyzes your MongoDB database and generates a CSV file for use 
 ## Using the Sizing Tool
 `python3 sizing.py --uri <server-uri>`
 
-- Automatically uses zstd-5-dict compression (matching DocumentDB 8.0)
+- Automatically uses zstd-3-dict compression (matching DocumentDB 8.0)
 - Samples 1000 documents per collection by default
 - Run on any instance in the replica set
 - Creates a single CSV file per execution: `sizing-<timestamp>.csv`
@@ -41,7 +41,6 @@ The sizing tool analyzes your MongoDB database and generates a CSV file for use 
 | ----------- | ----------- | ----------- |
 | --sample-size | 1000 | Number of documents to sample per collection |
 | --dictionary-sample-size | 100 | Number of documents for dictionary creation |
-| --dictionary-size | 4096 | Dictionary size in bytes |
 
 ### Example Usage
 
@@ -113,38 +112,8 @@ The generated CSV includes default placeholder values for workload metrics that 
 - **Daily Operations**: Check application logs, MongoDB profiler, or monitoring dashboards for operation counts
 - **Conservative estimates**: If unsure, use higher working set percentages and operation counts for safer sizing
 
-## Running Tests
-
-### Prerequisites
-- Python 3.7+
-- No external dependencies required (tests use mocks)
-
-### Running Tests
-```bash
-# Run all tests
-python -m unittest test_sizing.py
-
-# Run with verbose output
-python -m unittest test_sizing.py -v
-
-# Run specific test class
-python -m unittest test_sizing.TestValidateArgs
-
-# Run specific test
-python -m unittest test_sizing.TestValidateArgs.test_valid_args
-```
-
-### Test Coverage
-The test suite includes unit tests for:
-- Argument validation
-- CSV parsing
-- Compression module loading
-- Error handling and cleanup
-
-**Note:** Tests use mocks and do not require MongoDB connection or the compression-review.py script.
-
 ## How It Works
-1. Runs compression-review.py to analyze compression ratios using zstd-5-dict
+1. Runs compression-review.py to analyze compression ratios using zstd-3-dict
 2. Connects to MongoDB to gather collection statistics (document counts, sizes, indexes)
 3. Combines compression data with collection metadata
 4. Generates a CSV file formatted for the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/)

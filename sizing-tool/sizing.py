@@ -1,46 +1,3 @@
-"""
-Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License").
-You may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-Description:
-    This script analyzes MongoDB collections to generate sizing data for the 
-    Amazon DocumentDB Cost Estimator. It runs compression analysis using 
-    compression-review.py and combines the results with collection statistics 
-    to produce a CSV file compatible with the cost estimator.
-
-Usage:
-    python sizing.py --uri <mongodb-connection-uri> \\
-        [--sample-size <number>] \\
-        [--dictionary-sample-size <number>] \\
-        [--dictionary-size <bytes>]
-
-Script Parameters
------------------
---uri: str (required)
-    MongoDB Connection URI for the source database
---sample-size: int
-    Number of documents to sample in each collection (default: 1000)
---dictionary-sample-size: int
-    Number of documents to sample for dictionary creation (default: 100)
---dictionary-size: int
-    Size of dictionary in bytes (default: 4096)
-
-Output:
-    Generates a CSV file named 'sizing-<timestamp>.csv' with 
-    collection statistics and compression ratios for use in the DocumentDB 
-    Cost Estimator.
-"""
 import argparse
 import sys
 import csv
@@ -51,8 +8,11 @@ import pymongo
 import importlib.util
 
 # Compressor to use for compression analysis
-# zstd-5-dict matches Amazon DocumentDB 8.0 dictionary-based compression
-COMPRESSOR = 'zstd-5-dict'
+# zstd-3-dict matches Amazon DocumentDB 8.0 dictionary-based compression
+COMPRESSOR = 'zstd-3-dict'
+
+# Fixed dictionary size in Amazon DocumentDB 8.0 dictionary-based compression
+DICTIONARY_SIZE_BYTES = 4096
 
 # Server alias base for output file naming
 SERVER_ALIAS_BASE = 'temp'
@@ -131,7 +91,7 @@ def cleanup_csv_files(csv_files):
             print(f"Warning: Could not remove file {csv_file}: {e}", file=sys.stderr)
 
 
-def run_compression_and_get_output(uri, sample_size, dictionary_sample_size, dictionary_size):
+def run_compression_and_get_output(uri, sample_size, dictionary_sample_size):
     """
     Run compression analysis and return the path to the generated CSV file.
     
@@ -139,7 +99,6 @@ def run_compression_and_get_output(uri, sample_size, dictionary_sample_size, dic
         uri: MongoDB connection URI
         sample_size: Number of documents to sample per collection
         dictionary_sample_size: Number of documents for dictionary creation
-        dictionary_size: Size of dictionary in bytes
         
     Returns:
         str: Path to the generated compression CSV file
@@ -166,7 +125,7 @@ def run_compression_and_get_output(uri, sample_size, dictionary_sample_size, dic
         'sampleSize': sample_size,
         'compressor': COMPRESSOR,
         'dictionarySampleSize': dictionary_sample_size,
-        'dictionarySize': dictionary_size
+        'dictionarySize': DICTIONARY_SIZE_BYTES
     }
     
     try:
@@ -361,10 +320,6 @@ def validate_args(args):
     # Validate dictionary sample size (only check lower bound)
     if args.dictionary_sample_size <= 0:
         raise ValueError(f"Dictionary sample size must be positive, got: {args.dictionary_sample_size}")
-    
-    # Validate dictionary size (only check lower bound)
-    if args.dictionary_size <= 0:
-        raise ValueError(f"Dictionary size must be positive, got: {args.dictionary_size}")
 
 
 def main():
@@ -387,12 +342,6 @@ def main():
                         default=100,
                         help='Number of documents to sample for dictionary creation')
     
-    parser.add_argument('--dictionary-size',
-                        required=False,
-                        type=int,
-                        default=4096,
-                        help='Size of dictionary (bytes)')
-    
     args = parser.parse_args()
     
     # Validate arguments
@@ -408,8 +357,7 @@ def main():
         compression_csv = run_compression_and_get_output(
             uri=args.uri,
             sample_size=args.sample_size,
-            dictionary_sample_size=args.dictionary_sample_size,
-            dictionary_size=args.dictionary_size
+            dictionary_sample_size=args.dictionary_sample_size
         )
         
         # Parse compression CSV to extract collection data

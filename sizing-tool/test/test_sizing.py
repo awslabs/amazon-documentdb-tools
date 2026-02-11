@@ -1,20 +1,3 @@
-"""
-Unit tests for sizing.py
-
-Prerequisites:
-    - Python 3.7+
-    - No external dependencies (uses unittest.mock for all external calls)
-    - Tests do not require MongoDB or compression-review.py
-
-Run with:
-    python -m unittest test_sizing.py          # Run all tests
-    python -m unittest test_sizing.py -v       # Verbose output
-    python test_sizing.py                      # Alternative method
-    
-Run specific tests:
-    python -m unittest test_sizing.TestValidateArgs                    # Run one test class
-    python -m unittest test_sizing.TestValidateArgs.test_valid_args    # Run one test
-"""
 import unittest
 import os
 import csv
@@ -23,8 +6,8 @@ from unittest.mock import Mock, patch, MagicMock
 from argparse import Namespace
 import sys
 
-# Import functions from sizing.py
-sys.path.insert(0, os.path.dirname(__file__))
+# Import functions from sizing.py (parent directory)
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from sizing import (
     validate_args,
     parse_compression_csv,
@@ -42,8 +25,7 @@ class TestValidateArgs(unittest.TestCase):
         args = Namespace(
             uri='mongodb://localhost:27017',
             sample_size=1000,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         # Should not raise any exception
         validate_args(args)
@@ -53,8 +35,7 @@ class TestValidateArgs(unittest.TestCase):
         args = Namespace(
             uri='mongodb+srv://cluster.mongodb.net',
             sample_size=1000,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         validate_args(args)
     
@@ -63,8 +44,7 @@ class TestValidateArgs(unittest.TestCase):
         args = Namespace(
             uri='',
             sample_size=1000,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         with self.assertRaisesRegex(ValueError, "MongoDB URI cannot be empty"):
             validate_args(args)
@@ -74,8 +54,7 @@ class TestValidateArgs(unittest.TestCase):
         args = Namespace(
             uri='http://localhost:27017',
             sample_size=1000,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         with self.assertRaisesRegex(ValueError, "must start with 'mongodb://' or 'mongodb\\+srv://'"):
             validate_args(args)
@@ -85,8 +64,7 @@ class TestValidateArgs(unittest.TestCase):
         args = Namespace(
             uri='mongodb://localhost:27017',
             sample_size=-100,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         with self.assertRaisesRegex(ValueError, "Sample size must be positive"):
             validate_args(args)
@@ -96,8 +74,7 @@ class TestValidateArgs(unittest.TestCase):
         args = Namespace(
             uri='mongodb://localhost:27017',
             sample_size=0,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         with self.assertRaisesRegex(ValueError, "Sample size must be positive"):
             validate_args(args)
@@ -107,21 +84,9 @@ class TestValidateArgs(unittest.TestCase):
         args = Namespace(
             uri='mongodb://localhost:27017',
             sample_size=1000,
-            dictionary_sample_size=-10,
-            dictionary_size=4096
+            dictionary_sample_size=-10
         )
         with self.assertRaisesRegex(ValueError, "Dictionary sample size must be positive"):
-            validate_args(args)
-    
-    def test_negative_dictionary_size(self):
-        """Test that negative dictionary size raises ValueError"""
-        args = Namespace(
-            uri='mongodb://localhost:27017',
-            sample_size=1000,
-            dictionary_sample_size=100,
-            dictionary_size=-1024
-        )
-        with self.assertRaisesRegex(ValueError, "Dictionary size must be positive"):
             validate_args(args)
     
     def test_large_values_accepted(self):
@@ -129,8 +94,7 @@ class TestValidateArgs(unittest.TestCase):
         args = Namespace(
             uri='mongodb://localhost:27017',
             sample_size=10000000,  # 10 million
-            dictionary_sample_size=5000000,  # 5 million
-            dictionary_size=10485760  # 10MB
+            dictionary_sample_size=5000000  # 5 million
         )
         # Should not raise any exception
         validate_args(args)
@@ -142,7 +106,7 @@ class TestParseCompressionCsv(unittest.TestCase):
     def test_parse_valid_csv(self):
         """Test parsing a valid compression CSV"""
         csv_content = """compressor,docsSampled,dictDocsSampled,dictBytes
-zstd-5-dict,1000,100,4096
+zstd-3-dict,1000,100,4096
 
 dbName,collName,numDocs,avgDocSize,sizeGB,storageGB,existingCompRatio,compEnabled,minSample,maxSample,avgSample,minComp,maxComp,avgComp,projectedCompRatio,exceptions,compTime(ms)
 testdb,users,10000,512,5.0,2.5,2.0,Y/1024,256,1024,512,128,512,256,2.0,0,123.45
@@ -176,7 +140,7 @@ testdb,orders,5000,1024,5.0,2.0,2.5,Y/1024,512,2048,1024,256,1024,512,2.0,0,234.
     def test_parse_csv_missing_header(self):
         """Test that missing header raises RuntimeError"""
         csv_content = """compressor,docsSampled,dictDocsSampled,dictBytes
-zstd-5-dict,1000,100,4096
+zstd-3-dict,1000,100,4096
 
 testdb,users,10000,512,5.0,2.5,2.0,Y/1024,256,1024,512,128,512,256,2.0,0,123.45
 """
@@ -193,7 +157,7 @@ testdb,users,10000,512,5.0,2.5,2.0,Y/1024,256,1024,512,128,512,256,2.0,0,123.45
     def test_parse_csv_with_invalid_row(self):
         """Test that invalid rows are skipped with warning"""
         csv_content = """compressor,docsSampled,dictDocsSampled,dictBytes
-zstd-5-dict,1000,100,4096
+zstd-3-dict,1000,100,4096
 
 dbName,collName,numDocs,avgDocSize,sizeGB,storageGB,existingCompRatio,compEnabled,minSample,maxSample,avgSample,minComp,maxComp,avgComp,projectedCompRatio,exceptions,compTime(ms)
 testdb,users,10000,512,5.0,2.5,2.0,Y/1024,256,1024,512,128,512,256,2.0,0,123.45
@@ -218,7 +182,7 @@ testdb,orders,5000,1024,5.0,2.0,2.5,Y/1024,512,2048,1024,256,1024,512,2.0,0,234.
     def test_parse_empty_csv(self):
         """Test parsing an empty CSV"""
         csv_content = """compressor,docsSampled,dictDocsSampled,dictBytes
-zstd-5-dict,1000,100,4096
+zstd-3-dict,1000,100,4096
 
 dbName,collName,numDocs,avgDocSize,sizeGB,storageGB,existingCompRatio,compEnabled,minSample,maxSample,avgSample,minComp,maxComp,avgComp,projectedCompRatio,exceptions,compTime(ms)
 """
@@ -306,8 +270,7 @@ class TestRunCompressionAndGetOutput(unittest.TestCase):
         result = run_compression_and_get_output(
             uri='mongodb://localhost:27017',
             sample_size=1000,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         
         self.assertEqual(result, 'temp-20260209120000-compression-review.csv')
@@ -333,8 +296,7 @@ class TestRunCompressionAndGetOutput(unittest.TestCase):
         result = run_compression_and_get_output(
             uri='mongodb://localhost:27017',
             sample_size=1000,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         
         self.assertEqual(result, 'temp-20260209120000-compression-review.csv')
@@ -353,8 +315,7 @@ class TestRunCompressionAndGetOutput(unittest.TestCase):
             run_compression_and_get_output(
                 uri='mongodb://localhost:27017',
                 sample_size=1000,
-                dictionary_sample_size=100,
-                dictionary_size=4096
+                dictionary_sample_size=100
             )
     
     @patch('sizing.load_compression_module')
@@ -371,8 +332,7 @@ class TestRunCompressionAndGetOutput(unittest.TestCase):
             run_compression_and_get_output(
                 uri='mongodb://localhost:27017',
                 sample_size=1000,
-                dictionary_sample_size=100,
-                dictionary_size=4096
+                dictionary_sample_size=100
             )
     
     @patch('sizing.load_compression_module')
@@ -404,8 +364,7 @@ class TestRunCompressionAndGetOutput(unittest.TestCase):
         result = run_compression_and_get_output(
             uri='mongodb://localhost:27017',
             sample_size=1000,
-            dictionary_sample_size=100,
-            dictionary_size=4096
+            dictionary_sample_size=100
         )
         
         # Should return the most recent file
@@ -420,8 +379,7 @@ class TestRunCompressionAndGetOutput(unittest.TestCase):
             run_compression_and_get_output(
                 uri='mongodb://localhost:27017',
                 sample_size=1000,
-                dictionary_sample_size=100,
-                dictionary_size=4096
+                dictionary_sample_size=100
             )
 
 
