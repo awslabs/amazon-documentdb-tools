@@ -47,7 +47,7 @@ def getData(appConfig):
     logFileHandle.write("\n")
 
     # output header to csv
-    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','compRatio','compEnabled','minSample','maxSample','avgSample','minComp','maxComp','avgComp','compRatio','exceptions','compTime(ms)'))
+    logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','existingCompRatio','compEnabled','minSample','maxSample','avgSample','minComp','maxComp','avgComp','projectedCompRatio','exceptions','compTime(ms)'))
 
     # get databases - filter out admin, config, local, and system
     dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":['admin','config','local','system']}})['databases']
