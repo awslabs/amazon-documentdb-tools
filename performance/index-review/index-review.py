@@ -134,10 +134,44 @@ def evalIndexes(appConfig):
             addlIdxCount += 1
 
     outFile1 = open(appConfig['serverAlias']+'-collections.csv','wt')
-    outFile1.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','ins/day','upd/day','del/day','ins/sec','upd/sec','del/sec'))
 
     outFile2 = open(appConfig['serverAlias']+'-indexes.csv','wt')
-    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','index-unused-pct','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day','ins/sec','upd/sec','del/sec'))
+    outFile2.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','index-unused-pct','index-name','index-accesses-total','index-accesses-secondary','redundant','covered-by','ins/day','upd/day','del/day','ins/sec','upd/sec','del/sec','index-keys'))
+
+    # output high level server information
+    numAlltimeSecondsUptime = idxDict["start"]["uptime"]
+    numAlltimeDaysUptime = numAlltimeSecondsUptime / 86400
+    alltimeInserts = idxDict['start']['opcounters']['insert']
+    alltimeUpdates = idxDict['start']['opcounters']['update']
+    alltimeDeletes = idxDict['start']['opcounters']['delete']
+    alltimeQueries = idxDict['start']['opcounters']['query']
+
+    if appConfig['priorIndexReviewFile'] is not None:
+        numPeriodSecondsUptime = idxDict["start"]["uptime"] - appConfig['priorDict']['start']['uptime']
+        numPeriodDaysUptime = numPeriodSecondsUptime / 86400
+        periodInserts = idxDict['start']['opcounters']['insert'] - appConfig['priorDict']['start']['opcounters']['insert']
+        periodUpdates = idxDict['start']['opcounters']['update'] - appConfig['priorDict']['start']['opcounters']['update']
+        periodDeletes = idxDict['start']['opcounters']['delete'] - appConfig['priorDict']['start']['opcounters']['delete']
+        periodQueries = idxDict['start']['opcounters']['query'] - appConfig['priorDict']['start']['opcounters']['query']
+
+    outFile1.write("hostname,{}\n".format(idxDict['start']['host']))
+    outFile1.write("\n")
+    if appConfig['priorIndexReviewFile'] is not None:
+        outFile1.write("period-seconds,{}\n".format(numPeriodSecondsUptime))
+        outFile1.write(",,period/sec,period/day,alltime/sec,alltime/day\n")
+        outFile1.write(",inserts,{:.2f},{:.2f},{:.2f},{:.2f}\n".format(periodInserts/numPeriodSecondsUptime,periodInserts/numPeriodDaysUptime,alltimeInserts/numAlltimeSecondsUptime,alltimeInserts/numAlltimeDaysUptime))
+        outFile1.write(",updates,{:.2f},{:.2f},{:.2f},{:.2f}\n".format(periodUpdates/numPeriodSecondsUptime,periodUpdates/numPeriodDaysUptime,alltimeUpdates/numAlltimeSecondsUptime,alltimeUpdates/numAlltimeDaysUptime))
+        outFile1.write(",deletes,{:.2f},{:.2f},{:.2f},{:.2f}\n".format(periodDeletes/numPeriodSecondsUptime,periodDeletes/numPeriodDaysUptime,alltimeDeletes/numAlltimeSecondsUptime,alltimeDeletes/numAlltimeDaysUptime))
+        outFile1.write(",queries,{:.2f},{:.2f},{:.2f},{:.2f}\n".format(periodQueries/numPeriodSecondsUptime,periodQueries/numPeriodDaysUptime,alltimeQueries/numAlltimeSecondsUptime,alltimeQueries/numAlltimeDaysUptime))
+    else:
+        outFile1.write(",,alltime/sec,alltime/day\n")
+        outFile1.write(",inserts,{:.2f},{:.2f}\n".format(alltimeInserts/numAlltimeSecondsUptime,alltimeInserts/numAlltimeDaysUptime))
+        outFile1.write(",updates,{:.2f},{:.2f}\n".format(alltimeUpdates/numAlltimeSecondsUptime,alltimeUpdates/numAlltimeDaysUptime))
+        outFile1.write(",deletes,{:.2f},{:.2f}\n".format(alltimeDeletes/numAlltimeSecondsUptime,alltimeDeletes/numAlltimeDaysUptime))
+        outFile1.write(",queries,{:.2f},{:.2f}\n".format(alltimeQueries/numAlltimeSecondsUptime,alltimeQueries/numAlltimeDaysUptime))
+    outFile1.write("\n")
+
+    outFile1.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('database','collection','doc-count','average-doc-size','size-GB','storageSize-GB','coll-unused-pct','num-indexes','indexSize-GB','ins/day','upd/day','del/day','ins/sec','upd/sec','del/sec'))
 
     # for each database
     for thisDb in idxDict["start"]["collstats"]:
@@ -237,9 +271,9 @@ def evalIndexes(appConfig):
                 #with open('output.log', 'a') as fpDet:
                 #    fpDet.write("{:40s} {:40s} {:40s} {:12d} {:12d}\n".format(thisDb,thisColl,thisIdx["name"],thisIdx["accesses"]["ops"],numXtraOps))
 
-                outFile2.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{:.2f},{},{},{},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize'),
+                outFile2.write("{},{},{},{},{:.2f},{:.2f},{:.2f},{},{:.2f},{:.2f},{},{},{},{},{},{},{},{},{},{},{},{}\n".format(thisDb,thisColl,thisCollInfo['count'],thisCollInfo.get('avgObjSize'),
                   thisCollInfo['size']/bToGb,thisCollInfo['storageSize']/bToGb,collectionUnusedPct,thisCollInfo['nindexes'],thisCollInfo['indexSizes'][thisIdx["name"]]/bToGb,indexUnusedPct,thisIdx["name"],
-                  thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList,insPerDay,updPerDay,delPerDay,insPerSec,updPerSec,delPerSec))
+                  thisIdx["accesses"]["ops"]+numXtraOps,numXtraOps,isRedundant,redundantList,insPerDay,updPerDay,delPerDay,insPerSec,updPerSec,delPerSec,thisIdx["keyAsString"]))
 
     outFile1.close()
     outFile2.close()
