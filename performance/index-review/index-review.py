@@ -1,5 +1,5 @@
 import argparse
-from datetime import datetime, timedelta
+import datetime as dt
 import sys
 import json
 import pymongo
@@ -69,7 +69,7 @@ def getData(appConfig):
     finalDict['start']['collstats'] = collectionStats
 
     # log output to file
-    logTimeStamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
+    logTimeStamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d%H%M%S')
     logFileName = "{}-{}-index-review.json".format(appConfig['serverAlias'],logTimeStamp)
     with open(logFileName, 'w') as fp:
         json.dump(finalDict, fp, indent=4, default=str)
