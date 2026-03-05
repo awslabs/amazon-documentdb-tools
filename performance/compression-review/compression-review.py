@@ -50,8 +50,15 @@ def getData(appConfig):
     logFileHandle.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n".format('dbName','collName','numDocs','avgDocSize','sizeGB','storageGB','existingCompRatio','compEnabled','minSample','maxSample','avgSample','minComp','maxComp','avgComp','projectedCompRatio','exceptions','compTime(ms)'))
 
     # get databases - filter out admin, config, local, and system
-    dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":['admin','config','local','system']}})['databases']
+    dbSkipList = ['admin','config','local','system']
+    try:
+        dbDict = client.admin.command("listDatabases",nameOnly=True,filter={"name":{"$nin":dbSkipList}})['databases']
+    except pymongo.errors.OperationFailure:
+        dbDict = client.admin.command("listDatabases",nameOnly=True)['databases']
     for thisDb in dbDict:
+        # workaround for EC
+        if thisDb['name'] in dbSkipList:
+            continue
         thisDbName = thisDb['name']
         collCursor = client[thisDbName].list_collections()
         for thisColl in collCursor:
