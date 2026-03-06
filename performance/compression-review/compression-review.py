@@ -38,7 +38,7 @@ def getData(appConfig):
 
     # log output to file
     logTimeStamp = dt.datetime.now(dt.timezone.utc).strftime('%Y%m%d%H%M%S')
-    logFileName = "{}-{}-compression-review.csv".format(appConfig['serverAlias'],logTimeStamp)
+    logFileName = "{}-{}-{}-compression-review.csv".format(appConfig['serverAlias'],compressor,logTimeStamp)
     logFileHandle = open(logFileName, "w")
 
     # output miscellaneos parameters to csv
