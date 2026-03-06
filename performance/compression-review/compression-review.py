@@ -224,7 +224,6 @@ def main():
                         required=False,
                         choices=['lz4-fast','lz4-high','lz4-fast-dict','lz4-high-dict','zstd-1','zstd-3','zstd-5','zstd-1-dict','zstd-3-dict','zstd-5-dict','bz2-1','lzma-0','zlib-1'],
                         type=str,
-                        default='lz4-fast',
                         help='Compressor')
     
     parser.add_argument('--dictionary-sample-size',
@@ -253,8 +252,16 @@ def main():
     appConfig['compressor'] = args.compressor
     appConfig['dictionarySampleSize'] = int(args.dictionary_sample_size)
     appConfig['dictionarySize'] = int(args.dictionary_size)
-    
-    getData(appConfig)
+
+    supportedCompressors=['lz4-fast','zstd-3-dict']
+
+    if appConfig['compressor'] is None:
+        # execute for each supported compression algorithm
+        for thisCompressor in supportedCompressors:
+            appConfig['compressor'] = thisCompressor
+            getData(appConfig)
+    else:
+        getData(appConfig)
 
 
 if __name__ == "__main__":
