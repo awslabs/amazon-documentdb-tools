@@ -18,17 +18,11 @@ The compression review tool samples 1000 documents in each collection to determi
 ## Using the Compression Review Tool
 `python3 compression-review.py --uri <server-uri> --server-alias <server-alias>`
 
-- Default compression tested is lz4/fast/level 1
-- To test other compression techniques provide --compressor \<compression-type> with one of the following for \<compression-type>
-
-| compressor | description |
-| ----------- | ----------- |
-| lz4-fast | lz4/fast/level 1 |
-| zstd-3-dict | zstandard/level 3/dictionary-provided (trained by sampling documents) |
-
+- Default compressions tested is lz4/fast/level1 and zstandard/level3/4K/Dictionary
+- To test other compression techniques provide --compressor \<compression-type>
 - Run on any instance in the replica set
 - Use a different \<server-alias> for each server analyzed, output file is named using \<server-alias> as the starting portion
-- Creates a single CSV file per execution
+- Creates a single CSV file per execution (so default creates two)
 - The \<server-uri> options can be found at https://www.mongodb.com/docs/manual/reference/connection-string/ 
   - If your URI contains ampersand (&) characters they must be escaped with the backslash or enclosed your URI in double quotes
 - For DocumentDB use either the cluster endpoint or any of the instance endpoints
