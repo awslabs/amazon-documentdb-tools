@@ -1,7 +1,0 @@
-compressor,docsSampled,dictDocsSampled,dictBytes
-zstd-3-dict,1000,100,4096
-
-dbName,collName,numDocs,avgDocSize,sizeGB,storageGB,existingCompRatio,compEnabled,minSample,maxSample,avgSample,minComp,maxComp,avgComp,projectedCompRatio,exceptions,compTime(ms)
-operators,guide1,5312,19057,0.0943,0.1022,0.9224,,22967,33379,30135,10107,14020,12777,1.4915,0,222.8836
-tmc,cases,320341,349,0.1041,0.1255,0.8299,,253,353,317,43,101,76,4.5921,0,2.0457
-testdb,testcoll1,1000000,2553,2.3777,2.5457,0.9340,Y/2032,2549,2549,2549,1860,1884,1872,1.3638,0,10.9005
