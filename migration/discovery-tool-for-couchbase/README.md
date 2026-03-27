@@ -1,35 +1,47 @@
 # Discovery Tool for Couchbase
 This tool gathers information from a Couchbase cluster to aid in discovery and planning for a migration to Amazon DocumentDB. This tool does not modify any data or settings and is read-only. The following information is gathered and written to .csv and .txt files:
 
-* Details for all collections in the cluster written to ```collection-stats.csv```:
+* Details for all buckets in the cluster are written to ```bucket-stats.csv```:
+    * bucket name
+    * bucket type
+    * item count
+    * total data used (bytes)
+    * total disk used (bytes)
+    * total memory used (bytes)
+    * RAM quota (bytes)
+    * quota used percent
+* If the cbstats tool is available and username/password authentication is used, details for all collections in the cluster are written to ```collection-stats.csv```:
     * bucket name
     * bucket type
     * scope name
     * collection name
-    * total size
+    * total size (bytes)
     * total items
-    * average item size
-* K/V operation statistics for all buckets in the cluster written to ```kv-stats.csv```:
+    * average item size (bytes)
+* K/V operation statistics for all buckets in the cluster are written to ```kv-stats.csv```:
     * bucket name
     * gets/second
     * sets/second
     * deletes/second
 
 For clusters with the query and index and services enabled:
-* N1QL query statistics for the cluster written to ```n1ql-stats.csv```:
+* N1QL query statistics for the cluster are written to ```n1ql-stats.csv```:
     * selects/second
     * deletes/second
     * inserts/second
-* Statistics for all indexes in the cluster written to ```index-stats.csv```:
+* Statistics for all indexes in the cluster are written to ```index-stats.csv```:
     * bucket name
     * scope name
     * collection name
     * index name
-    * index size
-* Index definitions for all buckets in the cluster written to ```indexes-<bucket name>.txt```. Primary index defintions are not included since all Amazon DocumentDB collections have a default primary index on ```_id```. If the bucket does not have any indexes defined, the ```indexes-<bucket name>``` file will be empty. 
+    * index size (bytes)
+* Index definitions for all buckets in the cluster are written to ```indexes-<bucket name>.txt```. Primary index defintions are not included since all Amazon DocumentDB collections have a default primary index on ```_id```. If the bucket does not have any indexes defined, the ```indexes-<bucket name>``` file will be empty. 
 
 ## Prerequisites
-The [cbstats tool](https://docs.couchbase.com/server/current/cli/cbstats-intro.html) must be deployed and be able to connect to your Couchbase cluster.
+The [cbstats tool](https://docs.couchbase.com/server/current/cli/cbstats-intro.html) is used to gather collection details. If cbstats is not available, collection metrics will not be gathered and you will see the following message in the output:
+```
+Error: cbstats not found at <tools_path>.
+```
 
 ## Requirements
 Python 3.9 or later
@@ -44,22 +56,44 @@ cd amazon-documentdb-tools/migration/discovery-tool-for-couchbase/
 ## Usage/Examples
 The script has the following arguments:
 ```
---username      -> Couchbase cluster username
---password      -> Couchbase cluster password
---data_node     -> Couchbase data node IP address or DNS name
---admin_port    -> administration REST port, default: 8091
---kv_zoom       -> get K/V operation statistics for specified interval: <minute | hour | day | week | month | year>, default: month
---tools_path    -> full path to cbtools, default: /opt/couchbase/bin
---index_metrics -> gather query & index information <true | false>, default: false
---indexer_port  -> indexer service http REST port, default: 9102
---n1ql_start    -> number of milliseconds prior at which to start sampling: -7200000
---n1ql_step     -> sample interval over the sample period, in milliseconds, default: 100
+--data_node             Couchbase data node IP address or DNS name
+--username              Couchbase cluster username (required if not using client certificates)
+--password              Couchbase cluster password (required if not using client certificates)
+--client_cert           Path to client certificate file (required if not using username/password)
+--client_key            Path to client private key file (required if not using username/password)
+--admin_port            administration REST port (default: 18091)
+--kv_zoom               get bucket statistics for specified interval: <minute | hour | day | week | month | year> (default: month)
+--tools_path            full path to Couchbase tools (default: /opt/couchbase/bin)
+--index_metrics         gather index definitions and N1QL metrics: <true | false> (default: false)
+--indexer_port          indexer service REST port (default: 19102)
+--n1ql_start            number of milliseconds prior at which to start sampling (default: -60000)
+--n1ql_step             sample interval over the sample period, in milliseconds (default: 100)
+--skip_ssl_verify       Skip SSL certificate verification (not recommended for production)
 ```
 
-### Example:
+### Example - username/password authentication
+#### HTTPS (Couchbase Server 7.2+)
+If your Couchbase cluster is using self-signed certificates add the ```skip_ssl_verify`` flag.
 ```
-python3 discover.py --username xxx --password xxx --data_node "http://10.0.130.123" --admin_port 8091 --kv_zoom week --tools_path "/opt/couchbase/bin" --index_metrics true --indexer_port 9102 --n1ql_start -7200000 --n1ql_step 1000
+python3 discover.py --data_node "https://<hostname or IP>" --username <username> --password <password> --index_metrics true
 ```
+
+#### HTTP (Couchbase Server 7.0+)
+Change admin and indexer port values to the unencrypred port number values.
+```
+python3 discover.py --data_node "http://<hostname or IP>" --username <username> --password <password> --admin_port 8091 --index_metrics true --indexer_port 9102
+```
+
+### Example - certificate authentication (Couchbase Server 7.2+)
+If your Couchbase cluster is using self-signed certificates add the ```skip_ssl_verify`` flag.
+
+> [!IMPORTANT]
+> Collection metrics will not be gathered when using certificate authentication since cbstats does not support certificate authentication.
+```
+python3 discover.py --data_node "https://<hostname or IP>" --client_cert client-cert.pem --client_key client-key.pem --index_metrics true
+```
+
+## Sample output
 
 In this example, the ```beer-sample``` and ```travel-sample``` buckets have been loaded and there is a ```pillowfight``` bucket being used for [cbc-pillowfight](https://docs.couchbase.com/sdk-api/couchbase-c-client/md_doc_2cbc-pillowfight.html) and [n1qlback](https://docs.couchbase.com/sdk-api/couchbase-c-client/md_doc_2cbc-n1qlback.html) load testing.
 
@@ -67,6 +101,11 @@ The tool generates the following output while executing:
 ```
 found data nodes ['10.0.129.165', '10.0.130.123', '10.0.133.73']
 found buckets ['beer-sample', 'pillowfight', 'travel-sample']
+
+getting bucket stats via REST API...
+getting statistics for bucket beer-sample...
+getting statistics for bucket pillowfight...
+getting statistics for bucket travel-sample...
 
 getting collection stats...
 found collection beer-sample._default._default
@@ -90,20 +129,20 @@ found collection travel-sample._default._default
 
 getting K/V stats...
 
-getting KV stats for last week for bucket beer-sample...
-cmd_get: 0
-cmd_set: 0
-delete_hits: 0
+getting KV stats for last month for bucket beer-sample...
+cmd_get: 0/second
+cmd_set: 0/second
+delete_hits: 0/second
 
-getting KV stats for last week for bucket pillowfight...
-cmd_get: 397
-cmd_set: 549
-delete_hits: 217
+getting KV stats for last month for bucket pillowfight...
+cmd_get: 397/second
+cmd_set: 549/second
+delete_hits: 217/second
 
-getting KV stats for last week for bucket travel-sample...
-cmd_get: 0
-cmd_set: 0
-delete_hits: 0
+getting KV stats for last month for bucket travel-sample...
+cmd_get: 0/second
+cmd_set: 0/second
+delete_hits: 0/second
 
 found index nodes ['10.0.132.125', '10.0.150.144']
 
@@ -116,13 +155,22 @@ getting index stats for bucket beer-sample
 getting index stats for bucket pillowfight
 getting index stats for bucket travel-sample
 
-getting N1QL stats every 1000 ms for -7200000 ms...
-n1ql_selects: 0
-n1ql_deletes: 1
-n1ql_inserts: 1
+getting N1QL stats every 1000 ms for -60000 ms...
+n1ql_selects: 0/second
+n1ql_deletes: 152/second
+n1ql_inserts: 99/second
 ```
 
 The output files contain the following information:
+#### bucket-stats.csv
+```
+bucket,bucket_type,item_count,data_used,disk_used,mem_used,ram_quota,quota_used_percent
+beer-sample,membase,7303,7620888,30863131,86389304,629145600,13.73
+gamesim-sample,membase,586,1194770,19834565,75258056,629145600,11.96
+pillowfight,membase,1000006,3874707316,5219114640,6332467768,216076910592,2.93
+travel-sample,membase,63288,96731384,143680696,183310344,629145600,29.14
+```
+
 #### collection-stats.csv
 ```
 bucket,bucket_type,scope_name,collection_name,total_size,total_items,document_size
@@ -150,14 +198,14 @@ travel-sample,membase,_default,_default,20780949,31591,658
 ```
 bucket,gets,sets,deletes
 beer-sample,0,0,0
-pillowfight,398,548,217
+pillowfight,397,549,217
 travel-sample,0,0,0
 ```
 
 ### n1ql-stats.csv
 ```
 selects,deletes,inserts
-0,121,79
+0,152,99
 ```
 
 ### index-stats.csv
