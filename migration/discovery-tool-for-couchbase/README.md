@@ -73,7 +73,7 @@ The script has the following arguments:
 
 ### Example - username/password authentication
 #### HTTPS (Couchbase Server 7.2+)
-If your Couchbase cluster is using self-signed certificates add the ```skip_ssl_verify`` flag.
+If your Couchbase cluster is using self-signed certificates add the ```skip_ssl_verify``` flag.
 ```
 python3 discover.py --data_node "https://<hostname or IP>" --username <username> --password <password> --index_metrics true
 ```
@@ -85,7 +85,7 @@ python3 discover.py --data_node "http://<hostname or IP>" --username <username> 
 ```
 
 ### Example - certificate authentication (Couchbase Server 7.2+)
-If your Couchbase cluster is using self-signed certificates add the ```skip_ssl_verify`` flag.
+If your Couchbase cluster is using self-signed certificates add the ```skip_ssl_verify``` flag.
 
 > [!IMPORTANT]
 > Collection metrics will not be gathered when using certificate authentication since cbstats does not support certificate authentication.
