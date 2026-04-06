@@ -185,7 +185,6 @@ def task_worker(threadNum, appConfig):
                 if not appConfig['skipCleanup']:
                     cleanupList = [pymongo.UpdateOne({"_id": op._filter["_id"]}, {"$unset": {appConfig['updateField']: ""}}) for op in updateList]
                     col.bulk_write(cleanupList)
-                    printLog("cleanup: removed dummy field from {:,} docs".format(batch_count), appConfig)
 
                 batch_elapsed = time.time() - batch_start_time
                 overall_elapsed = time.time() - overall_start_time
@@ -210,16 +209,14 @@ def task_worker(threadNum, appConfig):
                 filled = int(bar_width * progress_pct / 100)
                 bar = chr(9608) * filled + chr(9617) * (bar_width - filled)
                 printLog(
-                    "[{}] {:.1f}% | {:,}/{:,} | batch: {:,} docs in {:.1f}s | rate: {:.0f} docs/s | ETA: {}".format(
+                    "[{}] {:.1f}% | {:,}/{:,} | batch: {:,} docs in {:.1f}s | rate: {:.0f} docs/s | ETA: {} | sleeping for {} seconds".format(
                         bar, progress_pct,
                         numDocumentsUpdated, numExistingDocuments,
                         batch_count, batch_elapsed,
-                        rate, eta_str),
+                        rate, eta_str, appConfig['waitPeriod']),
                     appConfig)
 
                 lastScannedObjectId = tempLastScannedObjectId
-
-                printLog("sleeping for {} seconds".format(appConfig['waitPeriod']), appConfig)
                 time.sleep(appConfig['waitPeriod'])
             else:
                 printLog("No updates in batch", appConfig)
