@@ -83,7 +83,7 @@ def setup(appConfig):
 
     try:
         if trackerCollectionName in list_of_collections:
-            result = tracker_col.find({}).sort({"_id": -1}).limit(1)
+            result = tracker_col.find({}).sort([("_id", -1)]).limit(1)
             for lastEntry in result:
                 numExistingDocuments = lastEntry["numExistingDocuments"]
                 maxObjectIdToTouch = lastEntry["maxObjectIdToTouch"]
@@ -92,7 +92,7 @@ def setup(appConfig):
                 printLog("Found existing record: {}".format(str(lastEntry)), appConfig)
 
         else:
-            result = col.find({}, {"_id": 1}).sort({"_id": -1}).limit(1)
+            result = col.find({}, {"_id": 1}).sort([("_id", -1)]).limit(1)
 
             maxObjectIdToTouch = None
             for doc in result:
@@ -159,9 +159,9 @@ def task_worker(threadNum, appConfig):
             batch_start_time = time.time()
 
             if lastScannedObjectId != 0:
-                batch = col.find({"_id": {"$gt": lastScannedObjectId}}, {"_id": 1}).sort({"_id": 1}).limit(appConfig['batchSize'])
+                batch = col.find({"_id": {"$gt": lastScannedObjectId}}, {"_id": 1}).sort([("_id", 1)]).limit(appConfig['batchSize'])
             else:
-                batch = col.find({}, {"_id": 1}).sort({"_id": 1}).limit(appConfig['batchSize'])
+                batch = col.find({}, {"_id": 1}).sort([("_id", 1)]).limit(appConfig['batchSize'])
 
             batch_count = 0
             updateList = []
