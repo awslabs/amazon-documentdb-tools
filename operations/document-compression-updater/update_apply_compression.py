@@ -209,7 +209,8 @@ def task_worker(threadNum, appConfig):
                 filled = int(bar_width * progress_pct / 100)
                 bar = chr(9608) * filled + chr(9617) * (bar_width - filled)
                 printLog(
-                    "[{}] {:.1f}% | {:,}/{:,} | batch: {:,} docs in {:.1f}s | rate: {:.0f} docs/s | ETA: {} | sleeping for {} seconds".format(
+                    "[{}] [{}] {:.1f}% | {:,}/{:,} | batch: {:,} docs in {:.1f}s | rate: {:.0f} docs/s | ETA: {} | sleeping for {} seconds".format(
+                        datetime.datetime.now().isoformat(),
                         bar, progress_pct,
                         numDocumentsUpdated, numExistingDocuments,
                         batch_count, batch_elapsed,
