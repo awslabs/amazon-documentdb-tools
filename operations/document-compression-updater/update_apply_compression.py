@@ -282,10 +282,10 @@ def main():
 
     setUpdata = setup(appConfig)
 
-    appConfig['numExistingDocuments'] = setUpdata["numExistingDocuments"]
-    appConfig['maxObjectIdToTouch'] = setUpdata["maxObjectIdToTouch"]
-    appConfig['lastScannedObjectId'] = setUpdata["lastScannedObjectId"]
-    appConfig['numDocumentsUpdated'] = setUpdata["numDocumentsUpdated"]
+    appConfig['numExistingDocuments'] = setUpdata["numExistingDocuments"]  
+    appConfig['maxObjectIdToTouch'] = setUpdata["maxObjectIdToTouch"]  
+    appConfig['lastScannedObjectId'] = setUpdata["lastScannedObjectId"]     
+    appConfig['numDocumentsUpdated'] = setUpdata["numDocumentsUpdated"]   
 
     if not appConfig['appendLog']:
         deleteLog(appConfig)
@@ -301,9 +301,9 @@ def main():
             thisUri = thisUri.replace(thisPassword,'<PASSWORD>')
             printLog("  config | {} | {}".format(thisKey,thisUri),appConfig)
         else:
-            printLog("  config | {} | {}".format(thisKey, appConfig[thisKey]), appConfig)
+            printLog("  config | {} | {}".format(thisKey,appConfig[thisKey]),appConfig)
     printLog('---------------------------------------------------------------------------------------',appConfig)
-
+    
     mp.set_start_method('spawn')
 
     processList = []
@@ -312,10 +312,10 @@ def main():
         processList.append(p)
     for process in processList:
         process.start()
-
+        
     for process in processList:
         process.join()
-
+        
     printLog("Created {}  with results".format(appConfig['logFileName']), appConfig)
 
 if __name__ == "__main__":
