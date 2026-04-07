@@ -290,19 +290,19 @@ def main():
     if not appConfig['appendLog']:
         deleteLog(appConfig)
 
-    printLog('---------------------------------------------------------------------------------------', appConfig)
+    printLog('---------------------------------------------------------------------------------------',appConfig)
     for thisKey in sorted(appConfig):
-        if thisKey == 'uri':
+        if (thisKey == 'uri'):
             thisUri = appConfig[thisKey]
             thisParsedUri = pymongo.uri_parser.parse_uri(thisUri)
             thisUsername = thisParsedUri['username']
             thisPassword = thisParsedUri['password']
-            thisUri = thisUri.replace(thisUsername, '<USERNAME>')
-            thisUri = thisUri.replace(thisPassword, '<PASSWORD>')
-            printLog("  config | {} | {}".format(thisKey, thisUri), appConfig)
+            thisUri = thisUri.replace(thisUsername,'<USERNAME>')
+            thisUri = thisUri.replace(thisPassword,'<PASSWORD>')
+            printLog("  config | {} | {}".format(thisKey,thisUri),appConfig)
         else:
             printLog("  config | {} | {}".format(thisKey, appConfig[thisKey]), appConfig)
-    printLog('---------------------------------------------------------------------------------------', appConfig)
+    printLog('---------------------------------------------------------------------------------------',appConfig)
 
     mp.set_start_method('spawn')
 
@@ -316,7 +316,7 @@ def main():
     for process in processList:
         process.join()
 
-    printLog("Created {} with results".format(appConfig['logFileName']), appConfig)
+    printLog("Created {}  with results".format(appConfig['logFileName']), appConfig)
 
 if __name__ == "__main__":
     main()

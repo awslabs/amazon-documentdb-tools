@@ -1,4 +1,4 @@
-# Python Updater tool
+# Python Updater tool 
 This sample application compresses pre-existing documents in an existing collection after compression is turned on that existing collection.
 
 Single threaded application - issues **5000** (controlled by argument --batch-size) updates serially in a _round_, and sleeps for **60** (controlled by argument --wait-period) seconds before starting next _round_.
