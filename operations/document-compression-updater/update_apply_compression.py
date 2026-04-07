@@ -254,18 +254,18 @@ def task_worker(threadNum, appConfig):
 
 def main():
     parser = argparse.ArgumentParser(description='Update and Apply Compression')
-    parser.add_argument('--uri', required=True, type=str, help='URI (connection string)')
-    parser.add_argument('--database', required=True, type=str, help='Database')
-    parser.add_argument('--collection', required=True, type=str, help='Collection')
-    parser.add_argument('--file-name', required=False, type=str, default='compressor', help='Starting name of the created log files')
-    parser.add_argument('--update-field', required=False, type=str, default='6nh63', help='Field used for updating an existing document. This should not conflict with any fieldname you are already using')
-    parser.add_argument('--wait-period', required=False, type=int, default=60, help='Number of seconds to wait between each batch')
-    parser.add_argument('--batch-size', required=False, type=int, default=5000, help='Number of documents to update in a single batch')
+    parser.add_argument('--uri',required=True,type=str,help='URI (connection string)')
+    parser.add_argument('--database',required=True,type=str,help='Database')
+    parser.add_argument('--collection',required=True,type=str,help='Collection')
+    parser.add_argument('--file-name',required=False,type=str,default='compressor',help='Starting name of the created log files')
+    parser.add_argument('--update-field',required=False,type=str,default='6nh63',help='Field used for updating an existing document. This should not conflict with any fieldname you are already using ')
+    parser.add_argument('--wait-period',required=False,type=int,default=60,help='Number of seconds to wait between each batch')
+    parser.add_argument('--batch-size',required=False,type=int,default=5000,help='Number of documents to update in a single batch')
     parser.add_argument('--append-log', required=False, action='store_true', default=False, help='Append to existing log file instead of overwriting it on startup')
     parser.add_argument('--skip-cleanup', required=False, action='store_true', default=False, help='Skip removing the dummy field after each batch (leaves update field permanently on documents)')
 
     args = parser.parse_args()
-
+    
     appConfig = {}
     appConfig['uri'] = args.uri
     appConfig['numInsertProcesses'] = 1
@@ -281,7 +281,7 @@ def main():
     validate_connection(appConfig)
 
     setUpdata = setup(appConfig)
-
+    
     appConfig['numExistingDocuments'] = setUpdata["numExistingDocuments"]  
     appConfig['maxObjectIdToTouch'] = setUpdata["maxObjectIdToTouch"]  
     appConfig['lastScannedObjectId'] = setUpdata["lastScannedObjectId"]     
@@ -316,7 +316,7 @@ def main():
     for process in processList:
         process.join()
         
-    printLog("Created {}  with results".format(appConfig['logFileName']), appConfig)
+    printLog("Created {}  with results".format(appConfig['logFileName']),appConfig)
 
 if __name__ == "__main__":
     main()
