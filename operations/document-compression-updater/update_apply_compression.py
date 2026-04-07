@@ -15,19 +15,13 @@ def deleteLog(appConfig):
     if os.path.exists(appConfig['logFileName']):
         os.remove(appConfig['logFileName'])
 
-def printLog(thisMessage, appConfig):
+def printLog(thisMessage,appConfig):
     print("{}".format(thisMessage))
     with open(appConfig['logFileName'], 'a') as fp:
         fp.write("{}\n".format(thisMessage))
 
-def get_mongo_client(uri, appConfig=None):
+def get_mongo_client(uri, appConfig):
     """Create a MongoClient, retrying up to MAX_RETRIES times on failure."""
-    def log(msg):
-        if appConfig:
-            printLog(msg, appConfig)
-        else:
-            print(msg)
-
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             client = pymongo.MongoClient(host=uri, appname='compupd', serverSelectionTimeoutMS=5000)
@@ -35,7 +29,7 @@ def get_mongo_client(uri, appConfig=None):
             return client
         except pymongo.errors.PyMongoError as e:
             if attempt < MAX_RETRIES:
-                log("Connection attempt {} failed: {}. Retrying in {} seconds...".format(attempt, e, RETRY_DELAY))
+                printLog("Connection attempt {} failed: {}. Retrying in {} seconds...".format(attempt, e, RETRY_DELAY), appConfig)
                 time.sleep(RETRY_DELAY)
             else:
                 raise
@@ -43,24 +37,25 @@ def get_mongo_client(uri, appConfig=None):
 def validate_connection(appConfig):
     """Validate that the URI is reachable and that the target database/collection exist."""
     try:
-        client = get_mongo_client(appConfig['uri'])
+        client = get_mongo_client(appConfig['uri'], appConfig)
     except pymongo.errors.PyMongoError as e:
         sys.exit("Error: Unable to connect to DocumentDB: {}".format(e))
 
     try:
         db_names = client.list_database_names()
         if appConfig['databaseName'] not in db_names:
+            printLog("Error: Database '{}' does not exist.".format(appConfig['databaseName']), appConfig)
             sys.exit("Error: Database '{}' does not exist.".format(appConfig['databaseName']))
 
         col_names = client[appConfig['databaseName']].list_collection_names()
         if appConfig['collectionName'] not in col_names:
-            sys.exit("Error: Collection '{}' does not exist in database '{}'.".format(
-                appConfig['collectionName'], appConfig['databaseName']))
+            printLog("Error: Collection '{}' does not exist in database '{}'.".format(appConfig['collectionName'], appConfig['databaseName']), appConfig)
+            sys.exit("Error: Collection '{}' does not exist in database '{}'.".format(appConfig['collectionName'], appConfig['databaseName']))
     finally:
         client.close()
 
 def setup(appConfig):
-    if sys.version_info < (3, 7):
+    if sys.version_info < (3,7):
         sys.exit('Sorry, Python < 3.7 is not supported')
 
     databaseName = appConfig['databaseName']
