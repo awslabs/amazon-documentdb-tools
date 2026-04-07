@@ -62,7 +62,7 @@ def setup(appConfig):
     collectionName = appConfig['collectionName']
 
     try:
-        client = get_mongo_client(appConfig['uri'])
+        client = get_mongo_client(appConfig['uri'], appConfig)
     except pymongo.errors.PyMongoError as e:
         sys.exit("Error connecting during setup: {}".format(e))
 
@@ -134,7 +134,7 @@ def task_worker(threadNum, appConfig):
     trackerCollectionName = myDatabaseName + '_' + myCollectionName + '_tracker_col'
 
     try:
-        client = get_mongo_client(appConfig['uri'])
+        client = get_mongo_client(appConfig['uri'], appConfig)
     except pymongo.errors.PyMongoError as e:
         printLog("Fatal: could not connect in worker: {}".format(e), appConfig)
         return
