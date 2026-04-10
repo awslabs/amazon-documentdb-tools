@@ -1,6 +1,8 @@
 # Amazon DocumentDB Compression Review Tool
 
-The compression review tool samples 1000 documents in each collection to determine the average compressibility of the data. A larger number of documents can be sampled via the --sample-size parameter. 
+The compression review tool provides a compressibility metric (the maximum compression possible on each collection's documents) by sampling the actual documents and applying the requested compression algorithm. The actual compression achieved will be a lower number due to fragmentation and write amplification.
+
+The tool samples 1000 documents in each collection to determine the compressibility of the data. A larger number of documents can be sampled via the --sample-size parameter.
 
 # Requirements
  - Python 3.7+
