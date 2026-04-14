@@ -262,7 +262,7 @@ def main():
     parser.add_argument('--wait-period',required=False,type=int,default=60,help='Number of seconds to wait between each batch')
     parser.add_argument('--batch-size',required=False,type=int,default=5000,help='Number of documents to update in a single batch')
     parser.add_argument('--append-log', required=False, action='store_true', default=False, help='Append to existing log file instead of overwriting it on startup')
-    parser.add_argument('--skip-cleanup', required=False, action='store_true', default=False, help='Skip removing the dummy field after each batch (leaves update field permanently on documents)')
+    parser.add_argument('--skip-cleanup', required=False, action='store_true', default=True, help='Skip removing the dummy field after each batch (leaves update field permanently on documents)')
 
     args = parser.parse_args()
     
