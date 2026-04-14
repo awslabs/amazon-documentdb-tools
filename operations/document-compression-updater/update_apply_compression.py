@@ -163,7 +163,7 @@ def task_worker(threadNum, appConfig):
 
             for doc in batch:
                 if doc["_id"] <= maxObjectIdToTouch:
-                    updateList.append(pymongo.UpdateOne({"_id": doc["_id"]}, {"$set": {appConfig['updateField']: 1}}))
+                    updateList.append(doc["_id"])
                     tempLastScannedObjectId = doc["_id"]
                     batch_count += 1
                 else:
@@ -174,12 +174,11 @@ def task_worker(threadNum, appConfig):
                     break
 
             if batch_count > 0:
-                col.bulk_write(updateList)
+                col.update_many({"_id": {"$in":updateList}}, {"$set": {appConfig['updateField']: 1}})
                 numDocumentsUpdated += batch_count
 
                 if appConfig['cleanup']:
-                    cleanupList = [pymongo.UpdateOne({"_id": op._filter["_id"]}, {"$unset": {appConfig['updateField']: ""}}) for op in updateList]
-                    col.bulk_write(cleanupList)
+                    col.update_many({"_id": {"$in":updateList}}, {"$unset": {appConfig['updateField']: 1}})
 
                 batch_elapsed = time.time() - batch_start_time
                 overall_elapsed = time.time() - overall_start_time
