@@ -177,7 +177,7 @@ def task_worker(threadNum, appConfig):
                 col.bulk_write(updateList)
                 numDocumentsUpdated += batch_count
 
-                if not appConfig['skipCleanup']:
+                if appConfig['cleanup']:
                     cleanupList = [pymongo.UpdateOne({"_id": op._filter["_id"]}, {"$unset": {appConfig['updateField']: ""}}) for op in updateList]
                     col.bulk_write(cleanupList)
 
@@ -196,7 +196,7 @@ def task_worker(threadNum, appConfig):
                     "maxObjectIdToTouch": maxObjectIdToTouch,
                     "numExistingDocuments": numExistingDocuments,
                     "numDocumentsUpdated": numDocumentsUpdated,
-                    "cleanupComplete": not appConfig['skipCleanup']
+                    "cleanupComplete": appConfig['cleanup']
                 }
                 tracker_col.insert_one(tracker_entry)
 
@@ -242,7 +242,7 @@ def task_worker(threadNum, appConfig):
         printLog("completed | totalDocumentsUpdated: {:,} | elapsed: {} | cleanupComplete: {}".format(
             numDocumentsUpdated,
             str(datetime.timedelta(seconds=int(overall_elapsed))),
-            not appConfig['skipCleanup']),
+            appConfig['cleanup']),
             appConfig)
         try:
             tracker_col.drop()
@@ -262,7 +262,7 @@ def main():
     parser.add_argument('--wait-period',required=False,type=int,default=60,help='Number of seconds to wait between each batch')
     parser.add_argument('--batch-size',required=False,type=int,default=5000,help='Number of documents to update in a single batch')
     parser.add_argument('--append-log', required=False, action='store_true', default=False, help='Append to existing log file instead of overwriting it on startup')
-    parser.add_argument('--skip-cleanup', required=False, action='store_true', default=True, help='Skip removing the dummy field after each batch (leaves update field permanently on documents)')
+    parser.add_argument('--cleanup', required=False, action='store_true', default=False, help='Remove the dummy field after each update (doubles the number of updates)')
 
     args = parser.parse_args()
     
@@ -276,7 +276,7 @@ def main():
     appConfig['waitPeriod'] = int(args.wait_period)
     appConfig['logFileName'] = "{}.log".format(args.file_name)
     appConfig['appendLog'] = args.append_log
-    appConfig['skipCleanup'] = args.skip_cleanup
+    appConfig['cleanup'] = args.cleanup
 
     validate_connection(appConfig)
 
