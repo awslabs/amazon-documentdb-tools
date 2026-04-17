@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+import datetime as dt
 import os
 import sys
 import time
@@ -17,7 +17,7 @@ from bson import encode
 def logIt(threadnum, message):
     warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
 
-    logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
+    logTimeStamp = dt.datetime.now(dt.timezone.utc).isoformat()[:-3] + 'Z'
     print("[{}] thread {:>3d} | {}".format(logTimeStamp,threadnum,message))
 
 
@@ -191,7 +191,7 @@ def reporter(appConfig, perfQ):
 
         numThisGbPerHour = numThisBytes / intervalElapsedSeconds * 60 * 60 / 1024 / 1024 / 1024
 
-        logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
+        logTimeStamp = dt.datetime.now(dt.timezone.utc).isoformat()[:-3] + 'Z'
         print("[{0}] elapsed {1} | total o/s {2:12,.2f} | interval o/s {3:12,.2f} | tot ops {4:16,d} | loading {5:5d} | pct {6:6.2f}% | done in {7} | GB/hr {8:6.2f}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,numWorkersLoading,pctDone,remainHMS,numThisGbPerHour))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
         
