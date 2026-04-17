@@ -68,15 +68,17 @@ def full_load_loader(threadnum, appConfig, perfQ):
     if appConfig['verboseLogging']:
         logIt(threadnum,"Creating cursor")
 
+    boundaryFieldName = appConfig['boundaryFieldName']
+
     if (threadnum == 0):
         # thread 0 = $lte only
-        cursor = sourceColl.find({'_id': {'$lte': appConfig['boundaries'][threadnum]}})
+        cursor = sourceColl.find({boundaryFieldName: {'$lte': appConfig['boundaries'][threadnum]}})
     elif (threadnum == appConfig['numProcessingThreads'] - 1):
         # last processor = $gt only
-        cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1]}})
+        cursor = sourceColl.find({boundaryFieldName: {'$gt': appConfig['boundaries'][threadnum-1]}})
     else:
         # last processor = $gt prior, $lte next
-        cursor = sourceColl.find({'_id': {'$gt': appConfig['boundaries'][threadnum-1], '$lte': appConfig['boundaries'][threadnum]}})
+        cursor = sourceColl.find({boundaryFieldName: {'$gt': appConfig['boundaries'][threadnum-1], '$lte': appConfig['boundaries'][threadnum]}})
 
     perfQ.put({"name":"findCompleted","processNum":threadnum})
 
@@ -259,6 +261,12 @@ def main():
                         action='store_true',
                         help='Enable verbose logging')
 
+    parser.add_argument('--boundary-field-name',
+                        required=False,
+                        type=str,
+                        default='_id',
+                        help='Field used for boundaries for segmenting')
+
     parser.add_argument('--boundaries',
                         required=True,
                         type=str,
@@ -295,6 +303,7 @@ def main():
     else:
         appConfig['targetNs'] = args.target_namespace
     appConfig['verboseLogging'] = args.verbose
+    appConfig['boundaryFieldName'] = args.boundary_field_name
     appConfig['boundaryDatatype'] = args.boundary_datatype
     appConfig['createCloudwatchMetrics'] = args.create_cloudwatch_metrics
     appConfig['clusterName'] = args.cluster_name
