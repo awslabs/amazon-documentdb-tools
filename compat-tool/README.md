@@ -2,6 +2,7 @@
 The tool examines **MongoDB serverStatus() counters**, **MongoDB log files**, or **application source code** from MongoDB applications to determine if there are any operators in use that are not supported in Amazon DocumentDB. It produces a simple report of both supported and unsupported operator usage.
 
 ## Recommended compatibility testing for MongoDB 5.0 and newer
+* [NOTE] in --uri mode the account executing the tool must have access to the serverStatus command
 * run the tool once using directConnection=true to the primary instance in your cluster
   * ```python3 compat.py --uri "mongodb://<username>:<password>@<primary-hostname>:<port>/admin?directConnection=true"```
 * if using secondary instances for read-scale run the tool again on one secondary (again using &directConnection)
@@ -53,6 +54,9 @@ See the MongoDB [documentation](https://www.mongodb.com/docs/manual/reference/me
 - Python 3.6 or later
 - pymongo (if testing compatibility using the --uri option)
 
+# Access Control
+If using the --uri option the account executing to this script requires the following permission
+ - serverStatus
 
 ## Installation
 Clone the repository and go to the tool folder:
