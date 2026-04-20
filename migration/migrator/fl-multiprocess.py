@@ -277,9 +277,9 @@ def main():
                         type=str,
                         default='objectid',
                         choices=['objectid','string','int'],
-                        help='Boundaries for segmenting')
+                        help='Datatype for boundary segments')
 
-    parser.add_argument('--create-cloudwatch-metrics',required=False,action='store_true',help='Create CloudWatch metrics when garbage collection is active')
+    parser.add_argument('--create-cloudwatch-metrics',required=False,action='store_true',help='Create CloudWatch metrics')
     parser.add_argument('--cluster-name',required=False,type=str,help='Name of cluster for CloudWatch metrics')
 
     args = parser.parse_args()
