@@ -534,8 +534,21 @@ class DocumentDbIndexTool(IndexToolConstants):
                             logging.debug("Adding index %s -> %s", keys_to_create,index_options)
                             database = connection[db_name]
                             collection = database[collection_name]
-                            collection.create_index(keys_to_create,**index_options)
-                            logging.info("%s.%s: added index: %s", db_name, collection_name, index_options[self.INDEX_NAME] )
+                            try:
+                                collection.create_index(keys_to_create,**index_options)
+                                logging.info("%s.%s: added index: %s", db_name, collection_name, index_options[self.INDEX_NAME] )
+                            except OperationFailure as ofe:
+                                if self.args.skip_incompatible is True:
+                                    logging.warning(
+                                        "%s.%s: skipping index %s because create_index failed: %s",
+                                        db_name,
+                                        collection_name,
+                                        index_options[self.INDEX_NAME],
+                                        ofe,
+                                    )
+                                    continue
+
+                                raise
 
     def run(self):
         """Entry point
