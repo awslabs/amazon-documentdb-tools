@@ -11,3 +11,4 @@
 * [mongodb-oplog-review](./mongodb-oplog-review) - scan the oplog to determine the collection level insert/update/delete rates.
 * [mongodb-ops](./mongodb-ops) - extract collection level query/insert/update/delete MongoDB counters to estimate workload for migrations.
 * [mvu-tool](./mvu-tool) - live migration tool to assist in providing near zero-downtime major version upgrades.
+* [sizing-tool](./sizing-tool) - analyze MongoDB databases to generate a CSV file for use with the DocumentDB Cost Estimator.
