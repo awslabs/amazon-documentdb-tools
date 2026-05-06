@@ -30,14 +30,14 @@ def load_compression_module():
     """
     script_dir = os.path.dirname(os.path.abspath(__file__))
     compression_script = os.path.join(
-        script_dir, '..', 'performance', 'compression-review', 'compression-review.py'
+        script_dir, '..', '..', 'performance', 'compression-review', 'compression-review.py'
     )
     
     # Check if the file exists
     if not os.path.exists(compression_script):
         raise RuntimeError(
             f"Compression module not found at: {compression_script}\n"
-            f"Expected location: ../performance/compression-review/compression-review.py\n"
+            f"Expected location: ../../performance/compression-review/compression-review.py\n"
             f"Please ensure the compression-review tool is available in the correct directory."
         )
     
