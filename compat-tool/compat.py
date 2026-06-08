@@ -130,6 +130,8 @@ def scan_code(args, keywords):
             fileLineNum = 1
             
             for lineNum, thisLine in enumerate(fileLines):
+                # Normalize Kotlin/Groovy template string escapes: ${'$'} -> $
+                thisLine = thisLine.replace("${'$'}", "$")
                 thisLineLength = len(thisLine)
                 
                 for checkCompat in keywords:
