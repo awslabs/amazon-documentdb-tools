@@ -3,7 +3,7 @@
 import compat
 
 def main():
-    versions = ['3.6','4.0','5.0','8.0','EC5.0']
+    versions = ['3.6','4.0','5.0.0','5.0.1','8.0','EC5.0']
     keywords = compat.load_keywords()
 
     totOps = 0
@@ -41,7 +41,7 @@ def main():
     print("")
     print("DocumentDB EC Compat Check")
     for thisKeyword in sorted(keywords.keys()):
-        if keywords[thisKeyword]["5.0"] == "Yes" and keywords[thisKeyword]["EC5.0"] == "No":
+        if keywords[thisKeyword]["5.0.0"] == "Yes" and keywords[thisKeyword]["EC5.0"] == "No":
             print("  {}".format(thisKeyword))
     print("")
 
