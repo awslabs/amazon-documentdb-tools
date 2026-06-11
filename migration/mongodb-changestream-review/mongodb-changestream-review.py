@@ -31,7 +31,11 @@ def parseChangestream(appConfig):
 
     numTotalChangestreamEntries = 0
     opDict = {}
-    
+
+    # cluster time of the last qualifying change; stays None if the
+    # changestream yields zero qualifying changes in the collected window
+    currentTs = None
+
     startTime = time.time()
     lastFeedback = time.time()
     allDone = False
@@ -119,6 +123,19 @@ def parseChangestream(appConfig):
                 sys.exit(1)
                 
     # print overall ops, ips/ups/dps
+
+    # currentTs is None when the changestream yielded zero qualifying changes in
+    # the collected window - report and return rather than crashing on the
+    # elapsed-time calc / rate division below
+    if currentTs is None:
+        printLog("",fp)
+        printLog("-----------------------------------------------------------------------------------------",fp)
+        printLog("",fp)
+        printLog("no changes found in the collected window",fp)
+        printLog("",fp)
+        client.close()
+        fp.close()
+        return
 
     oplogSeconds = (currentTs.as_datetime()-startTs.as_datetime()).total_seconds()
     oplogMinutes = oplogSeconds/60
