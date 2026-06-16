@@ -120,6 +120,15 @@ DatabaseConnections = {
         "metrics": [["AWS/DocDB", "DatabaseConnections", "DBInstanceIdentifier"]],
     }
 }
+DatabaseConnectionsLimit = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "yAxis": {"left": {"min": 0}},
+        "metrics": [["AWS/DocDB", "DatabaseConnectionsLimit", "DBInstanceIdentifier"]],
+    }
+}
 DatabaseCursors = {
     "type": "metric",
     "properties": {

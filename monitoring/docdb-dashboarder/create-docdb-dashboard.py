@@ -116,7 +116,7 @@ def main():
         {"height":7,"panels":[w.DBClusterReplicaLagMaximum,w.DatabaseCursorsTimedOut,w.VolumeWriteIOPS,w.VolumeReadIOPS]},
         {"height":7,"panels":[w.OpscountersInsert,w.OpscountersUpdate,w.OpscountersDelete,w.OpscountersQuery]},
         {"height":1,"panels":[w.InstanceHeading]},
-        {"height":7,"panels":[w.CPUUtilization,w.DatabaseConnections,w.DatabaseCursors]},
+        {"height":7,"panels":[w.CPUUtilization,w.DatabaseConnections,w.DatabaseConnectionsLimit,w.DatabaseCursors]},
         {"height":7,"panels":[w.BufferCacheHitRatio,w.IndexBufferCacheHitRatio,w.FreeableMemory,w.FreeLocalStorage]},
         {"height":7,"panels":[w.NetworkTransmitThroughput,w.NetworkReceiveThroughput,w.StorageNetworkTransmitThroughput,w.StorageNetworkReceiveThroughput]},
         {"height":7,"panels":[w.DocsInserted,w.DocsDeleted,w.DocsUpdated,w.DocsReturned]},
