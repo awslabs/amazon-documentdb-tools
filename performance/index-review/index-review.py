@@ -49,7 +49,7 @@ def getData(appConfig):
     client = pymongo.MongoClient(**ensureDirect(appConfig['connectionString'],'indxrev'))
 
     serverOpCounters = client.admin.command("serverStatus")['opcounters']
-    serverMetricsDocument = client.admin.command("serverStatus")['metrics']['document']
+    serverMetricsDocument = client.admin.command("serverStatus")['metrics'].get('document',{})
     serverUptime = client.admin.command("serverStatus")['uptime']
     serverHost = client.admin.command("serverStatus")['host']
     serverLocalTime = client.admin.command("serverStatus")['localTime']
