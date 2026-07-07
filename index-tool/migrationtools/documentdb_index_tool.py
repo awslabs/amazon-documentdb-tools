@@ -538,6 +538,21 @@ class DocumentDbIndexTool(IndexToolConstants):
                                 collection.create_index(keys_to_create,**index_options)
                                 logging.info("%s.%s: added index: %s", db_name, collection_name, index_options[self.INDEX_NAME] )
                             except OperationFailure as ofe:
+                                if ofe.code == 100005 and ofe.details['errmsg'] == 'Too many collections, maximum allowed 100000':
+                                    # over the collection limit - hard stop
+                                    logging.error(
+                                        "%s.%s: attempting to create collection exceeded the collection limit, stopping.",
+                                        db_name,
+                                        collection_name,
+                                    )
+                                    logging.error(
+                                        "%s.%s: exact error: %s",
+                                        db_name,
+                                        collection_name,
+                                        ofe,
+                                    )
+                                    sys.exit()
+
                                 if self.args.skip_incompatible is True:
                                     logging.warning(
                                         "%s.%s: skipping index %s because create_index failed: %s",
