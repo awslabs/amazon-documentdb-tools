@@ -22,8 +22,9 @@ The DMS Segment Analyzer calculates the segment boundaries of MongoDB and Amazon
 The count-based approach above matches the number of documents in each segment, but it may take time for large collections. Alternatively you can use the time-based segmenter below, which may not provide the exact number of documents in every segment but is much faster to calculate.
 
 ## Using the DMS Segment Analyzer time based
-`python3 dms-segments-time-based.py --uri <server-uri> --database <database-name> --collection <collection-name> --num-segments <number-of-segments>`
+`python3 dms-segments.py --uri <server-uri> --database <database-name> --collection <collection-name> --num-segments <number-of-segments> --time-based-segments`
 
+- Pass the --time-based-segments switch to calculate boundaries from the timestamp range instead of by document count
 - Requires `_id` values of type ObjectId, as boundaries are derived from the timestamp embedded in the ObjectId
 
 ## License

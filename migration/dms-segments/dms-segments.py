@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sys
 import json
 import pymongo
+from bson import ObjectId
 import time
 import os
 import argparse
@@ -9,6 +10,88 @@ import warnings
 
 
 supportedIdTypes=['int','string','objectId']
+
+
+def via_time(appConfig):
+    # calculate boundaries by uniformly splitting the time range between the first
+    # and last _id values (based on the ObjectId embedded timestamp); faster than the
+    # count-based methods but does not guarantee even document distribution per segment
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+
+    boundaryList = []
+
+    numSegments = appConfig['numSegments']
+
+    client = pymongo.MongoClient(host=appConfig['uri'],appname='segmentr')
+    db = client[appConfig['database']]
+    col = db[appConfig['collection']]
+
+    # get the min and max _id values
+    minDoc = col.find_one(filter=None,projection={"_id":True},sort=[("_id",pymongo.ASCENDING)])
+    maxDoc = col.find_one(filter=None,projection={"_id":True},sort=[("_id",pymongo.DESCENDING)])
+
+    if minDoc is None or maxDoc is None:
+        print("collection {}.{} is empty, nothing to do".format(appConfig['database'],appConfig['collection']))
+        client.close()
+        return
+
+    minId = minDoc["_id"]
+    maxId = maxDoc["_id"]
+
+    # time-based segmentation relies on the embedded timestamp of ObjectId values
+    if not isinstance(minId, ObjectId) or not isinstance(maxId, ObjectId):
+        print("time-based segmentation requires _id values of type ObjectId")
+        print("found types '{}' (min) and '{}' (max) in {}.{}, stopping".format(type(minId).__name__, type(maxId).__name__, appConfig['database'], appConfig['collection']))
+        client.close()
+        return
+
+    # ObjectId.generation_time returns a timezone-aware datetime, convert to epoch seconds
+    minTs = minId.generation_time.timestamp()
+    maxTs = maxId.generation_time.timestamp()
+
+    step = (maxTs - minTs) / numSegments
+
+    numInRange = col.count_documents({"_id":{"$gte":minId,"$lte":maxId}})
+
+    print("")
+    print("Min: {} -> {}".format(minId, minId.generation_time))
+    print("Max: {} -> {}".format(maxId, maxId.generation_time))
+    print("Total in timerange: {}".format(numInRange))
+    print("finding _id values for {} time-uniform segments".format(numSegments))
+    print("")
+
+    queryStartTime = time.time()
+
+    # first boundary is the actual minimum _id
+    boundaryList.append(str(minId))
+    print("  boundary   0 - {} (min _id)".format(minId))
+
+    # remaining boundaries are time-uniform splits, zero-filled ObjectIds
+    for n in range(1, numSegments):
+        boundaryTs = minTs + (step * n)
+        boundarySecs = int(boundaryTs)
+        hexSecs = format(boundarySecs, '08x')
+        boundaryId = ObjectId(hexSecs + '0000000000000000')
+        boundaryList.append(str(boundaryId))
+        print("  boundary {:3d} - {} ({})".format(n, boundaryId, datetime.fromtimestamp(boundarySecs, tz=timezone.utc)))
+
+    print("")
+
+    boundaryListAsString = "{}".format(",".join('"{}"'.format(i) for i in boundaryList))
+    print("boundaries as list | {}".format(boundaryListAsString))
+
+    boundaryListAsStringForDms = "[{}]".format("],[".join('"{}"'.format(i) for i in boundaryList))
+    print("")
+    print("boundaries as list for DMS | {}".format(boundaryListAsStringForDms))
+
+    print("")
+
+    queryElapsedSecs = int(time.time() - queryStartTime)
+    print('query required {} seconds'.format(queryElapsedSecs))
+
+    print("")
+
+    client.close()
 
 
 def via_skips(appConfig):
@@ -203,6 +286,11 @@ def main():
                         action='store_true',
                         help='Scan the full _id index using a cursor')
 
+    parser.add_argument('--time-based-segments',
+                        required=False,
+                        action='store_true',
+                        help='Calculate boundaries by uniformly splitting the ObjectId timestamp range (faster, requires ObjectId _id values, does not guarantee even document distribution)')
+
     args = parser.parse_args()
 
     appConfig = {}
@@ -211,7 +299,10 @@ def main():
     appConfig['collection'] = args.collection
     appConfig['numSegments'] = int(args.num_segments)
 
-    if check_for_mixed_types(appConfig):
+    if args.time_based_segments:
+        via_time(appConfig)
+
+    elif check_for_mixed_types(appConfig):
         if args.single_cursor:
             via_cursor(appConfig)
 
