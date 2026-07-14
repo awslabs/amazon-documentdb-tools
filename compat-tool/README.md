@@ -66,10 +66,10 @@ cd amazon-documentdb-tools/compat-tool/
 ```
 
 ## Usage/Examples
-This tool supports examining compatibility with either the 3.6, 4.0, 5.0, 8.0 or Elastic Clusters versions of Amazon DocumentDB. The script has the following arguments:
+This tool supports examining compatibility with either the 3.6, 4.0, 5.0, 8.0, 8.0.1 or Elastic Clusters versions of Amazon DocumentDB. The script has the following arguments:
 ```
 --uri MONGO_URI                             -> Use db.serverStatus() output to scan for compatibility (requires MongoDB 5.0+)
---version {3.6,4.0,5.0,8.0,EC5.0}           -> Check for DocumentDB version compatibility (default is 8.0)
+--version {3.6,4.0,5.0,8.0,8.0.1,EC5.0}     -> Check for DocumentDB version compatibility (default is 8.0.1)
 --directory SCANDIR                         -> Directory containing files to scan for compatibility
 --file SCANFILE                             -> Specific file to scan for compatibility
 --excluded-extensions EXCLUDEDEXTENSIONS    -> Filename extensions to exclude from scanning, comma separated
