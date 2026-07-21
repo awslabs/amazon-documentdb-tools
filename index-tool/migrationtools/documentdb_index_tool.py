@@ -67,7 +67,7 @@ class DocumentDbUnsupportedFeatures(object):
         pass
 
     UNSUPPORTED_INDEX_TYPES = ['2d', '2dsphere', 'geoHaystack', 'hashed']
-    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'collation', 'dropDuplicates']
+    UNSUPPORTED_INDEX_OPTIONS = ['storageEngine', 'dropDuplicates']
     UNSUPPORTED_COLLECTION_OPTIONS = ['capped']
     UNSUPPORTED_WILDCARD_INDEXES = ['$**', '$***', '$****']
     IGNORED_INDEX_OPTIONS = ['2dsphereIndexVersion','default_language','language_override','textIndexVersion']
@@ -426,7 +426,7 @@ class DocumentDbIndexTool(IndexToolConstants):
                                 index_name][
                                     self.EXCEEDED_LIMITS][message] = key_name
 
-                        # Check for unsupported index options like collation
+                        # Check for unsupported index options
                         if key_name in DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_OPTIONS:
                             if self.UNSUPPORTED_INDEX_OPTIONS_KEY not in compatibility_issues[
                                     db_name][collection_name][index_name]:
