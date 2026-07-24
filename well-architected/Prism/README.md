@@ -1,4 +1,4 @@
-# Amazon DocumentDB Prism Dash — Amazon DocumentDB Autonomous Analysis Platform
+# Amazon DocumentDB Prism 
 
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Dash](https://img.shields.io/badge/Dash-2.17-119DFF)
