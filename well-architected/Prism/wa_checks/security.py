@@ -299,7 +299,7 @@ def check_rbac(ctx):
     try:
         import pymongo
         client = pymongo.MongoClient(ctx.conn_str, serverSelectionTimeoutMS=5000,
-                                     appname="DocDB-Agent-WA")
+                                     appname="DocDB-Prism-WA")
         try:
             resp = client["admin"].command("usersInfo", 1)
             users = resp.get("users", [])

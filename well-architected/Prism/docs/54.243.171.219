@@ -1,9 +1,0 @@
-
-/Users/kaartt/working_directory/kaartt_keys/isengaurd/kaartt-ue1.pem
-
-54.243.171.219
-/Users/kaartt/working_directory/tmpcrash/codecombat
-
-
-mongodb://primaryuser:PriamryPassword@docdb-80.cluster-cmfure2laued.us-east-1.docdb.amazonaws.com:27017/?replicaSet=rs0&readPreference=secondaryPreferred&retryWrites=false
-
