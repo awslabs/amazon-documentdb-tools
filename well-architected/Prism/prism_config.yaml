@@ -1,0 +1,88 @@
+# ─────────────────────────────────────────────────────────────
+# Amazon DocumentDB Prism — Runtime Configuration
+# Centralised settings for analysis, agent behaviour, UI pacing,
+# and security controls.
+# ─────────────────────────────────────────────────────────────
+
+database_tree:
+  # Number of databases to fully populate (collections, indexes,
+  # doc counts) during initial connect.  Remaining databases are
+  # loaded in the background so the UI appears instantly.
+  initial_batch: 10
+
+  # Seconds to wait between loading each subsequent database
+  # in the background.  Keeps the cluster load gentle.
+  delay_between_seconds: 2
+
+sidebar_tree:
+  # Max databases shown before "Show more" pagination kicks in.
+  page_size: 10
+
+  # After this many "Show more" clicks, require explicit
+  # "Show all" with a performance warning.
+  max_pages_before_warn: 4
+
+# ── Future lazy-load sections ────────────────────────────────
+# collection_detail:
+#   sample_docs_batch: 50
+#   delay_between_seconds: 1
+
+compression_analysis:
+  collections_per_batch: 5
+  delay_between_seconds: 3
+
+# ── Agent Prioritisation ─────────────────────────────────────
+agent_prioritisation:
+
+  # Databases to ALWAYS analyse first, regardless of size or order.
+  priority_databases: []
+
+  # Databases to SKIP entirely — never analyse.
+  skip_databases:
+    - staging
+    - local
+    - admin
+    - config
+
+  # If the cluster has more databases than this, only analyse
+  # priority_databases + the top N by size.
+  max_databases_to_analyse: 20
+
+  # Collections to SKIP within any database (prefix match).
+  skip_collections:
+    - audit_log
+    - tmp_
+    - _archive
+
+  # Safety: never analyse a collection larger than this (GB).
+  max_collection_size_gb: 50
+
+  # Safety: never run compression analysis on a collection
+  # with more than this many documents.
+  max_compression_sample_docs: 1000000
+
+# ── Code Review Security ─────────────────────────────────────
+code_review:
+  # Directories allowed for source code scanning.
+  # The target path must be under one of these directories.
+  # A hardcoded denylist (/etc, /proc, /sys, /root, etc.) always
+  # takes precedence — denied paths are blocked even if listed here.
+  #
+  # Linux / macOS defaults:
+  allowed_directories:
+    - /home
+    - /opt
+    - /var/app
+    - /srv
+    - /usr/local/src
+    - /tmp/code-review
+  # Windows — uncomment and adapt for your environment:
+  #   - C:\Users
+  #   - D:\Projects
+  #   - C:\inetpub\wwwroot
+
+  # Maximum number of files to scan per review (prevents DoS on large repos).
+  max_files: 5000
+
+  # Maximum individual file size in bytes (files larger are skipped).
+  max_file_size_bytes: 1048576  # 1 MB
