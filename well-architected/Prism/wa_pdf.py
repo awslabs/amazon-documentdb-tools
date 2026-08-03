@@ -441,7 +441,7 @@ def generate_wa_pdf(results, ai_data, cluster_id, region):
         leftMargin=_M, rightMargin=_M,
         topMargin=_M, bottomMargin=16 * mm,
         title=f"Well-Architected Review — {cluster_id}",
-        author="Amazon DocumentDB Prism",
+        author="Prism for Amazon DocumentDB",
         subject="AWS Well-Architected Review",
     )
 
@@ -450,7 +450,7 @@ def generate_wa_pdf(results, ai_data, cluster_id, region):
         canvas.setFont(_F, 7)
         canvas.setFillColor(_MUTED)
         canvas.drawString(_M, 9 * mm,
-            f"Amazon DocumentDB Prism  |  Well-Architected Review  |  {cluster_id}  |  {region}")
+            f"Prism for Amazon DocumentDB  |  Well-Architected Review  |  {cluster_id}  |  {region}")
         canvas.drawRightString(W - _M, 9 * mm,
             f"Page {doc.page}  |  {datetime.utcnow().strftime('%d %b %Y')}")
         canvas.restoreState()

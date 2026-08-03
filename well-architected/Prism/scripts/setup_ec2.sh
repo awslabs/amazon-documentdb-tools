@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup_ec2.sh — prepare Amazon DocumentDB Prism on a fresh Amazon Linux 2023 EC2 instance.
+# setup_ec2.sh — prepare Prism for Amazon DocumentDB on a fresh Amazon Linux 2023 EC2 instance.
 #
 # Installs system + Python dependencies, fetches the TLS CA bundle, then runs
 # preflight. It does NOT start the server (run ./start_server.sh yourself).
@@ -12,7 +12,7 @@ _DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib_common.sh
 source "${_DIR}/lib_common.sh"
 
-log_head "Amazon DocumentDB Prism EC2 setup (Amazon Linux 2023) — ${APP_ROOT}"
+log_head "Prism for Amazon DocumentDB EC2 setup (Amazon Linux 2023) — ${APP_ROOT}"
 
 if ! command -v dnf >/dev/null 2>&1; then
     log_fail "dnf not found — this script targets Amazon Linux 2023. For other distros, install"

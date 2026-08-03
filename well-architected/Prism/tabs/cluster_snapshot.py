@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 
 logger = logging.getLogger(__name__)
 
-_snap = {"data": None, "running": False, "done": False, "error": None, "fetched_at": None, "phase": 0}
+_snap = {"data": None, "running": False, "done": False, "error": None, "fetched_at": None, "phase": 0, "rendered_phase": None}
 _snap_lock = threading.Lock()
 
 
@@ -34,13 +34,13 @@ def start_snapshot_if_needed(cluster_id, region, connection_string, db_count=Non
 def reset_snapshot():
     """Reset snapshot state (e.g. when switching clusters)."""
     with _snap_lock:
-        _snap.update(data=None, running=False, done=False, error=None, fetched_at=None, phase=0)
+        _snap.update(data=None, running=False, done=False, error=None, fetched_at=None, phase=0, rendered_phase=None)
 
 
 def _run_snapshot(cluster_id, region, connection_string, known_db_count=None):
     """Gather all cluster-level data in background."""
     with _snap_lock:
-        _snap.update(data=None, running=True, done=False, error=None, fetched_at=datetime.utcnow(), phase=0)
+        _snap.update(data=None, running=True, done=False, error=None, fetched_at=datetime.utcnow(), phase=0, rendered_phase=None)
 
     try:
         docdb = boto3.client("docdb", region_name=region)
@@ -414,6 +414,17 @@ def cb_snap_poll(n):
     if not data:
         return no_update, no_update, False, no_update
 
+    # Flicker guard: this poll fires every 800ms, but the snapshot data only
+    # changes at phase boundaries (1→2→3) and on completion. Re-rendering the
+    # (large) results subtree on every tick replaces the whole DOM and makes the
+    # Overview visibly flicker until the slow final phase finishes. Only rebuild
+    # when the phase actually advanced or we're done; otherwise leave the DOM
+    # untouched and just keep polling.
+    with _snap_lock:
+        last_rendered = _snap.get("rendered_phase")
+    if not done and phase == last_rendered:
+        return no_update, no_update, False, no_update
+
     # Compute button label from fetched_at
     if fetched_at and done:
         elapsed = int((datetime.utcnow() - fetched_at).total_seconds())
@@ -423,6 +434,8 @@ def cb_snap_poll(n):
 
     # Render whatever we have so far
     results = _render_snapshot(data)
+    with _snap_lock:
+        _snap["rendered_phase"] = phase
 
     if done:
         return "", results, True, btn_label

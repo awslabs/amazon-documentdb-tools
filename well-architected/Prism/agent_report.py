@@ -10,7 +10,7 @@ def generate_report(agent_state: dict, conn_data: dict) -> str:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     sections = []
-    sections.append(f"# Amazon DocumentDB Prism — Analysis Report")
+    sections.append(f"# Prism for Amazon DocumentDB — Analysis Report")
     sections.append(f"**Cluster:** {cluster_id} | **Region:** {region} | **Generated:** {now}")
     sections.append(f"**Analysis Mode:** Autonomous Agent (Observe→Reason→Decide→Act)\n")
 

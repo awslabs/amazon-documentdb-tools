@@ -15,6 +15,7 @@ once running, see the [README](README.md).
 | 1 | [Choose your environment](#1-choose-your-environment) |
 | 2 | [Prerequisites](#2-prerequisites) |
 | 3 | [Installation](#3-installation) |
+| | &nbsp;&nbsp;↳ [Get the code](#get-the-code) |
 | | &nbsp;&nbsp;↳ [EC2 (Amazon Linux 2023)](#ec2-amazon-linux-2023) |
 | | &nbsp;&nbsp;↳ [Local — macOS / Linux](#local--macos--linux) |
 | | &nbsp;&nbsp;↳ [Local — Windows](#local--windows) |
@@ -61,7 +62,21 @@ Pick one and follow it top to bottom. All paths end at [§4 Run the server](#4-r
 
 ## 3. Installation
 
-Follow the subsection for your environment, then go to [§4 Run the server](#4-run-the-server).
+First [get the code](#get-the-code), then follow the subsection for your environment, and
+finally go to [§4 Run the server](#4-run-the-server).
+
+### Get the code
+
+Clone the repository and change into the Prism directory. All commands in the
+environment subsections below assume you are in this directory.
+
+```bash
+git clone https://github.com/kaarthiik-aws/amazon-documentdb-tools.git
+cd amazon-documentdb-tools/well-architected/Prism
+```
+
+> The same two commands work on macOS, Linux, and Windows (PowerShell). On Windows, run
+> them from a shell that has `git` available.
 
 ### EC2 (Amazon Linux 2023)
 
@@ -73,7 +88,7 @@ Run Prism on an instance that has a network route to the cluster.
 > with `AccessDenied`.
 
 ```bash
-cd documentdb-agent
+# from amazon-documentdb-tools/well-architected/Prism (see "Get the code" above)
 ./scripts/setup_ec2.sh      # installs deps + gunicorn + CA bundle, then runs preflight
 
 # Optional: probe the DB network path during setup (catches SG / subnet / VPC issues)
@@ -105,7 +120,7 @@ For an ALB + Cognito (HTTPS, team access) front end, see
 ### Local — macOS / Linux
 
 ```bash
-cd documentdb-agent
+# from amazon-documentdb-tools/well-architected/Prism (see "Get the code" above)
 pip install -r requirements.txt
 ./scripts/setup_local.sh    # verifies the environment, fetches the TLS CA bundle
 ```
@@ -118,7 +133,7 @@ your machine. If anything is missing it prints the exact command to fix it.
 Windows is supported for local use via the built-in dev server.
 
 ```powershell
-cd documentdb-agent
+# from amazon-documentdb-tools\well-architected\Prism (see "Get the code" above)
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt

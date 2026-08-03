@@ -22,7 +22,7 @@ except Exception:
 _ADVISOR_ADDENDUM = """
 
 ## Chat Advisor Role
-You are Amazon DocumentDB Prism AI Advisor with access to real cluster data provided below.
+You are Prism for Amazon DocumentDB AI Advisor with access to real cluster data provided below.
 Rules:
 1. Answer using the ANALYSIS DATA provided. Do not guess or make up data.
 2. If the question is ambiguous or could apply to multiple databases, ASK which database.

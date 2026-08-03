@@ -182,7 +182,13 @@ app = dash.Dash(
     __name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
     suppress_callback_exceptions=True,
-    title="Amazon DocumentDB Prism",
+    title="Prism for Amazon DocumentDB",
+    # Disable Dash's default behaviour of swapping the browser tab title to
+    # "Updating..." whenever a callback runs. This app polls continuously
+    # (progress 400ms, snapshot 800ms, lazy-load 2s, agent 6s), so the default
+    # made the tab title flicker between the name and "Updating..." nonstop.
+    # None fully disables the swap so the static title stays put during callbacks.
+    update_title=None,
 )
 server = app.server
 
@@ -387,7 +393,7 @@ header = html.Div([
     dbc.Row([
         dbc.Col(html.Span("⚙️", style={"fontSize": "1.4rem"}), width="auto", className="pe-2"),
         dbc.Col([
-            html.H2("Amazon DocumentDB Prism", className="mb-0"),
+            html.H2("Prism for Amazon DocumentDB", className="mb-0"),
             html.P("Intelligent cluster analysis & optimization", className="mb-0"),
         ]),
     ], align="center"),
@@ -401,7 +407,7 @@ main_content = html.Div([
     html.Div([
         dbc.Row([
             dbc.Col(html.Span(["Built by ", html.Strong("Amazon DocumentDB SSA Team")]), width="auto"),
-            dbc.Col(html.Span("Amazon DocumentDB Prism v2.0"), className="text-end"),
+            dbc.Col(html.Span("Prism for Amazon DocumentDB v2.0"), className="text-end"),
         ]),
     ], className="app-footer"),
 ], style={"padding": "1.25rem 1.5rem", "overflowY": "auto", "height": "100vh"})
