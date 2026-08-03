@@ -51,12 +51,9 @@ def via_time(appConfig):
 
     step = (maxTs - minTs) / numSegments
 
-    numInRange = col.count_documents({"_id":{"$gte":minId,"$lte":maxId}})
-
     print("")
     print("Min: {} -> {}".format(minId, minId.generation_time))
     print("Max: {} -> {}".format(maxId, maxId.generation_time))
-    print("Total in timerange: {}".format(numInRange))
     print("finding _id values for {} time-uniform segments".format(numSegments))
     print("")
 
