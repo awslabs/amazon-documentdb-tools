@@ -72,7 +72,7 @@ environment subsections below assume you are in this directory.
 
 ```bash
 git clone https://github.com/kaarthiik-aws/amazon-documentdb-tools.git
-cd amazon-documentdb-tools/well-architected/Prism
+cd amazon-documentdb-tools/performance/prism
 ```
 
 > The same two commands work on macOS, Linux, and Windows (PowerShell). On Windows, run
@@ -88,7 +88,7 @@ Run Prism on an instance that has a network route to the cluster.
 > with `AccessDenied`.
 
 ```bash
-# from amazon-documentdb-tools/well-architected/Prism (see "Get the code" above)
+# from amazon-documentdb-tools/performance/prism (see "Get the code" above)
 ./scripts/setup_ec2.sh      # installs deps + gunicorn + CA bundle, then runs preflight
 
 # Optional: probe the DB network path during setup (catches SG / subnet / VPC issues)
@@ -120,7 +120,7 @@ For an ALB + Cognito (HTTPS, team access) front end, see
 ### Local — macOS / Linux
 
 ```bash
-# from amazon-documentdb-tools/well-architected/Prism (see "Get the code" above)
+# from amazon-documentdb-tools/performance/prism (see "Get the code" above)
 pip install -r requirements.txt
 ./scripts/setup_local.sh    # verifies the environment, fetches the TLS CA bundle
 ```
@@ -133,7 +133,7 @@ your machine. If anything is missing it prints the exact command to fix it.
 Windows is supported for local use via the built-in dev server.
 
 ```powershell
-# from amazon-documentdb-tools\well-architected\Prism (see "Get the code" above)
+# from amazon-documentdb-tools\performance\prism (see "Get the code" above)
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
