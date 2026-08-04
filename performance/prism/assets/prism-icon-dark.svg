@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="bgm128" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#0f2235"/><stop offset="100%" stop-color="#060e18"/></radialGradient>
+    <radialGradient id="glm128" cx="50%" cy="65%" r="55%"><stop offset="0%" stop-color="#ff9900" stop-opacity="0.8"/><stop offset="100%" stop-color="#ff9900" stop-opacity="0"/></radialGradient>
+    <linearGradient id="tLm128" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#3a8bbb"/><stop offset="100%" stop-color="#0d3a5c"/></linearGradient>
+    <linearGradient id="tRm128" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#c0e8ff"/><stop offset="100%" stop-color="#1a6090"/></linearGradient>
+    <linearGradient id="tBm128" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#2a7aaa"/><stop offset="100%" stop-color="#082840"/></linearGradient>
+    <linearGradient id="barm128" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ff9900" stop-opacity="0"/><stop offset="30%" stop-color="#ff9900" stop-opacity="0.9"/><stop offset="70%" stop-color="#ff9900" stop-opacity="0.9"/><stop offset="100%" stop-color="#ff9900" stop-opacity="0"/></linearGradient>
+    <filter id="gm128"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="barg128"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="128" height="128" rx="16" fill="url(#bgm128)"/>
+  <circle cx="64" cy="68" r="36" fill="url(#glm128)"/>
+  <line x1="6" y1="64" x2="42" y2="64" stroke="#4da8e8" stroke-width="2" stroke-linecap="round" filter="url(#gm128)" opacity="0.85"/>
+  <polygon points="45,64 39,60 39,68" fill="#4da8e8" opacity="0.85"/>
+  <polygon points="64,158 170,320 342,320" fill="#0a2540" filter="url(#gm128)" opacity="0.5"/>
+  <polygon points="64,33 43,95 64,72" fill="url(#tLm128)" opacity="0.93"/>
+  <polygon points="64,33 85,95 64,72" fill="url(#tRm128)" opacity="0.93"/>
+  <polygon points="43,95 85,95 64,72" fill="url(#tBm128)" opacity="0.88"/>
+  <polygon points="64,33 43,95 85,95" fill="none" stroke="#7ecfff" stroke-width="1" opacity="0.85" filter="url(#gm128)"/>
+  <!-- Orange accent bar -->
+  <rect x="36" y="100" width="56" height="4" rx="2" fill="url(#barm128)" filter="url(#barg128)" opacity="0.7"/>
+  <rect x="36" y="100" width="56" height="3" rx="1" fill="url(#barm128)" opacity="0.95"/>
+  <!-- Output dots -->
+  <circle cx="100" cy="48" r="4" fill="#7ecfff" opacity="0.75"/>
+  <circle cx="108" cy="64" r="4" fill="#4da8e8" opacity="0.75"/>
+  <circle cx="100" cy="80" r="4" fill="#7ecfff" opacity="0.75"/>
+  <line x1="85" y1="52" x2="98" y2="49" stroke="#7ecfff" stroke-width="1" opacity="0.6"/>
+  <line x1="86" y1="64" x2="106" y2="64" stroke="#4da8e8" stroke-width="1" opacity="0.6"/>
+  <line x1="85" y1="76" x2="98" y2="79" stroke="#7ecfff" stroke-width="1" opacity="0.6"/>
+</svg>

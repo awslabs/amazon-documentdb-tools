@@ -1,0 +1,113 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "CloudWatchLogs",
+            "Effect": "Allow",
+            "Action": [
+                "logs:FilterLogEvents",
+                "logs:DescribeLogGroups",
+                "logs:DescribeLogStreams",
+                "logs:StartQuery",
+                "logs:GetQueryResults"
+            ],
+            "Resource": "arn:aws:logs:*:*:log-group:/aws/docdb/*"
+        },
+        {
+            "Sid": "CloudWatchMetrics",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:GetMetricStatistics",
+                "cloudwatch:ListMetrics",
+                "cloudwatch:DescribeAlarms"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "DocumentDBDescribe",
+            "Effect": "Allow",
+            "Action": [
+                "rds:DescribeDBClusters",
+                "rds:DescribeDBInstances",
+                "rds:DescribeDBClusterParameters",
+                "rds:DescribeDBClusterSnapshots",
+                "rds:DescribeDBSubnetGroups",
+                "rds:DescribeGlobalClusters",
+                "rds:DescribeEvents",
+                "rds:ListTagsForResource"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "EC2Describe",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSubnets"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "OperationalExcellenceChecks",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:ListStacks",
+                "cloudformation:DescribeStacks",
+                "events:ListRules"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SecretsList",
+            "Effect": "Allow",
+            "Action": [
+                "secretsmanager:ListSecrets",
+                "secretsmanager:DescribeSecret"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "SecurityGovernanceChecks",
+            "Effect": "Allow",
+            "Action": [
+                "cloudtrail:DescribeTrails",
+                "securityhub:DescribeHub",
+                "securityhub:GetFindings",
+                "config:DescribeConfigRules"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "BedrockInvoke",
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:InvokeModel"
+            ],
+            "Resource": [
+                "arn:aws:bedrock:*::foundation-model/anthropic.*",
+                "arn:aws:bedrock:*::foundation-model/*",
+                "arn:aws:bedrock:*:*:inference-profile/us.anthropic.*"
+            ]
+        },
+        {
+            "Sid": "BedrockListModels",
+            "Effect": "Allow",
+            "Action": [
+                "bedrock:ListFoundationModels"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "BackupDescribe",
+            "Effect": "Allow",
+            "Action": [
+                "backup:ListBackupPlans",
+                "backup:GetBackupPlan",
+                "backup:ListBackupSelections",
+                "backup:GetBackupSelection"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

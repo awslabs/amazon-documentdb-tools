@@ -1,0 +1,55 @@
+/* Dash React-Select overrides — theme-aware */
+
+.sidebar .dash-dropdown .Select-control {
+    background-color: var(--bg-sidebar-input) !important;
+    border: 1px solid var(--bg-sidebar-input-border) !important;
+    border-radius: 8px !important;
+    min-height: 34px !important;
+    cursor: pointer;
+}
+.sidebar .dash-dropdown .Select-control:hover {
+    border-color: var(--color-primary) !important;
+}
+.sidebar .dash-dropdown .is-focused .Select-control {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 3px rgba(9,114,211,.15) !important;
+}
+
+.sidebar .dash-dropdown .Select-value-label,
+.sidebar .dash-dropdown .Select--single > .Select-control .Select-value .Select-value-label {
+    color: var(--text-sidebar) !important;
+    font-size: .84rem !important;
+}
+.sidebar .dash-dropdown .Select-placeholder {
+    color: var(--text-sidebar-muted) !important;
+    font-size: .84rem !important;
+}
+.sidebar .dash-dropdown .Select-input > input {
+    color: var(--text-sidebar) !important;
+}
+
+.sidebar .dash-dropdown .Select-menu-outer {
+    background-color: var(--bg-sidebar) !important;
+    border: 1px solid var(--bg-sidebar-input-border) !important;
+    border-top: none !important;
+    border-radius: 0 0 8px 8px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,.3) !important;
+    z-index: 9999 !important;
+    position: absolute !important;
+}
+.sidebar .dash-dropdown .VirtualizedSelectOption {
+    background-color: var(--bg-sidebar) !important;
+    color: var(--text-sidebar) !important;
+    font-size: .84rem !important;
+    padding: 7px 12px !important;
+    cursor: pointer;
+}
+.sidebar .dash-dropdown .VirtualizedSelectFocusedOption {
+    background-color: var(--color-primary-btn-bg) !important;
+    color: var(--color-primary-btn-text) !important;
+}
+
+.sidebar .dash-dropdown .Select-arrow { border-top-color: var(--text-sidebar-muted) !important; }
+.sidebar .dash-dropdown .is-open .Select-arrow { border-bottom-color: var(--color-primary) !important; border-top-color: transparent !important; }
+.sidebar .dash-dropdown .Select-clear-zone { color: var(--text-sidebar-muted) !important; }
+.sidebar .dash-dropdown .Select-clear-zone:hover { color: var(--color-primary) !important; }
