@@ -1,9 +1,7 @@
 import argparse
-import sys
 import pymongo
 import boto3
 import json
-from collections import OrderedDict
 
 
 def get_secret(secret_name, region_name):
@@ -57,32 +55,12 @@ def getCollectionStats(client, appConfig):
             else:
                 collStats = client[thisDb['name']].command("collStats", thisColl['name'])
                 if 'unusedStorageSize' in collStats and collStats['unusedStorageSize']['unusedBytes'] >= int(appConfig['unusedCollectionSizeMB']) * 1024 * 1024 and collStats['unusedStorageSize']['unusedPercent'] >= int(appConfig['unusedCollectionSizePercent']):
-                    indexes = list(client[thisDb['name']][thisColl['name']].list_indexes())
                     for index_name in collStats['indexSizes'].keys():
-                        if index_name in ['_id', '_id_']:
-                            continue
-                        skip_index = False
-                        for idx in indexes:
-                            if idx['name'] == index_name:
-                                if idx.get('partialFilterExpression'):
-                                    skip_index = True
-                                    break
-                                for key, value in idx['key'].items():
-                                    if value in ['text', '2d', '2dsphere', 'geoHaystack'] or idx.get('vectorOptions'):
-                                        skip_index = True
-                                        break
-                                break
-                        if not skip_index:
-                            print('db.runCommand({{ reIndex: "{}", index: "{}" }})'.format(collStats['ns'], index_name))
+                        print('db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(collStats['ns'], index_name, appConfig['workers']))
 
 
 def main():
     parser = argparse.ArgumentParser(description='Check indexes requiring reindex based on unused size percent')
-    
-    parser.add_argument('--skip-python-version-check',
-                        required=False,
-                        action='store_true',
-                        help='Permit execution on Python 3.6 and prior')
     
     parser.add_argument('--uri',
                         required=False,
@@ -112,12 +90,13 @@ def main():
                         default=0,
                         help='Minimum unused size in percent to consider for reindexing.')
 
-    args = parser.parse_args()
-    
-    MIN_PYTHON = (3, 8)
-    if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
-        sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
+    parser.add_argument('--workers',
+                        required=False,
+                        type=int,
+                        default=2,
+                        help='Number of workers for reindex operation. Defaults to 2.')
 
+    args = parser.parse_args()
     if args.uri is None and args.secret_name is None:
         parser.error("must provide either --uri or --secret-name")
 
@@ -131,6 +110,7 @@ def main():
     
     appConfig['unusedCollectionSizeMB'] = args.unusedCollectionSizeMB
     appConfig['unusedCollectionSizePercent'] = args.unusedCollectionSizePercent
+    appConfig['workers'] = args.workers
 
     getData(appConfig)
 
