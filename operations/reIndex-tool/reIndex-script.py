@@ -1,11 +1,18 @@
 import argparse
 import pymongo
-import boto3
 import json
 
 
 def get_secret(secret_name, region_name):
-    """Retrieve MongoDB connection URI from AWS Secrets Manager."""
+    """Retrieve MongoDB connection URI from AWS Secrets Manager.
+    
+    boto3 is imported here lazily so it's only required when using --secret-name.
+    """
+    try:
+        import boto3
+    except ImportError:
+        raise ImportError("boto3 is required when using --secret-name. Install it with: pip install boto3")
+
     session = boto3.session.Session()
     client = session.client(service_name='secretsmanager', region_name=region_name)
     
@@ -45,7 +52,17 @@ def ensureDirect(uri, appname):
 def getData(appConfig):
     """Connect to DocumentDB and scan collections for bloated indexes."""
     print('connecting to server')
-    client = pymongo.MongoClient(**ensureDirect(appConfig['connectionString'], 'indxrev'))
+    try:
+        client = pymongo.MongoClient(**ensureDirect(appConfig['connectionString'], 'indxrev'))
+        # Force a connection to verify the server is reachable
+        client.admin.command('ping')
+    except pymongo.errors.ConnectionFailure as e:
+        raise SystemExit(f"Error: unable to connect to server — {e}")
+    except pymongo.errors.OperationFailure as e:
+        raise SystemExit(f"Error: authentication failed — {e}")
+    except Exception as e:
+        raise SystemExit(f"Error: failed to connect — {e}")
+
     getCollectionStats(client, appConfig)
     client.close()
 
@@ -54,6 +71,9 @@ def getCollectionStats(client, appConfig):
     """Iterate all user databases and collections, printing reIndex commands
     for indexes that exceed the unused storage percent threshold.
     """
+    output_file = appConfig.get('outputFile')
+    results = []
+
     # Exclude system databases
     dbDict = client.admin.command("listDatabases", nameOnly=True, filter={"name": {"$nin": ['admin', 'config', 'local', 'system']}})['databases']
     for thisDb in dbDict:
@@ -84,7 +104,17 @@ def getCollectionStats(client, appConfig):
                                         break
                                 break
                         if not skip_index:
-                            print('db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(collStats['ns'], index_name, appConfig['workers']))
+                            cmd = 'db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(collStats['ns'], index_name, appConfig['workers'])
+                            results.append(cmd)
+                            print(cmd)
+
+    # Write results to file if --output-file was specified
+    if output_file and results:
+        with open(output_file, 'w') as f:
+            f.write('\n'.join(results) + '\n')
+        print(f'\nResults written to {output_file}')
+    elif output_file and not results:
+        print('\nNo bloated indexes found. No output file written.')
 
 
 def main():
@@ -109,14 +139,24 @@ def main():
     parser.add_argument('--unusedCollectionSizePercent',
                         required=False,
                         type=int,
-                        default=0,
-                        help='Minimum unused size in percent to consider for reindexing.')
+                        default=30,
+                        help='Minimum unused size in percent to consider for reindexing. Defaults to 30.')
 
     parser.add_argument('--workers',
                         required=False,
                         type=int,
                         default=2,
                         help='Number of workers for reindex operation. Defaults to 2.')
+
+    parser.add_argument('--tls-ca-file',
+                        required=False,
+                        type=str,
+                        help='Path to CA file for TLS connections (e.g., global-bundle.pem).')
+
+    parser.add_argument('--output-file',
+                        required=False,
+                        type=str,
+                        help='Path to write the reindex commands to a file.')
 
     args = parser.parse_args()
     if args.uri is None and args.secret_name is None:
@@ -129,9 +169,15 @@ def main():
         appConfig['connectionString'] = secret.get('uri') or secret.get('connectionString')
     else:
         appConfig['connectionString'] = args.uri
-    
+
+    # Append TLS CA file to URI if provided
+    if args.tls_ca_file:
+        separator = '&' if '?' in appConfig['connectionString'] else '?'
+        appConfig['connectionString'] += f'{separator}tls=true&tlsCAFile={args.tls_ca_file}'
+
     appConfig['unusedCollectionSizePercent'] = args.unusedCollectionSizePercent
     appConfig['workers'] = args.workers
+    appConfig['outputFile'] = args.output_file
 
     getData(appConfig)
 
