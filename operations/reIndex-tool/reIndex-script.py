@@ -5,6 +5,7 @@ import json
 
 
 def get_secret(secret_name, region_name):
+    """Retrieve MongoDB connection URI from AWS Secrets Manager."""
     session = boto3.session.Session()
     client = session.client(service_name='secretsmanager', region_name=region_name)
     
@@ -16,6 +17,11 @@ def get_secret(secret_name, region_name):
 
 
 def ensureDirect(uri, appname):
+    """Parse the MongoDB URI and build a direct connection config.
+
+    Strips replicaset and readpreference options to force a direct connection
+    to the primary node, which is required for reIndex commands.
+    """
     connInfo = {}
     parsedUri = pymongo.uri_parser.parse_uri(uri)
 
@@ -37,6 +43,7 @@ def ensureDirect(uri, appname):
 
 
 def getData(appConfig):
+    """Connect to DocumentDB and scan collections for bloated indexes."""
     print('connecting to server')
     client = pymongo.MongoClient(**ensureDirect(appConfig['connectionString'], 'indxrev'))
     getCollectionStats(client, appConfig)
@@ -44,19 +51,40 @@ def getData(appConfig):
 
 
 def getCollectionStats(client, appConfig):
+    """Iterate all user databases and collections, printing reIndex commands
+    for indexes that exceed the unused storage percent threshold.
+    """
+    # Exclude system databases
     dbDict = client.admin.command("listDatabases", nameOnly=True, filter={"name": {"$nin": ['admin', 'config', 'local', 'system']}})['databases']
     for thisDb in dbDict:
         collCursor = client[thisDb['name']].list_collections()
         for thisColl in collCursor:
+            # Skip views and system collections
             if thisColl.get('type', 'NOT-FOUND') == 'view':
                 pass
             elif thisColl['name'] in ['system.profile']:
                 pass
             else:
                 collStats = client[thisDb['name']].command("collStats", thisColl['name'])
-                if 'unusedStorageSize' in collStats and collStats['unusedStorageSize']['unusedBytes'] >= int(appConfig['unusedCollectionSizeMB']) * 1024 * 1024 and collStats['unusedStorageSize']['unusedPercent'] >= int(appConfig['unusedCollectionSizePercent']):
+                # Check if collection bloat exceeds the threshold
+                if 'unusedStorageSize' in collStats and collStats['unusedStorageSize']['unusedPercent'] >= int(appConfig['unusedCollectionSizePercent']):
+                    indexes = list(client[thisDb['name']][thisColl['name']].list_indexes())
                     for index_name in collStats['indexSizes'].keys():
-                        print('db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(collStats['ns'], index_name, appConfig['workers']))
+                        skip_index = False
+                        for idx in indexes:
+                            if idx['name'] == index_name:
+                                # Skip partial indexes — reIndex is not supported for them
+                                if idx.get('partialFilterExpression'):
+                                    skip_index = True
+                                    break
+                                # Skip text, geospatial, and vector indexes — reIndex is not supported for them
+                                for key, value in idx['key'].items():
+                                    if value in ['text', '2d', '2dsphere', 'geoHaystack'] or idx.get('vectorOptions'):
+                                        skip_index = True
+                                        break
+                                break
+                        if not skip_index:
+                            print('db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(collStats['ns'], index_name, appConfig['workers']))
 
 
 def main():
@@ -77,12 +105,6 @@ def main():
                         type=str,
                         default='us-east-1',
                         help='AWS region for Secrets Manager')
-
-    parser.add_argument('--unusedCollectionSizeMB',
-                        required=False,
-                        type=int,
-                        default=0,
-                        help='Minimum unused size in MB to consider for reindexing.')
 
     parser.add_argument('--unusedCollectionSizePercent',
                         required=False,
@@ -108,7 +130,6 @@ def main():
     else:
         appConfig['connectionString'] = args.uri
     
-    appConfig['unusedCollectionSizeMB'] = args.unusedCollectionSizeMB
     appConfig['unusedCollectionSizePercent'] = args.unusedCollectionSizePercent
     appConfig['workers'] = args.workers
 
