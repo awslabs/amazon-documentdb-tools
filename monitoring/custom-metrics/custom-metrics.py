@@ -292,7 +292,7 @@ def get_host_metrics(parameters, host):
     instance_uri = build_instance_uri(parameters["uri"], host)
     
     try:
-        instance_client = pymongo.MongoClient(host=instance_uri, appname='customMetrics', serverSelectionTimeoutMS=10000)
+        instance_client = pymongo.MongoClient(host=instance_uri, appname='customMetrics')
     except pymongo.errors.ConnectionFailure as connection_failure:
         logger.error('An error occurred while connecting to instance %s: %s', instance_id, connection_failure)
         return
