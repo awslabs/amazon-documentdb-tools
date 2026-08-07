@@ -415,6 +415,14 @@ class DocumentDbIndexTool(IndexToolConstants):
                         message = 'Index contains more than {} keys'.format(DocumentDbLimits.COMPOUND_INDEX_MAX_KEYS)
                         compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = len(index['key'])
 
+                    # Check for unsupported text index feature - must be text only (no scalars)
+                    if ('textIndexVersion' in index) and (len(index['key']) > 2):
+                        nonTextKeys = []
+                        for fieldName in index['key']:
+                            if fieldName not in ['_fts','_ftsx']:
+                                nonTextKeys.append(fieldName)
+                        message = 'Text index contains non text keys'
+                        compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = nonTextKeys
 
                     for key_name in index:
                         # Check for index key names that are too long
