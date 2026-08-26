@@ -100,6 +100,7 @@ class IndexToolConstants(object):
     UNSUPPORTED_COLLECTION_OPTIONS_KEY = 'unsupported_collection_options'
     UNSUPPORTED_INDEX_TYPES_KEY = 'unsupported_index_types'
     UNSUPPORTED_FIELD_NAMES_KEY = 'unsupported_field_names'
+    UNSUPPORTED_INDEX_SORT_VALUE = 'unsupported_index_sort_value'
 
 
 class DocumentDbIndexTool(IndexToolConstants):
@@ -472,6 +473,13 @@ class DocumentDbIndexTool(IndexToolConstants):
                                         index_name][
                                             self.UNSUPPORTED_FIELD_NAMES_KEY].append(
                                                 index_key_name)
+
+                                # Check for unsupported sort orders
+                                if isinstance(key_value,int) and key_value not in [1,-1]:
+                                    #print("{} | {} | {}".format(type(key_value),key_value,isinstance(key_value,int)))
+                                    if self.UNSUPPORTED_INDEX_SORT_VALUE not in compatibility_issues[db_name][collection_name][index_name]:
+                                        compatibility_issues[db_name][collection_name][index_name][self.UNSUPPORTED_INDEX_SORT_VALUE] = []
+                                    compatibility_issues[db_name][collection_name][index_name][self.UNSUPPORTED_INDEX_SORT_VALUE].append("{}:{}".format(index_key_name,key_value))
 
         return compatibility_issues
 
