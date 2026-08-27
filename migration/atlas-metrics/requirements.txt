@@ -1,0 +1,12 @@
+# atlas_metrics.py dependencies (v2.0.0)
+#
+# All versions pinned to compatibility ranges that work with the target
+# Atlas MongoDB versions (4.4 through 8.0) and Python 3.9+.
+#
+# zstandard: REQUIRED for accurate compression sampling. Without it, the tool
+# falls back to WiredTiger/Snappy collStats ratios, which underestimate DocDB
+# Zstandard by 20-40% and result in oversized DocumentDB targets.
+
+requests>=2.28,<3.0
+pymongo>=4.9,<5.0
+zstandard>=0.20,<1.0
