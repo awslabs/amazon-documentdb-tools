@@ -30,17 +30,17 @@ Usage:
     export ATLAS_PROJECT_ID="your-project-id"
 
     # Standard sizing run: 14 days at 5-min granularity (recommended)
-    python atlas_metrics.py --all \\
+    python metrics_collector.py --all \\
         --uri "mongodb+srv://user:pass@cluster.abcde.mongodb.net" \\
         --cluster cluster-name
 
     # Debug / short window (last 48h at 1-min granularity)
-    python atlas_metrics.py \\
+    python metrics_collector.py \\
         --uri "mongodb+srv://user:pass@cluster.abcde.mongodb.net" \\
         --cluster cluster-name
 
     # Custom window (max 14 days at PT5M, 48h at PT1M, 12 months at PT1H)
-    python atlas_metrics.py --granularity PT5M --period P14D \\
+    python metrics_collector.py --granularity PT5M --period P14D \\
         --uri "..." --cluster ...
 
 Note: --uri and --cluster are REQUIRED. The tool preflights connectivity
@@ -54,7 +54,7 @@ from pathlib import Path
 from requests.auth import HTTPDigestAuth
 import requests
 
-__version__ = "2.3.1"
+__version__ = "2.4.0"
 
 # Runtime logger -- writes to runtime.log in output directory
 _runtime_log = None
@@ -65,7 +65,7 @@ def _init_log(log_dir):
     log_path.mkdir(parents=True, exist_ok=True)
     if _runtime_log and _runtime_log.handlers:
         return  # Already initialized for this cluster
-    _runtime_log = logging.getLogger("atlas_metrics")
+    _runtime_log = logging.getLogger("metrics_collector")
     _runtime_log.setLevel(logging.DEBUG)
     _runtime_log.handlers.clear()
     fh = logging.FileHandler(log_path / "runtime.log", mode="a")
@@ -145,11 +145,13 @@ HEADERS = {"Accept": "application/vnd.atlas.2023-01-01+json"}
 # --- Metric batches organized by sizing concern ---
 PROCESS_METRIC_BATCHES = {
     "cpu": [
-        "PROCESS_CPU_USER",
+        "PROCESS_CPU_USER", "PROCESS_CPU_KERNEL",
+        "SYSTEM_CPU_IOWAIT", "SYSTEM_CPU_STEAL",
     ],
     "memory": [
         "SYSTEM_MEMORY_USED", "SYSTEM_MEMORY_FREE",
-        "MEMORY_RESIDENT",
+        "MEMORY_RESIDENT", "MEMORY_VIRTUAL",
+        "SWAP_USAGE_USED", "EXTRA_INFO_PAGE_FAULTS",
     ],
     "operations": [
         "OPCOUNTER_INSERT", "OPCOUNTER_QUERY", "OPCOUNTER_UPDATE",
@@ -163,13 +165,31 @@ PROCESS_METRIC_BATCHES = {
     "query": [
         "OPERATIONS_SCAN_AND_ORDER",
         "OP_EXECUTION_TIME_READS", "OP_EXECUTION_TIME_WRITES", "OP_EXECUTION_TIME_COMMANDS",
+        "QUERY_TARGETING_SCANNED_PER_RETURNED", "QUERY_TARGETING_SCANNED_OBJECTS_PER_RETURNED",
     ],
     "wiredtiger": [
         "CACHE_BYTES_READ_INTO", "CACHE_BYTES_WRITTEN_FROM",
-        "CACHE_DIRTY_BYTES", "CACHE_USED_BYTES",
+        "CACHE_DIRTY_BYTES", "CACHE_USED_BYTES", "CACHE_FILL_RATIO",
+        "TICKETS_AVAILABLE_READS", "TICKETS_AVAILABLE_WRITE",
     ],
     "replication": [
         "OPLOG_RATE_GB_PER_HOUR",
+    ],
+}
+
+# Replication-lag metrics exist ONLY on secondary processes -- a primary has no
+# replication lag, and the Atlas API rejects the name outright rather than
+# returning an empty series. Requesting these against a primary returns
+# HTTP 404 INVALID_METRIC_NAME for the WHOLE batch, which then degrades to one
+# API call per metric via the fallback below. So they are requested separately,
+# and only for the roles that have them. Verified against the live Atlas Admin
+# API 2026-09-14: a secondary exposes 139 measurement names, a primary 136, and
+# the three-name difference is exactly this set.
+SECONDARY_ONLY_METRIC_BATCHES = {
+    "replication_lag": [
+        "OPLOG_SLAVE_LAG_MASTER_TIME",
+        "OPLOG_REPLICATION_LAG_TIME",
+        "OPLOG_MASTER_LAG_TIME_DIFF",
     ],
 }
 
@@ -190,7 +210,7 @@ GRANULARITY_RETENTION = {
     "P1D":   ("effectively forever",              "P730D"),
 }
 
-# Max retention in days per granularity - used to warn on --period overrides.
+# Max retention in days per granularity — used to warn on --period overrides.
 # Beyond these limits, Atlas silently downsamples to hourly rollups presented
 # as fake fine-grained buckets, biasing P95s low.
 GRANULARITY_MAX_DAYS = {
@@ -201,23 +221,39 @@ GRANULARITY_MAX_DAYS = {
     "P1D":   730,
 }
 
+# Single source of truth for the fallback compression ratio. This is used ONLY
+# when real per-collection zstd sampling is unavailable -- the `zstandard`
+# package is not installed, or compression-review.py could not be located. A
+# real sampled ratio always takes precedence over this value.
+#
+# Chosen conservatively. Estimated size is data_size / ratio, so a HIGHER ratio
+# produces a SMALLER instance recommendation. Understating compression oversizes
+# slightly, which is the safe direction for a sizing tool. AWS publishes up to
+# 5.32x for Zstandard on DocumentDB 8.0, but that is a best-case benchmark
+# figure and not a safe blind default for an arbitrary workload.
+DEFAULT_ZSTD_RATIO = 3.5
+
 
 def _period_days(period_str):
-    """Parse ISO 8601 duration into days (approx). Returns None if unparseable."""
+    """Parse an ISO 8601 duration into a number of days. Returns None if unparseable.
+
+    Single parser for every caller. Handles the subset of ISO 8601 the Atlas
+    Admin API accepts for its `period` parameter: years, weeks, days, hours and
+    minutes. Returns a float so that sub-day periods are represented honestly
+    rather than being rounded to zero.
+    """
     if not period_str:
         return None
-    m = re.match(r"^P(\d+)D$", period_str)
-    if m:
-        return int(m.group(1))
-    m = re.match(r"^PT(\d+)H$", period_str)
-    if m:
-        return int(m.group(1)) / 24.0
-    m = re.match(r"^PT(\d+)M$", period_str)
-    if m:
-        return int(m.group(1)) / (24 * 60.0)
-    m = re.match(r"^P(\d+)W$", period_str)
-    if m:
-        return int(m.group(1)) * 7
+    for pattern, days_per_unit in (
+        (r"^P(\d+)Y$",  365.0),
+        (r"^P(\d+)W$",  7.0),
+        (r"^P(\d+)D$",  1.0),
+        (r"^PT(\d+)H$", 1 / 24.0),
+        (r"^PT(\d+)M$", 1 / (24 * 60.0)),
+    ):
+        m = re.match(pattern, period_str)
+        if m:
+            return int(m.group(1)) * days_per_unit
     return None
 
 
@@ -284,16 +320,19 @@ class AtlasClient:
 
 
 def period_to_start(period):
-    """Convert ISO 8601 period (e.g., P2D, P30D, P365D) to a start datetime string."""
-    days = 0
-    m = re.match(r'P(\d+)D', period)
-    if m:
-        days = int(m.group(1))
-    m = re.match(r'P(\d+)Y', period)
-    if m:
-        days = int(m.group(1)) * 365
-    if not days:
-        days = 30
+    """Convert an ISO 8601 period (P2D, P30D, P365D, PT12H, ...) to a start datetime string.
+
+    Delegates to the single _period_days() parser rather than re-implementing it.
+    An unparseable period raises instead of silently substituting 30 days: a
+    quiet fallback meant a run could request a 30-day window while every other
+    part of the tool believed it was collecting the period the user asked for.
+    """
+    days = _period_days(period)
+    if days is None:
+        raise ValueError(
+            f"Unrecognized --period value {period!r}. "
+            f"Supported forms: P<n>Y, P<n>W, P<n>D, PT<n>H, PT<n>M (e.g. P14D, PT12H)."
+        )
     start = datetime.now(timezone.utc) - timedelta(days=days)
     return start.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -1160,7 +1199,7 @@ def _collect_collstats_via_uri(namespaces, output_dir, cluster_name):
         return [{"namespace": ns, "metrics": {}} for ns in namespaces]
 
     try:
-        client = pymongo.MongoClient(host=_MONGO_URI, appname='atlas-metrics-collstats', serverSelectionTimeoutMS=5000)
+        client = pymongo.MongoClient(host=_MONGO_URI, appname='metrics-collector-collstats', serverSelectionTimeoutMS=5000)
         client.admin.command("ping")
     except Exception as e:
         _check_auth_error(e, "collstats collection (post-preflight)", output_dir)
@@ -1551,7 +1590,7 @@ def collect_metrics(client, granularity, period, output_dir, cached_cs=None):
             log_dir = output_dir / _URI_CLUSTER_NAME
             log_dir.mkdir(parents=True, exist_ok=True)
             _init_log(log_dir)
-            _log(f"atlas_metrics.py started | cluster={_URI_CLUSTER_NAME} | processes={filtered}/{len(processes)} | granularity={granularity} | period={period}")
+            _log(f"metrics_collector.py started | cluster={_URI_CLUSTER_NAME} | processes={filtered}/{len(processes)} | granularity={granularity} | period={period}")
     elif len(processes) > 9:
         print(f"\n  WARNING: {len(processes)} processes found. Use --cluster <name> to target a specific cluster")
         print(f"  Available clusters: {', '.join(cluster_names)}")
@@ -1583,7 +1622,11 @@ def collect_metrics(client, granularity, period, output_dir, cached_cs=None):
         proc_dir = output_dir / proc_cluster
         proc_dir.mkdir(parents=True, exist_ok=True)
 
-        for batch_name, metrics in PROCESS_METRIC_BATCHES.items():
+        _batches = dict(PROCESS_METRIC_BATCHES)
+        if "SECONDARY" in proc_type:
+            _batches.update(SECONDARY_ONLY_METRIC_BATCHES)
+
+        for batch_name, metrics in _batches.items():
             with _Timer(f"api {host_port} {batch_name}"):
                 params = [
                     ("granularity", granularity),
@@ -1828,9 +1871,9 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
                 "type": data["type"],
                 "cpu": {
                     "user_normalized": _s(fm("PROCESS_CPU_USER")),
-                    "steal": None,
+                    "steal": _s(fm("SYSTEM_CPU_STEAL")),
                     "kernel": _s(fm("PROCESS_CPU_KERNEL")),
-                    "iowait": None,
+                    "iowait": _s(fm("SYSTEM_CPU_IOWAIT")),
                 },
                 "memory": {
                     "system_used": _s(fm("SYSTEM_MEMORY_USED")),
@@ -1862,7 +1905,6 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
                 },
                 "connections": {
                     "current": _s(conns),
-                    "utilization_pct": _s(fm("CONNECTIONS_PERCENT")),
                 },
                 "query_efficiency": {
                     "keys_scanned_per_returned": _s(fm("QUERY_TARGETING_SCANNED_PER_RETURNED")),
@@ -1875,11 +1917,11 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
                     "cache_used_bytes": _s(fm("CACHE_USED_BYTES")),
                     "cache_dirty_bytes": _s(fm("CACHE_DIRTY_BYTES")),
                     "cache_fill_ratio_pct": _s(fm("CACHE_FILL_RATIO")),
-                    "tickets_read": _s(fm("TICKETS_AVAILABLE_READ")),
-                    "tickets_write": _s(fm("TICKETS_AVAILABLE_WRITE")),
+                    "tickets_read": _s(fm("TICKETS_AVAILABLE_READS", "TICKETS_AVAILABLE_READ")),
+                    "tickets_write": _s(fm("TICKETS_AVAILABLE_WRITE", "TICKETS_AVAILABLE_WRITES")),
                 },
                 "replication": {
-                    "lag_sec": _s(fm("OPLOG_SLAVE_LAG_MASTER_TIME")),
+                    "lag_sec": _s(fm("OPLOG_SLAVE_LAG_MASTER_TIME", "OPLOG_REPLICATION_LAG_TIME")),
                     "oplog_rate_gb_hr": _s(fm("OPLOG_RATE_GB_PER_HOUR")),
                     "page_faults_sec": _s(fm("EXTRA_INFO_PAGE_FAULTS")),
                 },
@@ -1892,7 +1934,7 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
                     "index_size_gb": round(index_size["last"] / (1024**3), 2) if index_size and index_size.get("last") else None,
                     "min_ram_gb": round((mem_resident[pk] / 1024 / max(data_size["last"] / storage_size["last"], 1) if data_size and storage_size and storage_size.get("last") and storage_size["last"] > 0 else mem_resident[pk] / 1024) + (index_size["last"] / (1024**3) if index_size and index_size.get("last") else 0), 2) if mem_resident and mem_resident.get(pk) else None,
                     "data_size_gb": round(data_size["last"] / (1024**3), 2) if data_size and data_size.get("last") else None,
-                    "estimated_zstd_gb": round(data_size["last"] / (1024**3) / (_sampled_zstd_ratio or 5), 2) if data_size and data_size.get("last") else None,
+                    "estimated_zstd_gb": round(data_size["last"] / (1024**3) / (_sampled_zstd_ratio or DEFAULT_ZSTD_RATIO), 2) if data_size and data_size.get("last") else None,
                     "estimated_zstd_ratio": _sampled_zstd_ratio,
                     "peak_connections": int(conns[pk]) if conns and conns.get(pk) else None,
                 },
@@ -2065,8 +2107,8 @@ def _generate_sizing_summary_md(report, md_path, pct):
     a(f"| Index Size | {index_bytes / (1024**3):,.2f} GiB |")
     a(f"| **Total (Data + Index)** | **{total_bytes / (1024**3):,.2f} GiB** |")
     zr = (primary.get("sizing_hints") or {}).get("estimated_zstd_ratio")
-    zr_label = f"{zr}:1 (sampled)" if zr else "~3.5:1 (estimated conservative default -- install zstandard for real per-collection sampling)"
-    zr_div = zr or 5
+    zr_label = f"{zr}:1 (sampled)" if zr else f"~{DEFAULT_ZSTD_RATIO}:1 (estimated conservative default -- install zstandard for real per-collection sampling)"
+    zr_div = zr or DEFAULT_ZSTD_RATIO
     a(f"| Current Compression Ratio | {comp}:1 |") if comp else None
     a(f"| Est. Zstandard Ratio (DocDB 8.0) | {zr_label} |")
     a(f"| Est. with Zstandard (DocDB 8.0) | ~{data_bytes / (1024**3) / zr_div:,.2f} GiB (data) + {index_bytes / (1024**3):,.2f} GiB (indexes) |")
@@ -2237,7 +2279,7 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
     print(f"Connecting to MongoDB: {uri_display}...")
 
     try:
-        client = pymongo.MongoClient(host=uri, appname='atlas-metrics-sizing', serverSelectionTimeoutMS=5000)
+        client = pymongo.MongoClient(host=uri, appname='metrics-collector-sizing', serverSelectionTimeoutMS=5000)
         client.admin.command("ping")
     except Exception as e:
         _check_auth_error(e, "cost estimator CSV generation", output_dir)
@@ -2277,7 +2319,7 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
             # depend on how the operator invoked the tool.
             import glob, tempfile
             _prev_cwd = os.getcwd()
-            _tmp_ctx = tempfile.TemporaryDirectory(prefix="atlas_metrics_comp_")
+            _tmp_ctx = tempfile.TemporaryDirectory(prefix="metrics_collector_comp_")
             try:
                 os.chdir(_tmp_ctx.name)
                 comp_mod.getData(app_config)
@@ -2301,9 +2343,9 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
                 print(f"  Compression ratios for {len(comp_data)} collections")
             _tmp_ctx.cleanup()
         else:
-            print("  compression-review.py not found -- falling back to per-collection collStats ratio (or 3.5x default)")
+            print(f"  compression-review.py not found -- falling back to per-collection collStats ratio (or {DEFAULT_ZSTD_RATIO}x default)")
     except Exception as e:
-        print(f"  Compression analysis failed ({e}) -- falling back to per-collection collStats ratio (or 3.5x default)")
+        print(f"  Compression analysis failed ({e}) -- falling back to per-collection collStats ratio (or {DEFAULT_ZSTD_RATIO}x default)")
 
     # Build CSV
     csv_dir = output_dir / _URI_CLUSTER_NAME if _URI_CLUSTER_NAME else output_dir
@@ -2369,7 +2411,7 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
                     if coll_size > 0 and storage_size > 0:
                         ratio = round(coll_size / storage_size, 2)
                     else:
-                        ratio = 3.5
+                        ratio = DEFAULT_ZSTD_RATIO
 
                 # Get per-collection data from collstats (working set, cursor stats, cumulative)
                 ns_entry = ns_data.get(ns, {})
@@ -2572,7 +2614,7 @@ def _preflight_check(args):
         if args.cluster in serverless_names:
             _fail(
                 f"Cluster '{args.cluster}' is a SERVERLESS cluster.\n"
-                "  atlas_metrics.py does not currently support Serverless clusters.\n"
+                "  metrics_collector.py does not currently support Serverless clusters.\n"
                 "  Serverless uses a different metrics API and pricing model (RPU/WPU) that\n"
                 "  requires separate handling not yet implemented here.\n"
                 "  For provisioned clusters (M10-M700), this tool works as expected."
@@ -2641,7 +2683,7 @@ def _preflight_check(args):
             if "not authorized" in ss_str or "unauthorized" in ss_str or "code 13" in ss_str:
                 mc.close()
                 _fail(
-                    "DB user lacks required role for atlas_metrics.py.\n"
+                    "DB user lacks required role for metrics_collector.py.\n"
                     "  The tool needs `serverStatus` and per-DB `collStats` privileges.\n"
                     "  Grant the DB user one of:\n"
                     "    - `atlasAdmin` (recommended, includes all needed privileges)\n"
@@ -2739,7 +2781,7 @@ def _preflight_check(args):
 
 
 # =============================================================================
-# SOURCE: EC2 - preflight (v2.1.0 consolidation)
+# SOURCE: EC2 — preflight (v2.1.0 consolidation)
 #
 # 6-gate preflight for --source ec2. Validates:
 #   1. MongoDB URI reachable + auth valid + clusterMonitor role present
@@ -2767,7 +2809,7 @@ def _ec2_detect_aws_region(cli_arg):
     boto3 usually auto-detects from IMDS on EC2, but that fails silently
     on certain systemd-managed processes (like the SSM agent's shell
     context). Doing the IMDSv2 hop ourselves guarantees resolution when
-    the tool is run on an EC2 bastion - the intended customer environment.
+    the tool is run on an EC2 bastion — the intended customer environment.
     """
     if cli_arg:
         return cli_arg
@@ -2804,7 +2846,7 @@ def _ec2_detect_aws_region(cli_arg):
 def _ec2_gate_fail(gate_num, gate_total, message, remediation=None, public_ip=None):
     """Print a preflight failure to stderr in the same shape as ec2_metrics.py.
 
-    Different signature from atlas _fail() - includes gate progress markers
+    Different signature from atlas _fail() — includes gate progress markers
     (N/6) and structured remediation text. Never returns.
     """
     sys.stdout.flush()
@@ -2835,7 +2877,7 @@ def _ec2_import_pymongo():
         return MongoClient, ConnectionFailure, OperationFailure, ServerSelectionTimeoutError
     except ImportError as e:
         print(f"FATAL: pymongo not installed ({e})", file=sys.stderr)
-        print("Install with: pip install -r requirements-atlas-metrics.txt", file=sys.stderr)
+        print("Install with: pip install -r requirements.txt", file=sys.stderr)
         sys.exit(3)
 
 
@@ -2863,7 +2905,7 @@ def _ec2_connect_mongo(uri, timeout_ms=10000):
     """
     MongoClient, ConnectionFailure, OperationFailure, ServerSelectionTimeoutError = _ec2_import_pymongo()
     try:
-        client = MongoClient(uri, serverSelectionTimeoutMS=timeout_ms, appname=f"atlas_metrics/{__version__} (source=ec2)")
+        client = MongoClient(uri, serverSelectionTimeoutMS=timeout_ms, appname=f"metrics_collector/{__version__} (source=ec2)")
         client.admin.command("ping")
         return client
     except (ConnectionFailure, ServerSelectionTimeoutError, OperationFailure) as e:
@@ -2920,7 +2962,7 @@ def _ec2_member_hostnames(client, topology):
             _log(f"replSetGetStatus failed: {e}", "error")
     elif topology == "sharded":
         # sh.status() shape:
-        #   config db -> shards collection: { _id: "rs0", host: "rs0/n1:27017,n2:27017,..." }
+        #   config db → shards collection: { _id: "rs0", host: "rs0/n1:27017,n2:27017,..." }
         try:
             shards_cursor = client["config"]["shards"].find({}, {"host": 1})
             for shard in shards_cursor:
@@ -3060,7 +3102,7 @@ def _ec2_preflight_gate_1(uri):
                         "  ])\n"
                         "\n"
                         "The tool runs serverStatus, collStats, $indexStats, and\n"
-                        "rs.status() / sh.status() during collection - all require\n"
+                        "rs.status() / sh.status() during collection — all require\n"
                         "clusterMonitor privilege at minimum. readAnyDatabase is\n"
                         "additionally required for the compression sampling phase."
                     ),
@@ -3079,13 +3121,13 @@ def _ec2_preflight_gate_1(uri):
 
         version_str = ".".join(str(x) for x in version)
         _ec2_gate_ok(1, _EC2_TOTAL_GATES,
-            f"MongoDB {version_str} reachable - topology: {topology}, "
+            f"MongoDB {version_str} reachable — topology: {topology}, "
             f"clusterMonitor role confirmed")
         return client, topology, version
 
 
 def _ec2_preflight_gate_2(client, topology):
-    """Gate 2: Instance discovery via MongoDB topology -> hostnames -> private IPs."""
+    """Gate 2: Instance discovery via MongoDB topology → hostnames → private IPs."""
     with _Timer("ec2_preflight_gate_2"):
         hostnames = _ec2_member_hostnames(client, topology)
         if not hostnames:
@@ -3118,7 +3160,7 @@ def _ec2_preflight_gate_2(client, topology):
 
 
 def _ec2_preflight_gate_3(aws_region):
-    """Gate 3: AWS credentials valid - sts:GetCallerIdentity."""
+    """Gate 3: AWS credentials valid — sts:GetCallerIdentity."""
     with _Timer("ec2_preflight_gate_3"):
         boto3, ClientError, NoCredentialsError, PartialCredentialsError = _ec2_import_boto3()
         try:
@@ -3144,7 +3186,7 @@ def _ec2_preflight_gate_3(aws_region):
         account = identity.get("Account", "unknown")
         arn = identity.get("Arn", "unknown")
         _ec2_gate_ok(3, _EC2_TOTAL_GATES,
-            f"AWS credentials valid - Account {account}, Principal {arn.split('/')[-1] if '/' in arn else arn}")
+            f"AWS credentials valid — Account {account}, Principal {arn.split('/')[-1] if '/' in arn else arn}")
         return account, arn
 
 
@@ -3264,7 +3306,7 @@ def _ec2_preflight_gate_6(server_version, do_compat):
     """Gate 6: If --compat requested, verify MongoDB >= 5.0."""
     with _Timer("ec2_preflight_gate_6"):
         if not do_compat:
-            _ec2_gate_ok(6, _EC2_TOTAL_GATES, "compat scan not requested - skipped")
+            _ec2_gate_ok(6, _EC2_TOTAL_GATES, "compat scan not requested — skipped")
             return
         if server_version is None or server_version[0] < 5:
             version_str = ".".join(str(x) for x in server_version) if server_version else "unknown"
@@ -3279,7 +3321,7 @@ def _ec2_preflight_gate_6(server_version, do_compat):
                 ),
             )
         _ec2_gate_ok(6, _EC2_TOTAL_GATES,
-            f"MongoDB {'.'.join(str(x) for x in server_version)} - compat scan eligible")
+            f"MongoDB {'.'.join(str(x) for x in server_version)} — compat scan eligible")
 
 
 def _ec2_preflight(args):
@@ -3296,10 +3338,10 @@ def _ec2_preflight(args):
     print(f"{'='*60}\n")
 
     # Determine output dir early for logging
-    out = args.output or f"atlas-metrics-{datetime.now().strftime('%Y%m%d-%H%M')}"
+    out = args.output or f"metrics-collector-{datetime.now().strftime('%Y%m%d-%H%M')}"
     Path(out).mkdir(parents=True, exist_ok=True)
     _init_log(out)
-    _log(f"atlas_metrics.py {__version__} --source ec2 preflight starting")
+    _log(f"metrics_collector.py {__version__} --source ec2 preflight starting")
 
     # Gate 1
     client, topology, version = _ec2_preflight_gate_1(args.uri)
@@ -3316,7 +3358,7 @@ def _ec2_preflight(args):
             remediation=(
                 "Pass --aws-region explicitly, set AWS_REGION or AWS_DEFAULT_REGION in the\n"
                 "environment, or configure a default region via `aws configure`. When running\n"
-                "on an EC2 instance, region is auto-detected from IMDSv2 - verify IMDS is\n"
+                "on an EC2 instance, region is auto-detected from IMDSv2 — verify IMDS is\n"
                 "reachable (HopLimit >= 2 in the instance metadata options)."
             ),
         )
@@ -3371,7 +3413,7 @@ def _ec2_preflight(args):
 
 
 # =============================================================================
-# SOURCE: EC2 - collection pipeline (v2.1.0 consolidation, step 5)
+# SOURCE: EC2 — collection pipeline (v2.1.0 consolidation, step 5)
 #
 # Post-preflight collection functions for --source ec2. Ported from
 # ec2_metrics.py v0.2.0-dev. All prefixed with _ec2_ to avoid namespace
@@ -3400,7 +3442,7 @@ _EBS_METRICS_LIST = [
     "BurstBalance",
 ]
 
-# DocumentDB 8.0 unsupported operators - used for profiler cross-reference.
+# DocumentDB 8.0 unsupported operators — used for profiler cross-reference.
 _EC2_DOCDB_UNSUPPORTED_OPERATORS = {
     "$facet", "$lookup", "$graphLookup", "$where", "$expr", "$function",
     "$accumulator", "$merge",
@@ -3420,7 +3462,7 @@ def _ec2_collect_mongo_sampling(client, samples=1):
     """Take N delta snapshots of serverStatus, _EC2_DELTA_INTERVAL_SECONDS apart.
 
     Returns dict with per-sample and aggregate opcounter/network rates.
-    samples=1 -> one delta (60s wall-clock). samples=3 -> three deltas for variance.
+    samples=1 → one delta (60s wall-clock). samples=3 → three deltas for variance.
     """
     intervals = max(1, samples)
     _log(f"collect_mongo_sampling: taking {intervals} delta(s) at "
@@ -3606,7 +3648,7 @@ def _ec2_collect_profiler_data(client):
     """Read system.profile from any DB with profiler enabled, cross-reference
     query operators against DocumentDB unsupported operator list.
 
-    NEVER enables profiler - read-only. Returns guidance if profiler not enabled.
+    NEVER enables profiler — read-only. Returns guidance if profiler not enabled.
     """
     with _Timer("collect_profiler_data"):
         result = {
@@ -4248,7 +4290,7 @@ def _ec2_collect_pipeline(args, ctx):
 
     client = ctx["client"]
 
-    # 1. Instances metadata + preflight context (write first - always safe)
+    # 1. Instances metadata + preflight context (write first — always safe)
     with open(cluster_dir / "ec2_instances.json", "w") as f:
         json.dump({
             "aws_account": ctx["aws_account"],
@@ -4275,7 +4317,7 @@ def _ec2_collect_pipeline(args, ctx):
             json.dump(cw, f, indent=2, default=str)
 
     # 4. collStats + $indexStats via shared mongos-aware collector (atlas v2.0.2 fix)
-    #    Must discover namespaces first - the shared collector early-exits on empty list.
+    #    Must discover namespaces first — the shared collector early-exits on empty list.
     namespaces = []
     try:
         for dbn in client.list_database_names():
@@ -4379,10 +4421,10 @@ def main():
         return
 
     parser = argparse.ArgumentParser(description="Collect MongoDB metrics for DocumentDB migration assessment (Atlas by default; --source ec2 for MongoDB on EC2)")
-    parser.add_argument("--version", action="version", version=f"atlas_metrics.py {__version__}")
+    parser.add_argument("--version", action="version", version=f"metrics_collector.py {__version__}")
     parser.add_argument("--source", default="atlas", choices=["atlas", "ec2", "onp"],
                         help="Source topology to collect from. 'atlas' (default): MongoDB Atlas via Atlas API. "
-                             "'ec2': self-managed MongoDB on EC2 via CloudWatch (Phase 4 of consolidation - not yet implemented). "
+                             "'ec2': self-managed MongoDB on EC2 via CloudWatch (Phase 4 of consolidation — not yet implemented). "
                              "'onp': self-managed MongoDB on customer-managed hardware (planned).")
     parser.add_argument("--granularity", default="PT1M", choices=["PT10S", "PT1M", "PT5M", "PT1H", "P1D"])
     parser.add_argument("--period", default=None, help="ISO 8601 duration (e.g., P2D, P14D). Auto-set if omitted.")
@@ -4410,7 +4452,7 @@ def main():
                              "Each sample takes 60s wall-clock. Use 3-5 for variance analysis on quiet clusters.")
     args = parser.parse_args()
 
-    # Source dispatch - v2.1.0 consolidation.
+    # Source dispatch — v2.1.0 consolidation.
     # Atlas is the default. EC2 preflight + collection is implemented in v2.1.0-dev.
     if args.source == "ec2":
         ctx = _ec2_preflight(args)
@@ -4422,7 +4464,16 @@ def main():
             "Planned for a future release after --source ec2 is validated in production."
         )
 
-    # From here on, args.source == "atlas" - original v2.0.3 flow preserved unchanged.
+    # From here on, args.source == "atlas" — original v2.0.3 flow preserved unchanged.
+
+    # Validate --period before spending any API calls. period_to_start() raises on
+    # an unparseable value rather than silently substituting 30 days, so catch it
+    # here and exit with a usage error instead of a traceback mid-collection.
+    if args.period:
+        try:
+            period_to_start(args.period)
+        except ValueError as e:
+            parser.error(str(e))
 
     # Preflight all prerequisites before starting the long Atlas API collection
     client = _preflight_check(args)
@@ -4449,7 +4500,7 @@ def main():
         _URI_CLUSTER_NAME = args.cluster
 
     # Determine output dir early for logging
-    out = args.output or f"atlas-metrics-{datetime.now().strftime('%Y%m%d-%H%M')}"
+    out = args.output or f"metrics-collector-{datetime.now().strftime('%Y%m%d-%H%M')}"
 
     if args.all:
         runs = [
@@ -4823,7 +4874,7 @@ def main():
             print(f"  Saved: {zip_path} ({size_kb:.1f} KB)")
             print(f"  Contains {sum(1 for _ in cluster_dir.rglob('*') if _.is_file())} files from {cluster_dir}")
 
-    _log("atlas_metrics.py finished")
+    _log("metrics_collector.py finished")
 
     # Emit a partial-success summary if any pipeline step failed. Foundational
     # steps (collect_metrics) still hard-fail via _Timer -- if you reach this
