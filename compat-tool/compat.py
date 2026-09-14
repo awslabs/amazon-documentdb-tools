@@ -503,7 +503,7 @@ def load_keywords():
         "$millisecond":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes'},
         "$min":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes'},
         "$minDistance":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes'},
-        "$minMaxScalar":{'mongodbversion': '8.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No'},
+        "$minMaxScaler":{'mongodbversion': '8.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No'},
         "$minN":{'mongodbversion': '5.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes'},
         "$minute":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes'},
         "$mod":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes'},
