@@ -368,7 +368,7 @@ Flags below are specific to, or behave differently under, `--source ec2`. Everyt
 | `--uri URI` | **Yes** | MongoDB connection string, any replica set member or the mongos |
 | `--cluster NAME` | **Yes** | Label for the deployment, used for output naming |
 | `--aws-region` | No | AWS region. Auto-detected if omitted, see above. **EC2 source only.** |
-| `--samples N` | No | Number of 60-second `serverStatus` delta samples. Default 1. **EC2 source only.** |
+| `--samples N` | No | Number of **consecutive** 60-second `serverStatus` delta samples. Default 1. Samples run back-to-back with no gap between them, so this lengthens a single observation window rather than spreading samples over time. **EC2 source only.** |
 | `--compat` | No | Run DocumentDB 8.0 operator and index compatibility checks |
 | `--percentile` | No | Sizing percentile: 90, 95 (default), or 99 |
 | `--output` | No | Output directory (auto-generated if omitted) |

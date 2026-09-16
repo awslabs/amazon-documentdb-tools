@@ -106,6 +106,12 @@ secondaries and is correctly absent on the primary, and the control metric
 - Retitled `MongoDB Metrics Collector` and the stale `Current version: 2.1.0`
   corrected.
 
+### Also
+
+- Two stale `v2.1.0-dev` version strings removed, one of them in user-facing
+  stdout on the `--source ec2` path ("Those shared outputs land in a subsequent
+  v2.1.0-dev commit"). Found by the `--source ec2` smoke run at v2.4.0.
+
 ### Known issue, not addressed here
 
 `cpu.user_normalized` is fed by `PROCESS_CPU_USER`, which is not normalized.

@@ -4364,7 +4364,8 @@ def _ec2_collect_pipeline(args, ctx):
     if zip_info:
         print(f"Handoff zip:      {zip_info['path']} ({zip_info['size_kb']:.1f} KB)")
     print(f"\nNote: sizing_summary.md and cost_estimator.csv are not yet generated for")
-    print(f"      --source ec2. Those shared outputs land in a subsequent v2.1.0-dev commit.\n")
+    print(f"      --source ec2. Adapter work to consume the CloudWatch metric shape for\n"
+          f"      those two outputs is planned for a follow-up release.\n")
 
     return {"output_dir": str(cluster_dir), "zip": zip_info}
 
@@ -4453,7 +4454,7 @@ def main():
     args = parser.parse_args()
 
     # Source dispatch — v2.1.0 consolidation.
-    # Atlas is the default. EC2 preflight + collection is implemented in v2.1.0-dev.
+    # Atlas is the default. EC2 preflight + collection landed in v2.1.0.
     if args.source == "ec2":
         ctx = _ec2_preflight(args)
         _ec2_collect_pipeline(args, ctx)
