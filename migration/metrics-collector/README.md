@@ -337,13 +337,13 @@ Any gate failure exits cleanly with actionable remediation text.
 ```bash
 # Replica set
 python3 metrics_collector.py --source ec2 --compat \
-    --uri "mongodb://monitor:MonitorPass@node1:27017,node2:27017,node3:27017/?replicaSet=rs0&authSource=admin" \
+    --uri "mongodb://user:pass@node1:27017,node2:27017,node3:27017/?replicaSet=rs0&authSource=admin" \
     --cluster my-mongo-cluster \
     --aws-region us-east-1
 
 # Sharded, URI points at the mongos
 python3 metrics_collector.py --source ec2 --compat \
-    --uri "mongodb://monitor:MonitorPass@mongos:27017/?authSource=admin" \
+    --uri "mongodb://user:pass@mongos:27017/?authSource=admin" \
     --cluster my-mongo-cluster \
     --aws-region us-east-1
 ```
@@ -354,7 +354,7 @@ If `--aws-region` is omitted, the region is resolved from `AWS_REGION`, then `AW
 
 ```bash
 python3 metrics_collector.py --source ec2 \
-    --uri "mongodb://monitor:MonitorPass@node1:27017/?authSource=admin" \
+    --uri "mongodb://user:pass@node1:27017/?authSource=admin" \
     --cluster my-mongo-cluster
 ```
 

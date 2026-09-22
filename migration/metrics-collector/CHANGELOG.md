@@ -407,7 +407,7 @@ sampling, BSON key-type scan, prefix-subset index redundancy detection). The
 v2.0.2 mongos-aggregated collstats fix and v2.0.3 step isolation had to be
 double-maintained. Consolidation eliminates that maintenance debt. Verified
 2026-07-27 across four topology axes: Atlas RS + Atlas sharded + EC2 RS +
-EC2 sharded (3-node RS Harman-shape topology).
+EC2 sharded (2 shards x 3-node replica sets, plus config servers and a mongos).
 
 ### Fixed — namespace pre-discovery for the shared collstats collector
 
