@@ -19,7 +19,7 @@ def createDictionary(appConfig, databaseName, collectionName, client):
 
     print("creating dictionary for {}.{} of {:d} bytes using {:d} samples".format(databaseName,collectionName,dictionarySize,dictionarySampleSize))
     dictTrainingDocs = []
-    dictSampleDocs = col.aggregate([{"$sample":{"size":dictionarySampleSize}}])
+    dictSampleDocs = col.aggregate([{"$sample":{"size":dictionarySampleSize}}],allowDiskUse=True)
     for thisDoc in dictSampleDocs:
         docAsString = json.dumps(thisDoc,default=str)
         docAsBytes = str.encode(docAsString)
@@ -78,7 +78,10 @@ def getData(appConfig):
                     # exclude collections with no documents
                     continue
 
-                collectionCompressionRatio = collStats['size'] / collStats['storageSize']
+                if collStats['storageSize'] == 0:
+                    collectionCompressionRatio = 0.0
+                else:
+                    collectionCompressionRatio = collStats['size'] / collStats['storageSize']
                 gbDivisor = 1024*1024*1024
                 collectionCount = collStats['count']
                 collectionAvgObjSize = int(collStats.get('avgObjSize',0))
@@ -127,7 +130,7 @@ def getData(appConfig):
                     zstdCompressor = zstd.ZstdCompressor(level=5,dict_data=zstdDict)
 
                 try:
-                    sampleDocs = client[thisDbName][thisCollName].aggregate([{"$sample":{"size":sampleSize}}])
+                    sampleDocs = client[thisDbName][thisCollName].aggregate([{"$sample":{"size":sampleSize}}],allowDiskUse=True)
                     for thisDoc in sampleDocs:
                         totDocs += 1
                         docAsString = json.dumps(thisDoc,default=str)
@@ -186,7 +189,10 @@ def getData(appConfig):
                 else:
                     avgDocBytes = int(totDocBytes / totDocs)
                     avgLz4Bytes = int(totLz4Bytes / totDocs)
-                    lz4Ratio = collectionAvgObjSize / avgLz4Bytes
+                    if (avgLz4Bytes == 0):
+                        lz4Ratio = 0.0
+                    else:
+                        lz4Ratio = collectionAvgObjSize / avgLz4Bytes
 
                 logFileHandle.write("{},{},{:d},{:d},{:.4f},{:.4f},{:.4f},{},{:d},{:d},{:d},{:d},{:d},{:d},{:.4f},{:d},{:.4f}\n".format(thisDb['name'],thisColl['name'],collectionCount,
                     collectionAvgObjSize,collectionSizeGB,collectionStorageSizeGB,collectionCompressionRatio,compCsvString,minDocBytes,maxDocBytes,avgDocBytes,minLz4Bytes,maxLz4Bytes,avgLz4Bytes,lz4Ratio,numExceptions,totTimeNs/1000000))
