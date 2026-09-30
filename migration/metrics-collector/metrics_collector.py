@@ -54,7 +54,7 @@ from pathlib import Path
 from requests.auth import HTTPDigestAuth
 import requests
 
-__version__ = "2.4.0"
+__version__ = "2.5.0"
 
 # Runtime logger -- writes to runtime.log in output directory
 _runtime_log = None
@@ -339,6 +339,11 @@ def period_to_start(period):
 
 _MONGO_URI = None  # Set by main() when --uri is provided
 _URI_CLUSTER_NAME = None  # Resolved cluster name matching --uri
+# Atlas cluster shape resolved during preflight. Read from the Atlas Admin API,
+# previously printed once and discarded. The tier is what turns a measured
+# connection count into a utilization figure (Atlas exposes no CONNECTIONS_PERCENT
+# metric) and is needed to size migration tooling against the source.
+_CLUSTER_PROFILE = None
 
 # --- BSON type detection and index enrichment ---
 
@@ -1157,12 +1162,20 @@ def _collect_collstats_via_mongos_sharded(mongos_client, namespaces, output_dir,
 
     unused = [i for i in all_indexes if i.get("unused")]
     redundant = [i for i in all_indexes if i.get("redundant")]
+    removable = [i for i in all_indexes if i.get("unused") or i.get("redundant")]
     index_report = {
         "sharded": True,
         "data_source": "mongos_aggregated",
         "total_indexes": len(all_indexes),
         "unused_indexes": len(unused),
         "redundant_indexes": len(redundant),
+        # unused and redundant overlap, so adding the two counters double-counts
+        # every index that is both, overstating the reclaimable set. Report the
+        # union so consumers do not have to re-derive it. See the replica-set
+        # writer for the measured magnitude on production clusters.
+        "removable_indexes": len(removable),
+        "removable_index_bytes": sum(i.get("size_bytes") or 0 for i in removable),
+        "unused_and_redundant_overlap": len(unused) + len(redundant) - len(removable),
         "indexes": all_indexes,
     }
     with open(cdir / "index_analysis.json", "w") as f:
@@ -1513,10 +1526,18 @@ def _collect_collstats_via_uri(namespaces, output_dir, cluster_name):
     # Save index analysis
     unused = [i for i in all_indexes if i.get("unused")]
     redundant = [i for i in all_indexes if i.get("redundant")]
+    removable = [i for i in all_indexes if i.get("unused") or i.get("redundant")]
     index_report = {
         "total_indexes": len(all_indexes),
         "unused_indexes": len(unused),
         "redundant_indexes": len(redundant),
+        # unused and redundant are overlapping sets, so summing the two counters
+        # double-counts every index that is both. On three production replica sets
+        # the overlap was 101 of 2,017, 72 of 2,809 and 54 of 1,349 indexes,
+        # overstating reclaimable index space by 9.9%, 7.6% and 2.6%.
+        "removable_indexes": len(removable),
+        "removable_index_bytes": sum(i.get("size_bytes") or 0 for i in removable),
+        "unused_and_redundant_overlap": len(unused) + len(redundant) - len(removable),
         "indexes": all_indexes,
     }
     with open(cdir / "index_analysis.json", "w") as f:
@@ -1961,6 +1982,7 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
         report = {
             "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "cluster": cluster_name,
+            "cluster_profile": _CLUSTER_PROFILE,
             "granularity": granularity,
             "period": period,
             "percentile": pct,
@@ -2018,6 +2040,15 @@ def _generate_sizing_summary_md(report, md_path, pct):
     a(f"**Generated:** {report.get('generated', 'N/A')}")
     a(f"**Granularity:** {report.get('granularity')} | **Period:** {report.get('period')} | **Percentile:** {pcol}")
     a(f"**Topology:** {len(procs)} nodes ({sum(1 for p in procs if 'PRIMARY' in p['type'])} primary, {len(secondaries)} secondary)")
+    prof = report.get("cluster_profile") or {}
+    if prof:
+        # `or "?"` rather than a .get default: these values come from the Atlas API
+        # via bare .get(), so a key can be present and None. A .get(k, "?") default
+        # only fires on an absent key and would render the string "None" instead.
+        a(f"**Source cluster:** {prof.get('instance_size') or '?'} | "
+          f"**Type:** {prof.get('cluster_type') or '?'} | "
+          f"**Region:** {prof.get('region_name') or '?'} | "
+          f"**MongoDB:** {prof.get('mongodb_version') or '?'}")
     a(f"")
 
     # --- 1. CPU ---
@@ -2292,8 +2323,8 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
         import importlib.util
         # Search all three known locations rather than only script_dir.parent.
         # A script living in a home directory made parent.parent == /home, so
-        # this silently fell through to the collStats ratio fallback -- which
-        # underestimates DocumentDB Zstandard and oversizes the target.
+        # this silently fell through to the ratio fallback below -- which before
+        # 2.5.0 was WiredTiger's on-disk ratio and oversized the target.
         # auto_clone is off: degrade gracefully mid-sizing rather than clone.
         try:
             comp_script = _resolve_documentdb_tool(
@@ -2314,8 +2345,8 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
             # compression-review writes its CSV to the current working directory.
             # When the tool is launched from a CWD the running user cannot write
             # (SSM Send-Command, cron, a systemd unit), getData() raises
-            # PermissionError and the run silently falls back to collStats
-            # ratios. Run it inside a temp directory so the result does not
+            # PermissionError and the run silently falls back to the per-collection
+            # ratio path. Run it inside a temp directory so the result does not
             # depend on how the operator invoked the tool.
             import glob, tempfile
             _prev_cwd = os.getcwd()
@@ -2343,9 +2374,9 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
                 print(f"  Compression ratios for {len(comp_data)} collections")
             _tmp_ctx.cleanup()
         else:
-            print(f"  compression-review.py not found -- falling back to per-collection collStats ratio (or {DEFAULT_ZSTD_RATIO}x default)")
+            print(f"  compression-review.py not found -- falling back to this tool's own zstd sample per collection (or {DEFAULT_ZSTD_RATIO}x default)")
     except Exception as e:
-        print(f"  Compression analysis failed ({e}) -- falling back to per-collection collStats ratio (or {DEFAULT_ZSTD_RATIO}x default)")
+        print(f"  Compression analysis failed ({e}) -- falling back to this tool's own zstd sample per collection (or {DEFAULT_ZSTD_RATIO}x default)")
 
     # Build CSV
     csv_dir = output_dir / _URI_CLUSTER_NAME if _URI_CLUSTER_NAME else output_dir
@@ -2365,21 +2396,29 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
     sl_no = 0
     with open(csv_path, 'w', newline='') as f:
         w = csv.writer(f)
+        # Header must match migration/sizing-tool/sizing.py byte for byte. Both
+        # tools feed the same DocumentDB Cost Estimator, which matches columns by
+        # name: sizing-tool supplies hand-estimated workload figures, this tool
+        # supplies measured ones. Descriptive headings with units were rejected
+        # by the estimator, so units stay documented in the README instead.
+        #   Index_Size        -> GiB   (bytes / 1024**3, same as sizing.py)
+        #   *_Working_Set     -> percent
+        #   Compression_Ratio -> projected zstd ratio, always >= 1
         w.writerow([
-            'ID (Ignored)',
-            'Database Name',
-            'Collection Name',
-            'Document Count',
-            'Avg Doc Size (Bytes)',
-            'Total Indexes',
-            'Total Index Size (GiB)',
-            'Index Working Set (%)',
-            'Data Working Set (%)',
-            'Inserts / Day',
-            'Updates / Day',
-            'Deletes / Day',
-            'Reads / Day',
-            'Compression Ratio'
+            'SLNo',
+            'Database_Name',
+            'Collection_Name',
+            'Document_Count',
+            'Average_Document_Size',
+            'Total_Indexes',
+            'Index_Size',
+            'Index_Working_Set',
+            'Data_Working_Set',
+            'Inserts_Per_Day',
+            'Updates_Per_Day',
+            'Deletes_Per_Day',
+            'Reads_Per_Day',
+            'Compression_Ratio'
         ])
 
         db_list = client.admin.command("listDatabases", nameOnly=True, filter={"name": {"$nin": ["admin", "config", "local"]}})
@@ -2403,16 +2442,6 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
                 total_indexes = stats.get("nindexes", 0)
                 index_size_gib = stats.get("totalIndexSize", 0) / (1024**3)
 
-                # Compression: real ratio from compression-review, or from collStats, or estimate
-                ratio = comp_data.get(ns)
-                if not ratio:
-                    coll_size = stats.get("size", 0)
-                    storage_size = stats.get("storageSize", 0)
-                    if coll_size > 0 and storage_size > 0:
-                        ratio = round(coll_size / storage_size, 2)
-                    else:
-                        ratio = DEFAULT_ZSTD_RATIO
-
                 # Get per-collection data from collstats (working set, cursor stats, cumulative)
                 ns_entry = ns_data.get(ns, {})
                 snap_reads = ns_entry.get("metrics", {}).get("reads_per_sec", 0)
@@ -2420,6 +2449,29 @@ def generate_sizing_csv(uri, collstats, all_metrics, pct, output_dir):
                 cum = ns_entry.get("cumulative", {})
                 ws = ns_entry.get("working_set", {})
                 cur = ns_entry.get("cursor_stats", {})
+
+                # Compression: this column means "projected zstd ratio on DocumentDB",
+                # so every source below is a zstd measurement. Preference order:
+                #   1. compression-review's projectedCompRatio (1000-doc sample, trained dict)
+                #   2. this tool's own zstd sample already recorded in collstats
+                #   3. DEFAULT_ZSTD_RATIO
+                #
+                # The collStats ratio (size/storageSize) was previously used as the
+                # fallback. That is WiredTiger's on-disk ratio, which answers a
+                # different question and is not comparable: measured side by side it
+                # disagrees in both directions (one collection read 5.05 on disk
+                # against a measured 8.6 zstd, another 4.30 against 2.19). On small
+                # collections it also collapses, because a handful of bytes of data
+                # sits in a fixed minimum extent -- 5 docs x 174 B against a 32 KiB
+                # allocation yields 0.03, and enough of those round to 0.0000. A
+                # value below 1 claims compression inflated the data, which the
+                # estimator rejects outright, so those rows blocked the whole upload.
+                ratio = comp_data.get(ns)
+                if not ratio or ratio < 1.0:
+                    sampled = (ns_entry.get("zstd_compression") or {}).get("ratio")
+                    ratio = sampled if sampled and sampled >= 1.0 else None
+                if not ratio or ratio < 1.0:
+                    ratio = DEFAULT_ZSTD_RATIO
 
                 # Working set from WiredTiger cache access patterns
                 data_working_set_pct = ws.get("data_working_set_pct", 10)
@@ -2643,14 +2695,62 @@ def _preflight_check(args):
     state_name = target_cluster_data.get("stateName", "UNKNOWN")
     tier = "?"
     region = "?"
+    node_count = None
+    shape = None
+
+    # The Atlas cluster payload carries the tier in two different places depending
+    # on the requested API version, and HEADERS pins 2023-01-01:
+    #
+    #   2023-01-01  providerSettings.instanceSizeName / .regionName
+    #               replicationSpecs[0].regionsConfig[<region>].electableNodes
+    #   2023-02-01+ replicationSpecs[0].regionConfigs[0].electableSpecs.instanceSize
+    #               ...regionConfigs[0].regionName / .electableSpecs.nodeCount
+    #
+    # Only the newer path used to be read, and under 2023-01-01 it resolves to
+    # nothing -- regionConfigs does not exist there at all, so the lookup raised
+    # and was swallowed, printing "Tier: ?, Region: ?" on every run. Try both so
+    # this keeps working if HEADERS is ever bumped.
     try:
-        first_spec = target_cluster_data.get("replicationSpecs", [{}])[0]
-        first_rc = first_spec.get("regionConfigs", [{}])[0]
-        tier = first_rc.get("electableSpecs", {}).get("instanceSize", "?")
-        region = first_rc.get("regionName", "?")
-    except (KeyError, IndexError, TypeError):
-        pass
+        first_spec = (target_cluster_data.get("replicationSpecs") or [{}])[0]
+        region_configs = first_spec.get("regionConfigs")
+        if region_configs:
+            rc = region_configs[0]
+            electable = rc.get("electableSpecs") or {}
+            tier = electable.get("instanceSize") or "?"
+            region = rc.get("regionName") or "?"
+            node_count = electable.get("nodeCount")
+            shape = "regionConfigs"
+        else:
+            ps = target_cluster_data.get("providerSettings") or {}
+            tier = ps.get("instanceSizeName") or "?"
+            region = ps.get("regionName") or "?"
+            regions_config = first_spec.get("regionsConfig") or {}
+            entry = regions_config.get(region) or (
+                next(iter(regions_config.values()), {}) if regions_config else {})
+            node_count = entry.get("electableNodes") or target_cluster_data.get("replicationFactor")
+            shape = "providerSettings"
+    except (KeyError, IndexError, TypeError) as e:
+        _log(f"Could not resolve cluster tier/region from Atlas payload: {e}", "warning")
+    if tier == "?":
+        # Not fatal, but it means the payload shape changed again. Say so rather
+        # than silently recording "?" in the report.
+        print("        WARNING: could not resolve instance size from the Atlas cluster payload "
+              f"(shape={shape}). Tier and region will be absent from the report.")
     print(f"        OK: Cluster '{args.cluster}' found. Type: {cluster_type}, Tier: {tier}, Region: {region}, State: {state_name}")
+
+    # Carry the shape into the report rather than only printing it.
+    global _CLUSTER_PROFILE
+    _CLUSTER_PROFILE = {
+        "cluster_type": cluster_type,
+        "instance_size": tier,
+        "region_name": region,
+        "electable_node_count": node_count,
+        "mongodb_version": target_cluster_data.get("mongoDBVersion"),
+        "state_name": state_name,
+        "backup_enabled": target_cluster_data.get("backupEnabled"),
+        "source": "atlas_admin_api",
+        "payload_shape": shape,
+    }
 
     # Fail fast on non-connectable states
     if target_cluster_data.get("paused") is True or state_name == "PAUSED":

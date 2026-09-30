@@ -2,7 +2,7 @@
 
 Collects capacity metrics from a MongoDB deployment and produces a sizing package for migrating to Amazon DocumentDB. Works against MongoDB Atlas or self-managed MongoDB on Amazon EC2.
 
-**Current version:** 2.4.0 (see CHANGELOG.md)
+**Current version:** 2.5.0 (see CHANGELOG.md)
 
 Part of [amazon-documentdb-tools](https://github.com/awslabs/amazon-documentdb-tools). This is the measured counterpart to [`migration/sizing-tool`](../sizing-tool): `sizing-tool` is the quick self-service CSV and leaves the workload columns as placeholders for you to fill in by hand, while this tool measures them from a real metric window. Both use the same [`compression-review`](../../performance/compression-review) sampling.
 
@@ -78,7 +78,7 @@ Collected by connecting to the deployment and running database commands:
 - **Index analysis:** unused indexes (0 accesses) and redundant indexes (prefix subsets)
 - **Compression sampling:** real Zstandard-3 with 100-document dictionary training, matching DocumentDB 8.0 behavior
 - **Index key type sampling:** first-50 and last-50 documents per collection, sampled for actual key sizes (compound, hashed, multikey)
-- **Cost Estimator CSV:** fields auto-populated, ready to upload to the DocumentDB Calculator
+- **Cost Estimator CSV:** fields auto-populated, ready to upload to the DocumentDB Cost Estimator
 
 When real Zstandard sampling is unavailable (the `zstandard` package is not installed, or the collection is empty), the tool falls back to a conservative **3.5:1** ratio. A real sampled ratio always takes precedence. The fallback is deliberately conservative: estimated size is data size divided by the ratio, so a higher ratio yields a smaller instance recommendation, and understating compression oversizes rather than undersizes.
 
@@ -261,11 +261,31 @@ metrics-collector-<timestamp>/
 | `index_analysis.json` | Unused and redundant index report |
 | `index_compat.json` | Index types unsupported by DocumentDB, plus a coverage verdict |
 | `index_metadata/` | Index dump in mongodump format, re-scannable via `--index-compat-from` |
-| `cost-estimator.csv` | Ready to upload to the [DocumentDB Calculator](https://d12ozu47xvq6hb.cloudfront.net/) |
+| `cost-estimator.csv` | Ready to upload to the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/) |
 | `compat-8.0.txt` | Operator compatibility output (with `--compat`) |
 | `runtime.log` | Full run log |
 | `<node>_<batch>.json` | Raw Atlas API measurements per process and metric batch |
 | `<cluster>.zip` | All of the above bundled, typically 200-500 KB |
+
+### Cost Estimator CSV columns
+
+The header matches `migration/sizing-tool` byte for byte, because both tools feed
+the same estimator and it matches columns by name. The two are interchangeable
+inputs: `sizing-tool` writes defaults for the six workload columns and asks you to
+edit them by hand, this tool measures them. Column names carry no units, so:
+
+| Column | Unit | Source |
+|--------|------|--------|
+| `Average_Document_Size` | bytes | `collStats.avgObjSize` |
+| `Index_Size` | GiB | `collStats.totalIndexSize / 1024**3` |
+| `Index_Working_Set` | percent | share of the collection's indexes with non-zero `$indexStats` accesses |
+| `Data_Working_Set` | percent | WiredTiger cache access patterns |
+| `Inserts_Per_Day` / `Updates_Per_Day` / `Deletes_Per_Day` / `Reads_Per_Day` | operations per day | cursor stats, extrapolated from server uptime |
+| `Compression_Ratio` | ratio, always >= 1 | projected zstd ratio, preferring `compression-review` then this tool's own zstd sample |
+
+`Compression_Ratio` is a projected **zstd** ratio, matching what DocumentDB 8.0
+does. It is not WiredTiger's on-disk ratio; the two are not comparable and the
+estimator rejects any value below 1.
 
 ---
 
@@ -404,7 +424,7 @@ Same structure as the Atlas source, with these additions and one omission:
 1. **Review the sizing summary** (`*-sizing-summary.md`) for instance type and cluster type recommendations
 2. **Review index analysis** (`index_analysis.json`) and drop unused and redundant indexes before migrating
 3. **Review index compatibility** (`index_compat.json`) and plan replacements for any unsupported index types
-4. **Upload the CSV** (`cost-estimator.csv`) to the [DocumentDB Calculator](https://d12ozu47xvq6hb.cloudfront.net/)
+4. **Upload the CSV** (`cost-estimator.csv`) to the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/)
 5. **Review operator compatibility** (`compat-8.0.txt`) and plan workarounds for unsupported operators
 
 ## Troubleshooting
