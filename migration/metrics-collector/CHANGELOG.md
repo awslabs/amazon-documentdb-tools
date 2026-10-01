@@ -2,6 +2,117 @@
 
 All notable changes to metrics_collector.py are documented here.
 
+## [2.5.0] — 2026-09-30
+
+Interoperability and correctness fixes on the Cost Estimator CSV, plus two
+recorded-but-discarded measurements now surfaced. Raised from field use after
+sizing two production Atlas clusters.
+
+### Fixed — Cost Estimator CSV header now matches sizing-tool
+
+The CSV could not be uploaded to the DocumentDB Cost Estimator: the estimator
+matches columns by name, and all 14 headers differed from what it expects.
+
+`migration/sizing-tool/sizing.py` already emits the accepted header, and the two
+tools are interchangeable inputs to the same estimator — `sizing-tool` writes
+defaults for the six workload columns and instructs the user to edit them by
+hand, this tool measures them. They should therefore agree byte for byte, and now
+do. Values, units, float formatting (`.4f`), working-set defaults (100 index / 10
+data) and `SLNo` numbering already conformed; only the header strings changed.
+
+Descriptive headings carrying units (`Total Index Size (GiB)`,
+`Avg Doc Size (Bytes)`) are gone as a result. The units they documented now live
+in a column-contract table in the README.
+
+Also repointed the README at the same estimator URL `sizing-tool` uses. The two
+tools previously named different calculators.
+
+### Fixed — Compression_Ratio no longer emits WiredTiger's on-disk ratio
+
+`Compression_Ratio` means "projected zstd ratio on DocumentDB". When
+`compression-review` produced no value for a collection, the column fell back to
+`collStats.size / collStats.storageSize`, which is WiredTiger's on-disk ratio. The
+two answer different questions and are not comparable: measured side by side on
+one production cluster, one collection read 5.05 on disk against a measured 8.6
+zstd, another 4.30 against 2.19.
+
+On small collections the fallback also collapses, because a few bytes of data
+occupy a fixed minimum extent — 5 documents of 174 bytes against a 32 KiB
+allocation yields 0.03, and enough of those round to `0.0000`. A ratio below 1
+claims compression inflated the data, which the estimator rejects, so a single
+such row blocked the entire upload. On the run that surfaced this, 888 of 1,190
+rows were below 1 and 243 were exactly zero.
+
+New preference order, every source a zstd measurement:
+
+1. `compression-review`'s `projectedCompRatio`
+2. this tool's own zstd sample, already recorded in `collstats.json` and
+   previously unread at this point
+3. `DEFAULT_ZSTD_RATIO`
+
+Any value below 1 is rejected at each step rather than emitted.
+
+On the run that surfaced this, the new order resolved 1,080 of 1,190 rows from the
+zstd sample and 110 from the default, with no remaining value below 1. Note the
+zstd sampler takes up to 100 documents, so on small collections the sample is
+shallow — 777 of those 1,190 were sampled on fewer than 10 documents. That is
+pre-existing sampler behaviour rather than a change here, and a shallow sample of
+real documents is still a zstd measurement; small collections also contribute
+little to total storage. No minimum-sample guard was added, because falling back
+to a blanket default would discard more information than it protects.
+
+### Added — index_analysis.json reports the deduplicated removable set
+
+`unused_indexes` and `redundant_indexes` are overlapping sets, so summing them
+double-counts every index that is both. On the two clusters that surfaced this the
+overlap was 72 of 2,809 and 54 of 1,349, overstating reclaimable index space by
+7.6% and 2.6%.
+
+Three fields added to both the replica-set and sharded writers:
+`removable_indexes` (the union), `removable_index_bytes`, and
+`unused_and_redundant_overlap`. The existing counters are unchanged.
+
+### Fixed — Atlas tier and region resolved from the payload shape actually returned
+
+Pre-existing, and independent of the feature below. The preflight read the tier from
+`replicationSpecs[0].regionConfigs[0].electableSpecs.instanceSize`, a path that does
+not exist in the Atlas API version `HEADERS` pins (`2023-01-01`). Under that version
+`replicationSpecs[0]` carries `regionsConfig` (a dict keyed by region) and the tier
+lives in top-level `providerSettings.instanceSizeName`. The lookup therefore raised
+and was swallowed by a bare `except: pass`, so every Atlas run printed:
+
+    OK: Cluster 'x' found. Type: REPLICASET, Tier: ?, Region: ?, State: IDLE
+
+Both shapes are now tried, newer first, so this survives a future `HEADERS` bump:
+
+| API version | tier | region | node count |
+|---|---|---|---|
+| `2023-01-01` | `providerSettings.instanceSizeName` | `providerSettings.regionName` | `replicationSpecs[0].regionsConfig[<region>].electableNodes` |
+| `2023-02-01`+ | `...regionConfigs[0].electableSpecs.instanceSize` | `...regionConfigs[0].regionName` | `...electableSpecs.nodeCount` |
+
+The `except` now logs rather than passing silently, and an unresolved tier prints an
+explicit warning instead of recording `?`. Which branch was taken is recorded as
+`cluster_profile.payload_shape` so a future shape change is diagnosable from the
+artifact alone.
+
+Verified live against an M10 replica set: preflight went from `Tier: ?, Region: ?`
+to `Tier: M10, Region: US_EAST_1`.
+
+### Added — Atlas cluster shape recorded in the report
+
+Instance size, cluster type, region, electable node count, MongoDB version, state
+and backup flag were read from the Atlas Admin API during preflight, printed once
+and discarded. They now appear as `cluster_profile` in the sizing report JSON and
+as a header line in the sizing summary.
+
+Instance size is what turns a measured connection count into a utilization figure,
+since Atlas exposes no `CONNECTIONS_PERCENT` metric (`connections.utilization_pct`
+was removed in 2.4.0 for that reason). It is also needed to size migration tooling
+against the source cluster.
+
+`--source ec2` already recorded per-node `instance_type` in `ec2_instances.json`;
+this closes the equivalent gap on the Atlas path.
+
 ## [2.4.0] — 2026-09-14
 
 Addresses the review on [awslabs/amazon-documentdb-tools#201](https://github.com/awslabs/amazon-documentdb-tools/pull/201).
