@@ -6,6 +6,7 @@ import time
 import os
 import argparse
 import boto3
+import warnings
 
 
 def initializeLogFile(appConfig):
@@ -20,13 +21,16 @@ def logAndPrint(appConfig,string):
 
 
 def watchGc(appConfig):
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
+    logAndPrint(appConfig, "Watching for GC")
+    
     verboseOutput = appConfig['verbose']
     checkFrequencySeconds = appConfig['checkFrequencySeconds']
     createCloudwatchMetrics = appConfig['createCloudwatchMetrics']
     clusterName = appConfig['clusterName']
     client = pymongo.MongoClient(host=appConfig['uri'],appname='gcwatch')
     watchStartTime = time.time()
-    
+
     # number of seconds between posting metrics to cloudwatch
     cloudwatchPutSeconds = 60
     lastCloudwatchPutTime = time.time()
