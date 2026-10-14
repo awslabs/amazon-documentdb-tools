@@ -69,7 +69,7 @@ def getData(appConfig):
 
 def getCollectionStats(client, appConfig):
     """Iterate all user databases and collections, printing reIndex commands
-    for indexes that exceed the unused storage percent threshold.
+    for every eligible index.
     """
     output_file = appConfig.get('outputFile')
     results = []
@@ -86,27 +86,25 @@ def getCollectionStats(client, appConfig):
                 pass
             else:
                 collStats = client[thisDb['name']].command("collStats", thisColl['name'])
-                # Check if collection bloat exceeds the threshold
-                if 'unusedStorageSize' in collStats and collStats['unusedStorageSize']['unusedPercent'] >= int(appConfig['unusedCollectionSizePercent']):
-                    indexes = list(client[thisDb['name']][thisColl['name']].list_indexes())
-                    for index_name in collStats['indexSizes'].keys():
-                        skip_index = False
-                        for idx in indexes:
-                            if idx['name'] == index_name:
-                                # Skip partial indexes — reIndex is not supported for them
-                                if idx.get('partialFilterExpression'):
+                indexes = list(client[thisDb['name']][thisColl['name']].list_indexes())
+                for index_name in collStats['indexSizes'].keys():
+                    skip_index = False
+                    for idx in indexes:
+                        if idx['name'] == index_name:
+                            # Skip partial indexes — reIndex is not supported for them
+                            if idx.get('partialFilterExpression'):
+                                skip_index = True
+                                break
+                            # Skip text, geospatial, and vector indexes — reIndex is not supported for them
+                            for key, value in idx['key'].items():
+                                if value in ['text', '2d', '2dsphere', 'geoHaystack'] or idx.get('vectorOptions'):
                                     skip_index = True
                                     break
-                                # Skip text, geospatial, and vector indexes — reIndex is not supported for them
-                                for key, value in idx['key'].items():
-                                    if value in ['text', '2d', '2dsphere', 'geoHaystack'] or idx.get('vectorOptions'):
-                                        skip_index = True
-                                        break
-                                break
-                        if not skip_index:
-                            cmd = 'db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(collStats['ns'], index_name, appConfig['workers'])
-                            results.append(cmd)
-                            print(cmd)
+                            break
+                    if not skip_index:
+                        cmd = 'db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(collStats['ns'], index_name, appConfig['workers'])
+                        results.append(cmd)
+                        print(cmd)
 
     # Write results to file if --output-file was specified
     if output_file and results:
@@ -118,7 +116,7 @@ def getCollectionStats(client, appConfig):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Check indexes requiring reindex based on unused size percent')
+    parser = argparse.ArgumentParser(description='Generate reIndex commands for all eligible indexes')
     
     parser.add_argument('--uri',
                         required=False,
@@ -135,12 +133,6 @@ def main():
                         type=str,
                         default='us-east-1',
                         help='AWS region for Secrets Manager')
-
-    parser.add_argument('--unusedCollectionSizePercent',
-                        required=False,
-                        type=int,
-                        default=30,
-                        help='Minimum unused size in percent to consider for reindexing. Defaults to 30.')
 
     parser.add_argument('--workers',
                         required=False,
@@ -175,7 +167,6 @@ def main():
         separator = '&' if '?' in appConfig['connectionString'] else '?'
         appConfig['connectionString'] += f'{separator}tls=true&tlsCAFile={args.tls_ca_file}'
 
-    appConfig['unusedCollectionSizePercent'] = args.unusedCollectionSizePercent
     appConfig['workers'] = args.workers
     appConfig['outputFile'] = args.output_file
 
