@@ -74,37 +74,83 @@ def getCollectionStats(client, appConfig):
     output_file = appConfig.get('outputFile')
     results = []
 
+    minUnusedPercent = appConfig['minUnusedPercent']
+
     # Exclude system databases
     dbDict = client.admin.command("listDatabases", nameOnly=True, filter={"name": {"$nin": ['admin', 'config', 'local', 'system']}})['databases']
     for thisDb in dbDict:
-        collCursor = client[thisDb['name']].list_collections()
+        dbName = thisDb['name']
+        collCursor = client[dbName].list_collections()
+        # Commands for this database, collected so we only emit a `use <db>`
+        # header when the database actually has at least one bloated index.
+        dbCommands = []
         for thisColl in collCursor:
+            collName = thisColl['name']
             # Skip views and system collections
             if thisColl.get('type', 'NOT-FOUND') == 'view':
-                pass
-            elif thisColl['name'] in ['system.profile']:
-                pass
-            else:
-                collStats = client[thisDb['name']].command("collStats", thisColl['name'])
-                indexes = list(client[thisDb['name']][thisColl['name']].list_indexes())
-                for index_name in collStats['indexSizes'].keys():
-                    skip_index = False
-                    for idx in indexes:
-                        if idx['name'] == index_name:
-                            # Skip partial indexes — reIndex is not supported for them
-                            if idx.get('partialFilterExpression'):
-                                skip_index = True
-                                break
-                            # Skip text, geospatial, and vector indexes — reIndex is not supported for them
-                            for key, value in idx['key'].items():
-                                if value in ['text', '2d', '2dsphere', 'geoHaystack'] or idx.get('vectorOptions'):
-                                    skip_index = True
-                                    break
-                            break
-                    if not skip_index:
-                        cmd = 'db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(collStats['ns'], index_name, appConfig['workers'])
-                        results.append(cmd)
-                        print(cmd)
+                continue
+            if collName in ['system.profile']:
+                continue
+
+            # Index key definitions, used to skip index types reIndex can't rebuild.
+            indexes = {idx['name']: idx for idx in client[dbName][collName].list_indexes()}
+
+            # $indexStats reports per-index unused (reclaimable) storage, which is
+            # the bloat. On DocumentDB 5.0+ each entry has an unusedStorageSize
+            # block; older engines omit it, in which case we can't measure bloat.
+            try:
+                indexStats = list(client[dbName][collName].aggregate([{'$indexStats': {}}]))
+            except Exception as e:
+                print(f'  warning: could not read $indexStats for {dbName}.{collName}: {e}')
+                continue
+
+            for stat in indexStats:
+                index_name = stat.get('name')
+                idx = indexes.get(index_name, {})
+
+                # Skip partial indexes — reIndex is not supported for them
+                if idx.get('partialFilterExpression'):
+                    continue
+                # Skip text, geospatial, and vector indexes — reIndex is not supported for them
+                skip_index = False
+                for key, value in idx.get('key', {}).items():
+                    if value in ['text', '2d', '2dsphere', 'geoHaystack'] or idx.get('vectorOptions'):
+                        skip_index = True
+                        break
+                if skip_index:
+                    continue
+
+                # Decide based on measured bloat. Skip indexes with no
+                # unusedStorageSize reported (pre-5.0 engines) since we can't
+                # tell whether reindexing would reclaim anything.
+                unused = stat.get('unusedStorageSize')
+                if not unused:
+                    print(f'  skipping {dbName}.{collName} index "{index_name}": no unusedStorageSize reported (requires DocumentDB 5.0+)')
+                    continue
+
+                unusedPercent = unused.get('unusedSizePercent', 0)
+                unusedBytes = unused.get('unusedSizeBytes', 0)
+
+                if unusedPercent < minUnusedPercent:
+                    continue
+
+                # DocumentDB's reIndex takes the bare collection name and
+                # operates on the current database, so emit `use <db>`
+                # once per database followed by collection-only commands.
+                comment = '// {}.{} index "{}" — unused {}% ({} bytes)'.format(
+                    dbName, collName, index_name, unusedPercent, unusedBytes)
+                cmd = 'db.runCommand({{ reIndex: "{}", index: "{}", workers: {} }})'.format(
+                    collName, index_name, appConfig['workers'])
+                dbCommands.append(comment)
+                dbCommands.append(cmd)
+
+        if dbCommands:
+            useStmt = 'use {}'.format(dbName)
+            results.append(useStmt)
+            print(useStmt)
+            for cmd in dbCommands:
+                results.append(cmd)
+                print(cmd)
 
     # Write results to file if --output-file was specified
     if output_file and results:
@@ -140,15 +186,19 @@ def main():
                         default=2,
                         help='Number of workers for reindex operation. Defaults to 2.')
 
-    parser.add_argument('--tls-ca-file',
-                        required=False,
-                        type=str,
-                        help='Path to CA file for TLS connections (e.g., global-bundle.pem).')
-
     parser.add_argument('--output-file',
                         required=False,
                         type=str,
                         help='Path to write the reindex commands to a file.')
+
+    parser.add_argument('--min-unused-percent',
+                        required=False,
+                        type=float,
+                        default=20.0,
+                        help='Only generate a reIndex command for an index whose unused (reclaimable) '
+                             'storage is at or above this percent, as reported by $indexStats. '
+                             'Defaults to 20. Set to 0 to include every eligible index. '
+                             'Requires DocumentDB 5.0+.')
 
     args = parser.parse_args()
     if args.uri is None and args.secret_name is None:
@@ -162,13 +212,9 @@ def main():
     else:
         appConfig['connectionString'] = args.uri
 
-    # Append TLS CA file to URI if provided
-    if args.tls_ca_file:
-        separator = '&' if '?' in appConfig['connectionString'] else '?'
-        appConfig['connectionString'] += f'{separator}tls=true&tlsCAFile={args.tls_ca_file}'
-
     appConfig['workers'] = args.workers
     appConfig['outputFile'] = args.output_file
+    appConfig['minUnusedPercent'] = args.min_unused_percent
 
     getData(appConfig)
 
