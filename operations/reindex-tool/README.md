@@ -1,6 +1,6 @@
 # DocumentDB-Reindex
 
-In Amazon DocumentDB, high-write workloads cause index fragmentation (bloat) over time. Reindexing removes this bloat and reclaims storage. This tool scans all collections and provides the reindex commands for every eligible index.
+In Amazon DocumentDB, high-write workloads cause index fragmentation (bloat) over time. Reindexing removes this bloat and reclaims storage. This tool scans all collections and, using the unused (reclaimable) storage reported by `$indexStats`, provides the reindex commands for every eligible index that exceeds a configurable bloat threshold.
 
 ## Requirements
 
@@ -23,6 +23,10 @@ python3 -m pip install -r requirements.txt
 --secret-name                      AWS Secrets Manager secret name containing MongoDB URI
 --region                           AWS region for Secrets Manager. Defaults to us-east-1
 --workers                          Number of workers for reindex operation. Defaults to 2
+--min-unused-percent               Only generate a reIndex command for an index whose unused
+                                   (reclaimable) storage is at or above this percent, as reported
+                                   by $indexStats. Defaults to 20. Set to 0 to include every
+                                   eligible index. Requires DocumentDB 5.0+
 --output-file                      Path to write the reindex commands to a file
 ```
 
