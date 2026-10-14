@@ -23,7 +23,7 @@ python3 -m pip install -r requirements.txt
 --secret-name                      AWS Secrets Manager secret name containing MongoDB URI
 --region                           AWS region for Secrets Manager. Defaults to us-east-1
 --workers                          Number of workers for reindex operation. Defaults to 2
---min-unused-percent               Only generate a reIndex command for an index whose unused
+--min-unused-percent               Only generate a reindex command for an index whose unused
                                    (reclaimable) storage is at or above this percent, as reported
                                    by $indexStats. Defaults to 20. Set to 0 to include every
                                    eligible index. Requires DocumentDB 5.0+
