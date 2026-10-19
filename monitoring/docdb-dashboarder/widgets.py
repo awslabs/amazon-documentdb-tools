@@ -93,6 +93,30 @@ OpscountersQuery = {
     }
 }
 
+# ----------------------------------------------
+LongestActiveGCRuntime = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "LongestActiveGCRuntime", "DBClusterIdentifier"]],
+        "period": 300,
+        "yAxis": {"left": {"min": 0}},
+        "title": "LongestActiveGCRuntime (seconds)"
+    }
+}
+AvailableMVCCIds = {
+    "type": "metric",
+    "properties": {
+        "view": "timeSeries",
+        "stacked": False,
+        "metrics": [["AWS/DocDB", "AvailableMVCCIds", "DBClusterIdentifier"]],
+        "period": 300,
+        "yAxis": {"left": {"min": 0}},
+        "title": "AvailableMVCCIds"
+    }
+}
+
 # INSTANCE LEVEL METRICS
 InstanceHeading = {
     "type": "text",

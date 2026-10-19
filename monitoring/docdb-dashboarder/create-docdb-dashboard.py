@@ -115,6 +115,7 @@ def main():
         {"height":1,"panels":[w.ClusterHeading]},
         {"height":7,"panels":[w.DBClusterReplicaLagMaximum,w.DatabaseCursorsTimedOut,w.VolumeWriteIOPS,w.VolumeReadIOPS]},
         {"height":7,"panels":[w.OpscountersInsert,w.OpscountersUpdate,w.OpscountersDelete,w.OpscountersQuery]},
+        {"height":7,"panels":[w.LongestActiveGCRuntime,w.AvailableMVCCIds]},
         {"height":1,"panels":[w.InstanceHeading]},
         {"height":7,"panels":[w.CPUUtilization,w.DatabaseConnections,w.DatabaseConnectionsLimit,w.DatabaseCursors]},
         {"height":7,"panels":[w.BufferCacheHitRatio,w.IndexBufferCacheHitRatio,w.FreeableMemory,w.FreeLocalStorage]},
