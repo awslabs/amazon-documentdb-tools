@@ -1,5 +1,8 @@
 import argparse
 import json
+import bson
+import warnings
+from bson.raw_bson import RawBSONDocument
 from pymongo import MongoClient
 from deepdiff import DeepDiff
 from tqdm import tqdm
@@ -8,6 +11,7 @@ from multiprocessing import Pool, cpu_count
 
 
 def connect_to_db(uri, pool_size):
+    warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
     try:
         client = MongoClient(host=uri, maxPoolSize=pool_size, appname='datadiff')
         return client
@@ -43,14 +47,30 @@ def compare_docs_deepdiff(doc1, doc2, output_file):
         print(f"An error occurred while comparing documents: {e}")
 
 
+## Decode raw BSON documents and compare them, runs in the worker processes
+def compare_raw_docs(raw1, raw2, src_codec_options, tgt_codec_options, output_file):
+    doc1 = bson.decode(raw1, codec_options=src_codec_options)
+    doc2 = bson.decode(raw2, codec_options=tgt_codec_options)
+    compare_docs_deepdiff(doc1, doc2, output_file)
+
+
 ## Helper function to make _id hashable
 def make_id_hashable(id_value):
+    if isinstance(id_value, RawBSONDocument):
+        return id_value.raw
     if isinstance(id_value, dict):
         return json.dumps(id_value, sort_keys=True)
     return id_value
 
 ## Main compare document function
 def compare_document_data(srcCollection, tgtCollection, batch_size, output_file, src_count, sample_size_percent, sampling_timeout_ms):
+    # Read documents as raw BSON so identical documents can be detected with a byte comparison,
+    # only documents whose bytes differ are decoded and compared with DeepDiff
+    src_codec_options = srcCollection.codec_options
+    tgt_codec_options = tgtCollection.codec_options
+    srcCollection = srcCollection.with_options(codec_options=src_codec_options.with_options(document_class=RawBSONDocument))
+    tgtCollection = tgtCollection.with_options(codec_options=tgt_codec_options.with_options(document_class=RawBSONDocument))
+
     if sample_size_percent:
         percentage_in_decimal = sample_size_percent / 100
         docs_to_sample = int(percentage_in_decimal * src_count)
@@ -96,8 +116,8 @@ def compare_document_data(srcCollection, tgtCollection, batch_size, output_file,
                 if tgt_doc is None:
                     tgt_missing_ids.append(src_doc['_id'])
 
-            # Check difference between docs, multi process based on cpu_count()
-            pool.starmap(compare_docs_deepdiff, [(doc1, doc2, output_file) for doc1, doc2 in matched_doc_pairs if doc2 is not None])
+            # Byte-identical documents are equal, check the rest for differences, multi process based on cpu_count()
+            pool.starmap(compare_raw_docs, [(doc1.raw, doc2.raw, src_codec_options, tgt_codec_options, output_file) for doc1, doc2 in matched_doc_pairs if doc2 is not None and doc1.raw != doc2.raw])
 
             processed_docs += len(matched_doc_pairs)
             progress_bar.update(len(matched_doc_pairs))
@@ -112,6 +132,8 @@ def compare_document_data(srcCollection, tgtCollection, batch_size, output_file,
         print(f"Found {len(tgt_missing_ids)} documents in the source collection that are missing in the target collection!")
         write_difference_to_file(output_file, "Document _IDs present in the source collection, but not in the target collection:")
         for doc_id in tgt_missing_ids:
+            if isinstance(doc_id, RawBSONDocument):
+                doc_id = bson.decode(doc_id.raw, codec_options=src_codec_options)
             write_difference_to_file(output_file, str(doc_id))
 
     # Adjust progress bar to the correct count
