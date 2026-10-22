@@ -64,6 +64,9 @@ def compare_document_data(srcCollection, tgtCollection, batch_size, output_file,
     tgt_missing_ids = []
     processed_docs = 0
 
+    # Create the worker pool once and reuse it for every batch
+    pool = Pool(cpu_count())
+
     try:
         while source_cursor.alive:
             batch1 = [next(source_cursor, None) for _ in range(batch_size)]
@@ -94,15 +97,16 @@ def compare_document_data(srcCollection, tgtCollection, batch_size, output_file,
                     tgt_missing_ids.append(src_doc['_id'])
 
             # Check difference between docs, multi process based on cpu_count()
-            pool_size = cpu_count()
-            with Pool(pool_size) as pool:
-                pool.starmap(compare_docs_deepdiff, [(doc1, doc2, output_file) for doc1, doc2 in matched_doc_pairs if doc2 is not None])
+            pool.starmap(compare_docs_deepdiff, [(doc1, doc2, output_file) for doc1, doc2 in matched_doc_pairs if doc2 is not None])
 
             processed_docs += len(matched_doc_pairs)
             progress_bar.update(len(matched_doc_pairs))
 
     except Exception as e:
         print(f"An error occurred while comparing documents: {e}")
+    finally:
+        pool.close()
+        pool.join()
 
     if len(tgt_missing_ids) > 0:
         print(f"Found {len(tgt_missing_ids)} documents in the source collection that are missing in the target collection!")
