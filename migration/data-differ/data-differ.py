@@ -162,7 +162,7 @@ def compare_collections(srcCollection, tgtCollection, batch_size, output_file, c
 
 def main():
     parser = argparse.ArgumentParser(description='Compare two collections and report differences.')
-    parser.add_argument('--batch-size', type=int, default=100, help='Batch size for bulk reads (optional, default: 100)')
+    parser.add_argument('--batch-size', type=int, default=1000, help='Batch size for bulk reads (optional, default: 1000)')
     parser.add_argument('--output-file', type=str, default='differences.txt', help='Output file path (optional, default: differences.txt)')
     parser.add_argument('--check-target', action='store_true', default=False, help='optional, Check if extra documents exist in target database')
     parser.add_argument('--source-uri', type=str, required=True, help='Source cluster URI (required)')
