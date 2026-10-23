@@ -1,6 +1,0 @@
-Count of documents in source:5000000
-Count of documents in target:5000000
-Index differences:
-{'values_changed': {'root': {'new_value': {'_id_': {'v': 4, 'key': [('_id', 1)], 'ns': 'bench02.coll01'}}, 'old_value': {'_id_': {'v': 4, 'key': [('_id', 1)], 'ns': 'bench02.coll01'}, 'idx_customerId_orderDate': {'v': 4, 'key': [('customerId', 1), ('orderDate', 1)], 'ns': 'bench02.coll01'}, 'idx_customerId_productId': {'v': 4, 'key': [('customerId', 1), ('productId', 1)], 'ns': 'bench02.coll01'}, 'idx_productId_orderDate': {'v': 4, 'key': [('productId', 1), ('orderDate', 1)], 'ns': 'bench02.coll01'}}}}}
-Count of documents in source:5000000
-Count of documents in target:5000000
