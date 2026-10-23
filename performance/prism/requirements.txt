@@ -7,7 +7,7 @@ pandas==2.0.3
 numpy>=1.24.0,<2.0.0   # pandas 2.0.3 has C extensions built against numpy 1.x; numpy 2.x breaks import
 
 # Database
-pymongo==4.6.3   # >=4.6.3 fixes CVE-2024-5629 (bson out-of-bounds read); API-compatible with our usage
+pymongo==4.18.2   # >=4.6.3 fixes CVE-2024-5629 (bson out-of-bounds read); API-compatible with our usage
 
 # Auth DB encryption (AES-256 at rest via SQLCipher)
 sqlcipher3>=0.5.0
