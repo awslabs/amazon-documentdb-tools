@@ -22,7 +22,7 @@ def printLog(thisMessage,appConfig):
 def get_cw_metric_daily_average(appConfig, cwClient, cwMetric, cwMath, cwCluster):
     namespace = "AWS/DocDB"
     metric = cwMetric
-    period = 87600 # Seconds in a day
+    period = 86400 # Seconds in a day
     dimensions = [{"Name":"DBClusterIdentifier","Value":cwCluster}]
      
     startTime = appConfig['startTime']
@@ -59,6 +59,35 @@ def get_cw_metric_daily_average(appConfig, cwClient, cwMetric, cwMath, cwCluster
     return cwMetricAverage
 
 
+def get_cw_metric_instance_average(appConfig, cwClient, cwMetric, cwInstance):
+    # time-weighted average of an instance level metric over the entire period, returns None if no datapoints exist
+    namespace = "AWS/DocDB"
+    period = 86400 # Seconds in a day
+    dimensions = [{"Name":"DBInstanceIdentifier","Value":cwInstance}]
+
+    response = cwClient.get_metric_statistics(
+        Namespace=namespace,
+        MetricName=cwMetric,
+        StartTime=appConfig['startTime'],
+        EndTime=appConfig['endTime'],
+        Period=period,
+        Statistics=['Sum','SampleCount'],
+        Dimensions=dimensions,
+    )
+
+    cwMetricSum = 0.00
+    cwMetricSamples = 0.00
+
+    for cw_metric in response['Datapoints']:
+        cwMetricSum += cw_metric.get('Sum')
+        cwMetricSamples += cw_metric.get('SampleCount')
+
+    if cwMetricSamples == 0:
+        return None
+
+    return cwMetricSum / cwMetricSamples
+
+
 def get_docdb_instance_based_clusters(appConfig, pricingDict):
     gbBytes = 1000 * 1000 * 1000
     gibBytes = 1024 * 1024 * 1024
@@ -66,7 +95,7 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
     client = boto3.client('docdb',region_name=appConfig['region'])
     cwClient = boto3.client('cloudwatch',region_name=appConfig['region'])
     
-    printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format('cluster','io-type','version','num-instances','standard-compute','standard-io','standard-storage','standard-backup','standard-total','io-optimized-compute','io-optimized-io','io-optimized-storage','io-optimized-backup','io-optimized-total','recommendation','estimated-potential-savings'),appConfig)
+    printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format('cluster','io-type','version','num-instances','standard-compute','standard-io','standard-storage','standard-backup','standard-total','io-optimized-compute','io-optimized-io','io-optimized-storage','io-optimized-backup','io-optimized-total','recommendation','estimated-potential-savings','num-serverless-instances','serverless-avg-dcu'),appConfig)
     
     #response = client.describe_db_clusters()
     response = client.describe_db_clusters(Filters=[{'Name': 'engine','Values': ['docdb']}])
@@ -82,28 +111,38 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
         numInstances = 0
         engineVersionFull = thisCluster['EngineVersion']
         engineVersionMajor = int(engineVersionFull.split('.')[0])
-        clusterContainsServerless = False
+        numServerlessInstances = 0
+        totServerlessAvgDcu = 0.00
+        serverlessMessages = []
         for thisInstance in thisCluster['DBClusterMembers']:
             # get instance type
             responseInstance = client.describe_db_instances(DBInstanceIdentifier=thisInstance['DBInstanceIdentifier'])
             numInstances += 1
             dbInstanceClass = responseInstance['DBInstances'][0]['DBInstanceClass']
             if dbInstanceClass == 'db.serverless':
-                clusterContainsServerless = True
-                continue
-
-            thisStandardIoCompute = round(float(pricingDict['compute|'+appConfig['region']+'|'+dbInstanceClass+'|standard']['price'])*30*24,0)
-            thisOptimizedIoCompute = round(float(pricingDict['compute|'+appConfig['region']+'|'+dbInstanceClass+'|iopt1']['price'])*30*24,0)
+                # serverless compute is billed per DCU-hour, estimate using the average DCU over the historical period
+                numServerlessInstances += 1
+                thisAvgDcu = get_cw_metric_instance_average(appConfig, cwClient, 'ServerlessDatabaseCapacity', thisInstance['DBInstanceIdentifier'])
+                if thisAvgDcu is None:
+                    # no capacity data for the period (instance was stopped or did not exist), use the minimum capacity of the cluster
+                    thisAvgDcu = float(thisCluster.get('ServerlessV2ScalingConfiguration',{}).get('MinCapacity',0))
+                    serverlessMessages.append("  **** serverless instance {} has no capacity data for the period, using cluster minimum capacity of {:.1f} DCU".format(thisInstance['DBInstanceIdentifier'],thisAvgDcu))
+                totServerlessAvgDcu += thisAvgDcu
+                thisStandardIoCompute = round(thisAvgDcu*float(pricingDict['dcu|'+appConfig['region']+'|standard']['price'])*30*24,0)
+                thisOptimizedIoCompute = round(thisAvgDcu*float(pricingDict['dcu|'+appConfig['region']+'|iopt1']['price'])*30*24,0)
+            else:
+                thisStandardIoCompute = round(float(pricingDict['compute|'+appConfig['region']+'|'+dbInstanceClass+'|standard']['price'])*30*24,0)
+                thisOptimizedIoCompute = round(float(pricingDict['compute|'+appConfig['region']+'|'+dbInstanceClass+'|iopt1']['price'])*30*24,0)
             thisMonthlyStandardIoCompute += thisStandardIoCompute
             thisMonthlyOptimizedIoCompute += thisOptimizedIoCompute
 
-        if clusterContainsServerless:
-            print("")
-            print("cluster = {} | contains one or more serverless instances, this utility does not support this instance type".format(thisCluster['DBClusterIdentifier']))
-            continue
-            
         print("")
-        print("cluster = {} | IO type = {} | version = {} | instances = {:d}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances))
+        if numServerlessInstances > 0:
+            print("cluster = {} | IO type = {} | version = {} | instances = {:d} | serverless instances = {:d} | serverless average DCU = {:.1f}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances,numServerlessInstances,totServerlessAvgDcu))
+        else:
+            print("cluster = {} | IO type = {} | version = {} | instances = {:d}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances))
+        for thisMessage in serverlessMessages:
+            print(thisMessage)
         print("  ESTIMATED standard storage costs      | ESTIMATED io optimized storage costs")
 
         monthlyStandard += thisMonthlyStandardIoCompute
@@ -141,7 +180,7 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
         monthlyIoOptimized += thisOptimizedStorageCost
         
         # estimated backup cost
-        thisBackupCost = round(totStorageBytes * float(pricingDict['storage-snapshot|'+appConfig['region']]['price']) / gbBytes,0)
+        thisBackupCost = round(totBackupStorageBilledBytes * float(pricingDict['storage-snapshot|'+appConfig['region']]['price']) / gbBytes,0)
 
         monthlyStandard += thisBackupCost
         monthlyIoOptimized += thisBackupCost
@@ -180,10 +219,10 @@ def get_docdb_instance_based_clusters(appConfig, pricingDict):
             print("")
             print(recommendationString)
 
-        printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances,
+        printLog("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(thisCluster['DBClusterIdentifier'],ioType,engineVersionFull,numInstances,
           thisMonthlyStandardIoCompute,thisStandardIopsCost,thisStandardStorageCost,thisBackupCost,monthlyStandard,
           thisMonthlyOptimizedIoCompute,thisOptimizedIopsCost,thisOptimizedStorageCost,thisBackupCost,monthlyIoOptimized,
-          recommendationString,estimatedMonthlySavings),appConfig)
+          recommendationString,estimatedMonthlySavings,numServerlessInstances,round(totServerlessAvgDcu,2)),appConfig)
     
     client.close()
     cwClient.close()

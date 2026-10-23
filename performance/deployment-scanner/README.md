@@ -3,6 +3,7 @@ The deployment scanner reviews DocumentDB clusters for possible cost optimizatio
 
 ## Features
 - Estimate the monthly cost for each cluster in a region in both standard storage and IO optimized storage configurations
+- Supports provisioned and serverless instances, serverless compute is estimated using the average DCU (ServerlessDatabaseCapacity) of each serverless instance over the historical period
 
 ## Requirements
 - Python 3.7 or greater, boto3, urllib3
@@ -27,6 +28,8 @@ The deployment scanner accepts the following arguments:
 --end-date                   [optional] Ending date in YYYYMMDD for historical review of cluster resource usage
 
 If --start-date and --end-date are not provided, the last 30 days are used for historical cluster resource usage.
+
+If a serverless instance has no capacity data for the historical period (for example, it was stopped or did not yet exist) the cluster's minimum serverless capacity is used.
 ```
 
 ### Review Amazon DocumentDB clusters in us-east-1 for November 2023:
