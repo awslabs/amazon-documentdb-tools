@@ -1,4 +1,4 @@
-pymongo==4.6.3
+pymongo==4.18.2
 PyYAML==5.4
 boto3==1.12.17
 argparse==1.4.0
