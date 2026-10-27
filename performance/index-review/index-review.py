@@ -237,9 +237,9 @@ def evalIndexes(appConfig):
             
             # for each index
             for thisIdx in idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"]:
-                if thisIdx["name"] in ["_id","_id_"]:
-                    continue
-                    
+                # _id index is included in the csv output, but cannot be dropped so skip the unused/redundant reporting
+                isIdIndex = thisIdx["name"] in ["_id","_id_"]
+
                 indexUnusedPct = thisIdx.get('unusedStorageSize', {}).get('unusedSizePercent', -1.0)
 
                 # check extra servers for non-usage
@@ -251,14 +251,16 @@ def evalIndexes(appConfig):
                                 numXtraOps += xtraIdx["accesses"]["ops"]
 
                 # check index for non-usage (all servers)
-                if (thisIdx["accesses"]["ops"]+numXtraOps == 0):
+                if (thisIdx["accesses"]["ops"]+numXtraOps == 0) and not isIdIndex:
                     if not printedCollection:
                         printedCollection = True
                         print("    collection {}".format(thisColl))
                     print("        index {} | has never been used".format(thisIdx["name"]))
 
                 # check index for redundancy
-                redundantList = checkIfRedundant(thisIdx["name"],thisIdx["keyAsString"],idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"])
+                redundantList = []
+                if not isIdIndex:
+                    redundantList = checkIfRedundant(thisIdx["name"],thisIdx["keyAsString"],idxDict["start"]["collstats"][thisDb][thisColl]["indexInfo"])
                 isRedundant = "No"
                 if len(redundantList) > 0:
                     if not printedCollection:
