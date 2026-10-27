@@ -3,7 +3,7 @@
 import compat
 
 def main():
-    versions = ['3.6','4.0','5.0.0','5.0.1','8.0','8.0.1','8.0.2','EC5.0']
+    versions = ['3.6','4.0','5.0.0','5.0.1','8.0','8.0.1','8.0.2']
     keywords = compat.load_keywords()
 
     totOps = 0
@@ -28,27 +28,20 @@ def main():
                     numOpsSupported[docDbVersion] = 1
 
     print("")
-    print("MongoDB Operations By Version, total = {}".format(totOps))
+    print("MongoDB Operators/Stages By Version, total = {}".format(totOps))
     for thisVersion in sorted(numOps.keys()):
         print("  {} in version {}".format(numOps[thisVersion],thisVersion))
         
     print("")
-    print("DocumentDB Supported Operations By Version")
+    print("DocumentDB Supported Operators/Stages By Version")
     for thisVersion in sorted(numOpsSupported.keys()):
         print("  {} supported by DocumentDB version {} ({:.1f}%)".format(numOpsSupported[thisVersion],thisVersion,numOpsSupported[thisVersion]/totOps*100))
     print("")
 
-    print("")
-    print("DocumentDB EC Compat Check")
-    for thisKeyword in sorted(keywords.keys()):
-        if keywords[thisKeyword]["5.0.0"] == "Yes" and keywords[thisKeyword]["EC5.0"] == "No":
-            print("  {}".format(thisKeyword))
-    print("")
-
     #print("")
-    #print("DocumentDB 5.0 Check")
+    #print("DocumentDB 8.0.2 Check")
     #for thisKeyword in sorted(keywords.keys()):
-    #    if keywords[thisKeyword]["5.0"] == "No":
+    #    if keywords[thisKeyword]["8.0.2"] == "No":
     #        print("  {} from MongoDB {}".format(thisKeyword,keywords[thisKeyword]["mongodbversion"]))
     #print("")
 
