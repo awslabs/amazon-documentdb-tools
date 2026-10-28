@@ -2,3 +2,4 @@ rds-combined-ca-bundle.pem
 doit.bash
 doit-fl.bash
 doit-cdc.bash
+__pycache__/
