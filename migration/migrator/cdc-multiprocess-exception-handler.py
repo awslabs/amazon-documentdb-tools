@@ -10,6 +10,7 @@ import hashlib
 import argparse
 import boto3
 import warnings
+import traceback
 
 
 def logIt(threadnum, message):
@@ -353,8 +354,12 @@ def change_stream_processor(threadnum, appConfig, perfQ):
         sourceConnection.close()
         destConnection.close()
         
-    except:
-        logIt(threadnum,'EXCEPTION | an exception occurred, shutting down')
+    except Exception as e:
+        logIt(threadnum,'EXCEPTION | {} : {} | shutting down'.format(type(e).__name__, e))
+        logIt(threadnum,traceback.format_exc())
+    except (KeyboardInterrupt, SystemExit) as e:
+        logIt(threadnum,'INTERRUPTED | {} | shutting down'.format(type(e).__name__))
+        logIt(threadnum,traceback.format_exc())
 
     perfQ.put({"name":"processCompleted","processNum":threadnum})
 
