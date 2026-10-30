@@ -172,7 +172,8 @@ def compare_indexes(srcCollection, tgtCollection, output_file):
     print(src_indexes)
     print(tgt_indexes)
 
-    diff = DeepDiff(src_indexes, tgt_indexes, verbose_level=2)
+    # ignore the namespace, it differs whenever the database or collection names are not the same
+    diff = DeepDiff(src_indexes, tgt_indexes, verbose_level=2, exclude_regex_paths=[r"root\[.+?\]\['ns'\]"])
     if diff:
         print("Found difference in indexes, check the output file! ")
         write_difference_to_file(output_file, "Index differences:")
