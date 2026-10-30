@@ -35,10 +35,32 @@ def check_target_for_extra_documents(srcCollection, tgtCollection, output_file):
             write_difference_to_file(output_file, doc['_id'])
 
 
-## Compare documents for any difference using deepDiff
+## Find fields that exist in both documents but appear in a different order, DeepDiff compares
+## dictionaries by key only so it never reports these. Recurses into nested documents and arrays.
+def find_field_order_differences(obj1, obj2, path="root", differences=None):
+    if differences is None:
+        differences = {}
+    if isinstance(obj1, dict) and isinstance(obj2, dict):
+        # Only compare the relative order of shared fields, added/removed fields are reported by DeepDiff
+        common_keys1 = [key for key in obj1 if key in obj2]
+        common_keys2 = [key for key in obj2 if key in obj1]
+        if common_keys1 != common_keys2:
+            differences[path] = {'old_order': list(obj1), 'new_order': list(obj2)}
+        for key in common_keys1:
+            find_field_order_differences(obj1[key], obj2[key], f"{path}[{key!r}]", differences)
+    elif isinstance(obj1, list) and isinstance(obj2, list):
+        for index, (item1, item2) in enumerate(zip(obj1, obj2)):
+            find_field_order_differences(item1, item2, f"{path}[{index}]", differences)
+    return differences
+
+
+## Compare documents for any difference using deepDiff, array order is significant
 def compare_docs_deepdiff(doc1, doc2, output_file):
     try:
-        diff = DeepDiff(doc1, doc2, verbose_level=2, report_repetition=True, ignore_order=True, cache_size=5000)
+        diff = DeepDiff(doc1, doc2, verbose_level=2, cache_size=5000)
+        field_order_differences = find_field_order_differences(doc1, doc2)
+        if field_order_differences:
+            diff['field_order_changed'] = field_order_differences
         if diff:
             print("Difference found at doc id:", doc1["_id"])
             write_difference_to_file(output_file, "Difference found at doc id: " + str(doc1["_id"]))
@@ -142,12 +164,15 @@ def compare_document_data(srcCollection, tgtCollection, batch_size, output_file,
     progress_bar.close()
 
 
-# Compare indexes between the two collections
+# Compare indexes between the two collections, the order of fields within an index key is significant
 def compare_indexes(srcCollection, tgtCollection, output_file):
     src_indexes = srcCollection.index_information()
     tgt_indexes = tgtCollection.index_information()
 
-    diff = DeepDiff(src_indexes, tgt_indexes, verbose_level=2, report_repetition=True, ignore_order=True)
+    print(src_indexes)
+    print(tgt_indexes)
+
+    diff = DeepDiff(src_indexes, tgt_indexes, verbose_level=2)
     if diff:
         print("Found difference in indexes, check the output file! ")
         write_difference_to_file(output_file, "Index differences:")
