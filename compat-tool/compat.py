@@ -210,7 +210,7 @@ def getOperatorsFromServer(args):
             for thisKey2 in serverStatus['metrics']['operatorCounters'][thisKey]:
                 if not thisKey2.startswith("$_") and thisKey2 not in filteredOpsList:
                     if thisKey2 in fullListDict:
-                        fullListDict[thisKey2] = serverStatus['metrics']['operatorCounters'][thisKey][thisKey2]
+                        fullListDict[thisKey2] += serverStatus['metrics']['operatorCounters'][thisKey][thisKey2]
                     else:
                         fullListDict[thisKey2] = serverStatus['metrics']['operatorCounters'][thisKey][thisKey2]
         else:
@@ -261,7 +261,7 @@ def main(args):
 
         # get count of compatible and incompatible operators found
         for thisKey in sorted(usageDict.keys()):
-            if (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'No'):
+            if (usageDict[thisKey] > 0) and ((thisKey not in keywords) or (keywords[thisKey][ver] == 'No')):
                 notCompatCounter += 1
             elif (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'Yes'):
                 compatCounter += 1
@@ -271,7 +271,7 @@ def main(args):
         if notCompatCounter > 0:
             print("The following {} unsupported operators were found:".format(notCompatCounter))
             for thisKey in sorted(usageDict.keys()):
-                if (thisKey not in keywords):
+                if (usageDict[thisKey] > 0) and (thisKey not in keywords):
                     print("  {} | executed {} time(s) - WARNING - operator is missing from compat tool, please file an issue".format(thisKey,usageDict[thisKey]))
                 elif (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'No'):
                     print("  {} | executed {} time(s)".format(thisKey,usageDict[thisKey]))
@@ -283,7 +283,7 @@ def main(args):
         if compatCounter > 0:
             print("The following {} supported operators were found:".format(compatCounter))
             for thisKey in sorted(usageDict.keys()):
-                if (usageDict[thisKey] > 0) and (keywords[thisKey][ver] == 'Yes'):
+                if (usageDict[thisKey] > 0) and (thisKey in keywords) and (keywords[thisKey][ver] == 'Yes'):
                     print("  {} | executed {} time(s)".format(thisKey,usageDict[thisKey]))
         else:
             print("WARNING - No supported operators found, check that the URI provided is correct")
