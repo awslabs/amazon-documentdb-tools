@@ -356,7 +356,7 @@ def main():
     parser.add_argument('--skip-python-version-check',
                         required=False,
                         action='store_true',
-                        help='Permit execution on Python 3.6 and prior')
+                        help='Permit execution on Python 3.8 and prior')
     
     parser.add_argument('--uri',
                         required=False,
@@ -386,7 +386,7 @@ def main():
     args = parser.parse_args()
     
     # check for minimum Python version
-    MIN_PYTHON = (3, 7)
+    MIN_PYTHON = (3, 9)
     if (not args.skip_python_version_check) and (sys.version_info < MIN_PYTHON):
         sys.exit("\nPython %s.%s or later is required.\n" % MIN_PYTHON)
 
