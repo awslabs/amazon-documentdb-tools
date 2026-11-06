@@ -54,6 +54,12 @@ class DocumentDbLimits(object):
     COMPOUND_INDEX_MAX_KEYS = 32
     DATABASE_NAME_MAX_LENGTH = 63
     FULLY_QUALIFIED_INDEX_NAME_MAX_LENGTH = 377
+    # Maximum size of an index ENTRY in bytes, enforced by DocumentDB when the
+    # entry is written -- exceeding it raises 'key too large to index' (17280).
+    # It is a function of the indexed VALUES, so it cannot be derived from index
+    # metadata; evaluating it would mean sampling the indexed fields over a live
+    # connection. Retained here so the quota is recorded in one place.
+    # https://docs.aws.amazon.com/documentdb/latest/developerguide/limits.html
     INDEX_KEY_MAX_LENGTH = 2048
     NAMESPACE_MAX_LENGTH = 120
 
@@ -426,15 +432,6 @@ class DocumentDbIndexTool(IndexToolConstants):
                         compatibility_issues[db_name][collection_name][index_name][self.EXCEEDED_LIMITS][message] = nonTextKeys
 
                     for key_name in index:
-                        # Check for index key names that are too long
-                        if len(key_name
-                               ) > DocumentDbLimits.INDEX_KEY_MAX_LENGTH:
-                            message = 'Key name greater than {} characters'.format(
-                                DocumentDbLimits.INDEX_KEY_MAX_LENGTH)
-                            compatibility_issues[db_name][collection_name][
-                                index_name][
-                                    self.EXCEEDED_LIMITS][message] = key_name
-
                         # Check for unsupported index options
                         if key_name in DocumentDbUnsupportedFeatures.UNSUPPORTED_INDEX_OPTIONS:
                             if self.UNSUPPORTED_INDEX_OPTIONS_KEY not in compatibility_issues[
