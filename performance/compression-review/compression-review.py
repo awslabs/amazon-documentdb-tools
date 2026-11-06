@@ -66,7 +66,7 @@ def getData(appConfig):
             if thisColl['type'] == 'view':
                 # exclude views
                 pass
-            elif thisCollName in ['system.profile']:
+            elif thisCollName in ['system.profile','system.views']:
                 # exclude certain collections
                 pass
             else:
@@ -162,7 +162,7 @@ def getData(appConfig):
                         elif compressor == 'zlib-1':
                             compressed = zlib.compress(docAsString.encode(),level=1)
                         else:
-                            print('Unknown compressor | {}'.format('compressor'))
+                            print('Unknown compressor | {}'.format(compressor))
                             sys.exit(1)
 
                         totTimeMs += time.time() - startTimeMs
@@ -175,7 +175,7 @@ def getData(appConfig):
                         if (lz4Bytes > maxLz4Bytes):
                             maxLz4Bytes = lz4Bytes
 
-                except:
+                except Exception:
                     numExceptions += 1
 
                 if (totDocs == 0):
