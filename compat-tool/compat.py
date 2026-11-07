@@ -30,7 +30,7 @@ def ensureDirect(uri):
     parsedUri = pymongo.uri_parser.parse_uri(uri)
 
     for thisKey in sorted(parsedUri['options'].keys()):
-        if thisKey.lower() not in ['replicaset','readpreference']:
+        if thisKey.lower() not in ['replicaset','readpreference','readpreferencetags']:
             connInfo[thisKey] = parsedUri['options'][thisKey]
 
     # make sure we are using directConnection=true
@@ -88,7 +88,7 @@ def scan_code(args, keywords):
     if args.includedExtensions != "ALL":
         includedExtensions = args.includedExtensions.lower().split(",")
     excludedExtensions = []
-    if args.includedExtensions != "NONE":
+    if args.excludedExtensions != "NONE":
         excludedExtensions = args.excludedExtensions.lower().split(",")
     
     excludedDirectories = []
@@ -354,6 +354,7 @@ def load_keywords():
     thisKeywords = {
         "$$CURRENT":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$$DESCEND":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$$IDX":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$$KEEP":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$$PRUNE":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$$REMOVE":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
@@ -382,11 +383,11 @@ def load_keywords():
         "$bitAnd":{'mongodbversion': '6.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$bitNot":{'mongodbversion': '6.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$bitOr":{'mongodbversion': '6.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
-        "$bitXor":{'mongodbversion': '6.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$bitsAllClear":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$bitsAllSet":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$bitsAnyClear":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$bitsAnySet":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$bitXor":{'mongodbversion': '6.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$bottom":{'mongodbversion': '5.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$bottomN":{'mongodbversion': '5.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$box":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
@@ -404,12 +405,13 @@ def load_keywords():
         "$concat":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$concatArrays":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$cond":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
-        "$covariancePop":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'Yes'},
-        "$covarianceSamp":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'Yes'},
         "$convert":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$cos":{'mongodbversion': '4.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$cosh":{'mongodbversion': '4.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$count":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$covariancePop":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'Yes'},
+        "$covarianceSamp":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'Yes'},
+        "$createObjectId":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$currentDate":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$currentOp":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$dateAdd":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
@@ -427,6 +429,7 @@ def load_keywords():
         "$denseRank":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'Yes'},
         "$densify":{'mongodbversion': '5.1', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$derivative":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
+        "$deserializeEJSON":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$divide":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$documentNumber":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'Yes'},
         "$documents":{'mongodbversion': '5.1', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
@@ -457,6 +460,8 @@ def load_keywords():
         "$group":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$gt":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$gte":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$hash":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
+        "$hexHash":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$hour":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$ifNull":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$in":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
@@ -558,6 +563,7 @@ def load_keywords():
         "$search":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'No', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$searchMeta":{'mongodbversion': 'atlas', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$second":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$serializeEJSON":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$set":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$setDifference":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$setEquals":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
@@ -592,22 +598,25 @@ def load_keywords():
         "$substrBytes":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$substrCP":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$subtract":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$subtype":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$sum":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$switch":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'No', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$tan":{'mongodbversion': '4.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$tanh":{'mongodbversion': '4.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$text":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'No', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$toArray":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$toBool":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$toDate":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$toDecimal":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$toDouble":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$toHashedIndexKey":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$toInt":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$toLong":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$toLower":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
+        "$toObject":{'mongodbversion': '8.3', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$toObjectId":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$top":{'mongodbversion': '5.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$topN":{'mongodbversion': '5.2', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
-        "$toHashedIndexKey":{'mongodbversion': '5.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'No', '8.0.2': 'No'},
         "$toString":{'mongodbversion': '4.0', '3.6': 'No', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$toUpper":{'mongodbversion': '4.0', '3.6': 'Yes', '4.0': 'Yes', '5.0.0': 'Yes', '5.0.1': 'Yes', 'EC5.0': 'Yes', '8.0': 'Yes', '8.0.1': 'Yes', '8.0.2': 'Yes'},
         "$toUUID":{'mongodbversion': '8.0', '3.6': 'No', '4.0': 'No', '5.0.0': 'No', '5.0.1': 'No', 'EC5.0': 'No', '8.0': 'No', '8.0.1': 'Yes', '8.0.2': 'Yes'},
