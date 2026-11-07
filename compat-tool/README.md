@@ -263,7 +263,7 @@ Valid values for `--version` are:
 | `8.0`, `8.0.1`, `8.0.2` | 8.0 |
 | `EC5.0` | Elastic clusters (5.0) |
 
-Values such as `5.0` or `8` are rejected. When a version has more than one value, use the latest one unless you need to match a specific older release. For a per-operator breakdown, see [documentdb-compatibility-by-version.md](documentdb-compatibility-by-version.md).
+Values such as `5.0` or `8` are rejected. When a version has more than one value, use the latest one unless you need to match a specific older release.
 
 ## Understanding the results
 
@@ -280,7 +280,7 @@ For `--file` and `--directory` scans, the tool exits with `1` if any unsupported
 
 If unsupported operators are found:
 
-1. Check whether a newer Amazon DocumentDB version supports them by re-running with a different `--version`, or by consulting [documentdb-compatibility-by-version.md](documentdb-compatibility-by-version.md).
+1. Check whether a newer Amazon DocumentDB version supports them by re-running with a different `--version`.
 2. Review the [supported MongoDB APIs, operations, and data types](https://docs.aws.amazon.com/documentdb/latest/developerguide/mongo-apis.html) to find alternatives.
 3. Rewrite the affected queries, then scan again.
 
