@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-import glob
 import pathlib
 import os
 import sys
@@ -43,8 +42,9 @@ def ensureDirect(uri):
 
     print(" + connecting to the server at {}:{}".format(connInfo['host'],connInfo['port']))
 
-    if parsedUri.get('database') is not None:
-        connInfo['authSource'] = parsedUri['database']
+    # use the URI path database as authSource only when authSource is not explicitly provided
+    if parsedUri.get('database') is not None and 'authsource' not in connInfo:
+        connInfo['authsource'] = parsedUri['database']
 
     return connInfo
 
@@ -60,15 +60,37 @@ def double_check(checkOperator, checkLine, checkLineLength):
     return foundOperator
 
 
-def check_all_parents(fileName, excludedDirectories):
-    retVal = False
+def read_file_lines(fileName):
+    # returns the lines of a text file, or None if the file can't be read or appears to be binary
+    try:
+        with open(fileName, "rb") as binaryFile:
+            if b"\0" in binaryFile.read(8192):
+                print("  binary file, skipping")
+                return None
 
-    for thisExcludedDirectory in excludedDirectories:
-        if fileName.startswith(thisExcludedDirectory+'/'):
-            retVal = True
-            break
+        # always decode as UTF-8 (not the platform default), replace invalid bytes so one bad byte doesn't hide the rest of the file
+        with open(fileName, "r", encoding="utf-8", errors="replace") as textFile:
+            return textFile.readlines()
 
-    return retVal
+    except OSError as e:
+        print("  unable to read file ({}), skipping".format(e.strerror or e))
+        return None
+
+    except MemoryError:
+        print("  not enough memory to read file, skipping")
+        return None
+
+
+def directory_id(dirPath):
+    # identify a directory by device and inode so path spelling, trailing slashes, separators, case-insensitive filesystems, and symlinks all compare correctly
+    try:
+        dirStat = os.stat(dirPath)
+    except OSError:
+        return None
+    if dirStat.st_ino == 0:
+        # some filesystems (FAT, certain network shares) do not provide inode numbers, fall back to the resolved path
+        return os.path.normcase(os.path.realpath(dirPath))
+    return (dirStat.st_dev, dirStat.st_ino)
 
 
 def scan_code(args, keywords):
@@ -91,83 +113,102 @@ def scan_code(args, keywords):
     if args.excludedExtensions != "NONE":
         excludedExtensions = args.excludedExtensions.lower().split(",")
     
-    excludedDirectories = []
+    excludedDirectoryIds = set()
     if args.excludedDirectories != "NONE":
-        excludedDirectories = args.excludedDirectories.lower().split(",")
+        for thisExcludedDirectory in args.excludedDirectories.split(","):
+            thisExcludedDirectory = thisExcludedDirectory.strip()
+            if thisExcludedDirectory == "":
+                continue
+            thisId = directory_id(thisExcludedDirectory)
+            if thisId is None or not os.path.isdir(thisExcludedDirectory):
+                print("WARNING - excluded directory not found: {}".format(thisExcludedDirectory))
+            else:
+                excludedDirectoryIds.add(thisId)
+
+    # version control metadata directories are never scanned
+    vcsDirectories = ['.git','.hg','.svn']
+
     if args.scanFile is not None:
         fileArray.append(args.scanFile)
-        numProcessedFiles += 1
     else:
-        for filename in glob.iglob("{}/**".format(args.scanDir), recursive=True):
-            if os.path.isdir(filename) and filename in excludedDirectories:
-                # add to skipped directory list
-                skippedDirectories.append(filename) 
-            elif check_all_parents(filename, excludedDirectories): 
-                # move on
-                continue
-            else:
+        # os.walk includes hidden files and directories (glob does not), and allows pruning excluded directories
+        visitedDirectoryIds = {directory_id(args.scanDir)}
+        for dirPath, dirNames, fileNames in os.walk(args.scanDir, followlinks=True):
+            keepDirNames = []
+            for thisDirName in sorted(dirNames):
+                thisDirPath = os.path.join(dirPath, thisDirName)
+                thisId = directory_id(thisDirPath)
+                if thisDirName in vcsDirectories or thisId in excludedDirectoryIds:
+                    # add to skipped directory list, do not descend
+                    skippedDirectories.append(thisDirPath)
+                elif thisId is None or thisId in visitedDirectoryIds:
+                    # unreadable, or already scanned via a symlink (also prevents symlink loops)
+                    continue
+                else:
+                    visitedDirectoryIds.add(thisId)
+                    keepDirNames.append(thisDirName)
+            dirNames[:] = keepDirNames
+
+            for thisFileName in sorted(fileNames):
+                filename = os.path.join(dirPath, thisFileName)
                 if os.path.isfile(filename):
                     if ((pathlib.Path(filename).suffix[1:].lower() not in excludedExtensions) and
-                         ((args.includedExtensions == "ALL") or 
+                         ((args.includedExtensions == "ALL") or
                           (pathlib.Path(filename).suffix[1:].lower() in includedExtensions))):
                         fileArray.append(filename)
-                        numProcessedFiles += 1
                     else:
                         skippedFileList.append(filename)
                    
                     
     for thisFile in fileArray:
         print("processing file {}".format(thisFile))
-        with open(thisFile, "r") as code_file:
-            # line by line technique
-            try:
-                fileLines = code_file.readlines()
-            except:
-                print("  exception reading file, skipping")
-                exceptionFileList.append(thisFile)
-                continue
-                
-            fileLineNum = 1
+        fileLines = read_file_lines(thisFile)
+        if fileLines is None:
+            exceptionFileList.append(thisFile)
+            continue
+        numProcessedFiles += 1
             
-            for lineNum, thisLine in enumerate(fileLines):
-                # Normalize Kotlin/Groovy template string escapes: ${'$'} -> $
-                thisLine = thisLine.replace("${'$'}", "$")
-                thisLineLength = len(thisLine)
-                
-                for checkCompat in keywords:
-                    if (keywords[checkCompat][ver] == 'No'):
-                        # only check for unsupported operators
-                        if (thisLine.find(checkCompat) >= 0):
-                            # check for false positives - for each position found see if next character is not a..z|A..Z or if at EOL
-                            if double_check(checkCompat, thisLine, thisLineLength):
-                                # add it to the counters
-                                if checkCompat in issuesDict:
-                                    issuesDict[checkCompat] += 1
+        fileLineNum = 1
+        
+        for lineNum, thisLine in enumerate(fileLines):
+            # Normalize Kotlin/Groovy template string escapes: ${'$'} -> $
+            thisLine = thisLine.replace("${'$'}", "$")
+            thisLineLength = len(thisLine)
+            
+            for checkCompat in keywords:
+                if (keywords[checkCompat][ver] == 'No'):
+                    # only check for unsupported operators
+                    if (thisLine.find(checkCompat) >= 0):
+                        # check for false positives - for each position found see if next character is not a..z|A..Z or if at EOL
+                        if double_check(checkCompat, thisLine, thisLineLength):
+                            # add it to the counters
+                            if checkCompat in issuesDict:
+                                issuesDict[checkCompat] += 1
+                            else:
+                                issuesDict[checkCompat] = 1
+                            # add it to the filenames/line-numbers
+                            if checkCompat in detailedIssuesDict:
+                                if thisFile in detailedIssuesDict[checkCompat]:
+                                    detailedIssuesDict[checkCompat][thisFile].append(fileLineNum)
                                 else:
-                                    issuesDict[checkCompat] = 1
-                                # add it to the filenames/line-numbers
-                                if checkCompat in detailedIssuesDict:
-                                    if thisFile in detailedIssuesDict[checkCompat]:
-                                        detailedIssuesDict[checkCompat][thisFile].append(fileLineNum)
-                                    else:
-                                        detailedIssuesDict[checkCompat][thisFile] = [fileLineNum]
-                                else:
-                                    detailedIssuesDict[checkCompat] = {}
                                     detailedIssuesDict[checkCompat][thisFile] = [fileLineNum]
+                            else:
+                                detailedIssuesDict[checkCompat] = {}
+                                detailedIssuesDict[checkCompat][thisFile] = [fileLineNum]
 
-                    elif (keywords[checkCompat][ver] == 'Yes'):
-                        # check for supported operators
-                        if (thisLine.find(checkCompat) >= 0):
-                            # check for false positives - for each position found see if next character is not a..z|A..Z or if at EOL
-                            if double_check(checkCompat, thisLine, thisLineLength):
-                                if checkCompat in supportedDict:
-                                    supportedDict[checkCompat] += 1
-                                else:
-                                    supportedDict[checkCompat] = 1
-                                
-                if (fileLineNum % processingFeedbackLines) == 0:
-                    print("  processing line {}".format(fileLineNum))
-                fileLineNum += 1
+                elif (keywords[checkCompat][ver] == 'Yes'):
+                    # check for supported operators
+                    if (thisLine.find(checkCompat) >= 0):
+                        # check for false positives - for each position found see if next character is not a..z|A..Z or if at EOL
+                        if double_check(checkCompat, thisLine, thisLineLength):
+                            if checkCompat in supportedDict:
+                                supportedDict[checkCompat] += 1
+                            else:
+                                supportedDict[checkCompat] = 1
+                            
+            if (fileLineNum % processingFeedbackLines) == 0:
+                print("  processing line {}".format(fileLineNum))
+            fileLineNum += 1
 
 
 def getOperatorsFromServer(args):
@@ -332,7 +373,7 @@ def main(args):
 
     if len(exceptionFileList) > 0:
         print("")
-        print("List of skipped files - unsupported file type/content")
+        print("List of skipped files - binary or unreadable")
         for exceptionFile in exceptionFileList:
             print("  {}".format(exceptionFile))
     
