@@ -14,14 +14,14 @@ Clone the repository.
 
 ## Using the change data capture tool
 ```
-python3 cdc-multiprocess.py --source-uri <source-uri> --target-uri <target-uri> --source-namespace <database.collection> --start-position [0 or YYYY-MM-DD+HH:MM:SS in UTC] --use-[oplog|change-stream]  [--create-cloudwatch-metrics] [--cluster-name <cluster-name>]
+python3 cdc-multiprocess.py --source-uri <source-uri> --target-uri <target-uri> --source-namespace <database.collection> --start-position [NOW, YYYY-MM-DD+HH:MM:SS in UTC, or resume token] --use-change-stream[--create-cloudwatch-metrics] [--cluster-name <cluster-name>]
 ```
 
 * source-uri and target-uri follow the [MongoDB Connection String URI Format](https://www.mongodb.com/docs/manual/reference/connection-string/)
 * source-namespace in database.collection format (i.e. "database1.collection2")
-* start-position either 0 (process entire oplog) or specific oplog position as YYYY-MM-DD+HH:MM:SS in UTC
-* must pass either --use-oplog for oplog to be source (MongoDB only) or --use-change-stream to use change streams for source (MongoDB or DocumentDB)
-* optionally pass 2+ for the --threads option to process the oplog with concurrent processes
+* start-position either NOW, specific datetime position as YYYY-MM-DD+HH:MM:SS in UTC, or resume token
+* must --use-change-stream to use change streams for source (MongoDB or DocumentDB)
+* optionally pass 2+ for the --threads option to process the changestream with concurrent processes for additional throughput
 * several other optional parameters as supported, execute the script with -h for a full listing
 * include --create-cloudwatch-metrics to create metrics for the number of CDC operations per second and the number of seconds behind current
   * CloudWatch metrics are captured in namespace "CustomDocDB" as "MigratorCDCOperationsPerSecond" and "MigratorCDCNumSecondsBehind"
