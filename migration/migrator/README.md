@@ -20,6 +20,7 @@ python3 cdc-multiprocess.py --source-uri <source-uri> --target-uri <target-uri> 
 * source-uri and target-uri follow the [MongoDB Connection String URI Format](https://www.mongodb.com/docs/manual/reference/connection-string/)
 * source-namespace in database.collection format (i.e. "database1.collection2")
 * start-position either NOW, specific datetime position as YYYY-MM-DD+HH:MM:SS in UTC, or resume token
+* the resume token shown in the progress output is the position up to which all changes have been applied to the target, pass it as --start-position to restart without losing changes
 * must pass --use-change-stream to use change streams for source (MongoDB or DocumentDB)
 * optionally pass 2+ for the --threads option to process the changestream with concurrent processes for additional throughput
 * several other optional parameters as supported, execute the script with -h for a full listing
