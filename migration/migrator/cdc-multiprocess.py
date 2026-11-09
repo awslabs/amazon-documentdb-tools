@@ -36,62 +36,96 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
 
     startTime = time.time()
-    lastFeedback = time.time()
-    lastBatch = time.time()
 
     allDone = False
-    threadOplogEntries = 0
     perfReportInterval = 1
     nextPerfReportTime = time.time() + perfReportInterval
 
     bulkOpList = []
 
-    # list with replace, not insert, in case document already exists (replaying old oplog)
+    # list with replace, not insert, in case document already exists (replaying older changes)
     bulkOpListReplace = []
     numCurrentBulkOps = 0
     numReportBulkOps = 0
 
-    numTotalBatches = 0
+    # time the oldest operation in the current batch was buffered, None when the batch is empty
+    batchStartTime = None
 
     printedFirstTs = False
-    myCollectionOps = 0
 
-    # starting timestamp
-    endTs = appConfig["startTs"]
+    # read position: cluster time of the most recent change seen, used for "secs behind"
+    lastSeenTs = None
+    lastSeenToken = None
+
+    # every processor reads the entire stream in the same order, numSeen is the position within it
+    numSeen = 0
+
+    # durable position: every change up to this point that belongs to this processor has been written to the target
+    #   resuming from durableToken cannot skip any of this processor's changes
+    durableToken = None
+    durableSeq = -1
+
+    # True when the stream has no more changes available and nothing is buffered
+    caughtUp = False
+
+    # bound the server-side wait for new changes so idle streams return control to flush batches and check duration
+    maxAwaitTimeMs = max(100, min(1000, appConfig["maxSecondsBetweenBatches"] * 1000))
+
+    changeStreamPipeline = [{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}]
 
     if (appConfig["startTs"] == "RESUME_TOKEN"):
-        stream = sourceColl.watch(resume_after={'_data': appConfig["startPosition"]}, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}])
+        stream = sourceColl.watch(resume_after={'_data': appConfig["startPosition"]}, full_document='updateLookup', max_await_time_ms=maxAwaitTimeMs, pipeline=changeStreamPipeline)
     else:
-        stream = sourceColl.watch(start_at_operation_time=endTs, full_document='updateLookup', pipeline=[{'$match': {'operationType': {'$in': ['insert','update','replace','delete']}}},{'$project':{'updateDescription':0}}])
+        stream = sourceColl.watch(start_at_operation_time=appConfig["startTs"], full_document='updateLookup', max_await_time_ms=maxAwaitTimeMs, pipeline=changeStreamPipeline)
 
     if appConfig['verboseLogging']:
         if (appConfig["startTs"] == "RESUME_TOKEN"):
             logIt(threadnum,"Creating change stream cursor for resume token {}".format(appConfig["startPosition"]))
         else:
-            logIt(threadnum,"Creating change stream cursor for timestamp {}".format(endTs.as_datetime()))
+            logIt(threadnum,"Creating change stream cursor for timestamp {}".format(appConfig["startTs"].as_datetime()))
+
+    def flushBatch():
+        nonlocal bulkOpList, bulkOpListReplace, numCurrentBulkOps, numReportBulkOps, batchStartTime, durableToken, durableSeq
+        if not appConfig['dryRun']:
+            try:
+                result = destCollection.bulk_write(bulkOpList,ordered=True)
+            except:
+                # replace inserts as replaces
+                result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
+
+        bulkOpList = []
+        bulkOpListReplace = []
+        numReportBulkOps += numCurrentBulkOps
+        numCurrentBulkOps = 0
+        batchStartTime = None
+
+        # everything seen so far has now been applied
+        durableToken = lastSeenToken
+        durableSeq = numSeen
+
+    def reportProgress():
+        nonlocal numReportBulkOps
+        perfQ.put({"name":"batchCompleted","operations":numReportBulkOps,"endts":lastSeenTs,"processNum":threadnum,
+                   "resumeToken":durableToken,"resumeSeq":durableSeq,"caughtUp":caughtUp})
+        numReportBulkOps = 0
 
     while not allDone:
-        for change in stream:
-            # check if time to exit
-            if ((time.time() - startTime) > appConfig['durationSeconds']) and (appConfig['durationSeconds'] != 0):
-                allDone = True
-                break
+        # returns the next change, or None once the server-side wait (maxAwaitTimeMs) expires with no new changes
+        change = stream.try_next()
 
-            endTs = change['clusterTime']
-            resumeToken = change['_id']['_data']
+        if change is not None:
+            caughtUp = False
+            numSeen += 1
+            lastSeenTs = change['clusterTime']
+            lastSeenToken = change['_id']['_data']
             thisNs = change['ns']['db']+'.'+change['ns']['coll']
             thisOp = change['operationType']
 
             # NOTE: Python's non-deterministic hash() cannot be used as it is seeded at startup, since this code is multiprocessing we need all hash calls to be the same between processes
-            #   hash(str(doc['o']['_id']))
-            #if ((thisOp in ['insert','update','replace','delete']) and
-            #     (thisNs == appConfig["sourceNs"]) and
             if ((int(hashlib.sha512(str(change['documentKey']).encode('utf-8')).hexdigest(), 16) % appConfig["numProcessingThreads"]) == threadnum):
                 # this is for my thread
 
-                threadOplogEntries += 1
-
-                if (not printedFirstTs) and (thisOp in ['insert','update','replace','delete']) and (thisNs == appConfig["sourceNs"]):
+                if (not printedFirstTs) and (thisNs == appConfig["sourceNs"]):
                     if appConfig['verboseLogging']:
                         logIt(threadnum,'first timestamp = {} aka {}'.format(change['clusterTime'],change['clusterTime'].as_datetime()))
                     printedFirstTs = True
@@ -99,39 +133,24 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                 if (thisOp == 'insert'):
                     # insert
                     if (thisNs == appConfig["sourceNs"]):
-                        myCollectionOps += 1
                         bulkOpList.append(pymongo.InsertOne(change['fullDocument']))
-                        # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
-                        #bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
+                        # if replaying older changes, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
                         bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
-                    else:
-                        pass
 
                 elif (thisOp in ['update','replace']):
                     # update/replace
-                    if (change['fullDocument'] is not None):
-                        if (thisNs == appConfig["sourceNs"]):
-                            myCollectionOps += 1
-                            #bulkOpList.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
-                            bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
-                            # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
-                            #bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']},change['fullDocument'],upsert=True))
-                            bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
-                            numCurrentBulkOps += 1
-                        else:
-                            pass
+                    if (change['fullDocument'] is not None) and (thisNs == appConfig["sourceNs"]):
+                        bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        numCurrentBulkOps += 1
 
                 elif (thisOp == 'delete'):
                     # delete
                     if (thisNs == appConfig["sourceNs"]):
-                        myCollectionOps += 1
                         bulkOpList.append(pymongo.DeleteOne({'_id':change['documentKey']['_id']}))
-                        # if playing old oplog, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
                         bulkOpListReplace.append(pymongo.DeleteOne({'_id':change['documentKey']['_id']}))
                         numCurrentBulkOps += 1
-                    else:
-                        pass
 
                 elif (thisOp in ['drop','rename','dropDatabase','invalidate']):
                     # operations we do not track
@@ -141,45 +160,44 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     print(change)
                     sys.exit(1)
 
-            if time.time() > nextPerfReportTime:
-                nextPerfReportTime = time.time() + perfReportInterval
-                perfQ.put({"name":"batchCompleted","operations":numReportBulkOps,"endts":endTs,"processNum":threadnum,"resumeToken":resumeToken})
-                numReportBulkOps = 0
+            if (numCurrentBulkOps == 0):
+                # nothing buffered, every change seen so far is applied
+                durableToken = lastSeenToken
+                durableSeq = numSeen
+            elif (batchStartTime is None):
+                # first operation in a new batch, batch age is measured from here
+                batchStartTime = time.time()
 
-            if ((numCurrentBulkOps >= appConfig["maxOperationsPerBatch"]) or (time.time() >= (lastBatch + appConfig["maxSecondsBetweenBatches"]))) and (numCurrentBulkOps > 0):
-                if not appConfig['dryRun']:
-                    try:
-                        result = destCollection.bulk_write(bulkOpList,ordered=True)
-                    except:
-                        # replace inserts as replaces
-                        result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
+        else:
+            # no changes available right now
+            if (numCurrentBulkOps == 0):
+                caughtUp = True
+                # stream.resume_token is the post-batch resume token when the server provides one, it can advance while idle
+                if (stream.resume_token is not None):
+                    durableToken = stream.resume_token['_data']
+                    # sorts after the last change seen, before the next one
+                    durableSeq = numSeen + 0.5
 
-                bulkOpList = []
-                bulkOpListReplace = []
-                numReportBulkOps += numCurrentBulkOps
-                numCurrentBulkOps = 0
-                numTotalBatches += 1
-                lastBatch = time.time()
+        # these checks run on every pass, including when no change arrived
 
-            # nothing arrived in the oplog for 1 second, pause before trying again
-            #time.sleep(1)
+        if ((time.time() - startTime) > appConfig['durationSeconds']) and (appConfig['durationSeconds'] != 0):
+            allDone = True
+
+        if (numCurrentBulkOps > 0) and ((numCurrentBulkOps >= appConfig["maxOperationsPerBatch"]) or ((time.time() - batchStartTime) >= appConfig["maxSecondsBetweenBatches"])):
+            flushBatch()
+
+        if time.time() > nextPerfReportTime:
+            nextPerfReportTime = time.time() + perfReportInterval
+            reportProgress()
 
     if (numCurrentBulkOps > 0):
-        if not appConfig['dryRun']:
-            try:
-                result = destCollection.bulk_write(bulkOpList,ordered=True)
-            except:
-                # replace inserts as replaces
-                result = destCollection.bulk_write(bulkOpListReplace,ordered=True)
-        perfQ.put({"name":"batchCompleted","operations":numCurrentBulkOps,"endts":endTs,"processNum":threadnum,"resumeToken":resumeToken})
-        bulkOpList = []
-        bulkOpListReplace = []
-        numCurrentBulkOps = 0
-        numTotalBatches += 1
+        flushBatch()
 
+    stream.close()
     sourceConnection.close()
     destConnection.close()
 
+    reportProgress()
     perfQ.put({"name":"processCompleted","processNum":threadnum})
 
 
@@ -229,33 +247,35 @@ def reporter(appConfig, perfQ):
 
     numWorkersCompleted = 0
     numProcessedOplogEntries = 0
-    
-    dtDict = {}
-    
+
+    # latest state reported by each processor
+    dtDict = {}          # cluster time of the most recent change read
+    caughtUpDict = {}    # True if the processor has no pending changes
+    durableDict = {}     # (stream position, resume token) up to which all of the processor's changes are applied
+
     while (numWorkersCompleted < appConfig["numProcessingThreads"]):
         time.sleep(appConfig["feedbackSeconds"])
         nowTime = time.time()
-        
-        numBatchEntries = 0
+
         while not perfQ.empty():
             qMessage = perfQ.get_nowait()
             if qMessage['name'] == "batchCompleted":
-                numBatchEntries += 1
                 numProcessedOplogEntries += qMessage['operations']
-                thisEndDt = qMessage['endts'].as_datetime().replace(tzinfo=None)
                 thisProcessNum = qMessage['processNum']
-                if (thisProcessNum in dtDict) and (thisEndDt > dtDict[thisProcessNum]):
-                    dtDict[thisProcessNum] = thisEndDt
-                else:
-                    dtDict[thisProcessNum] = thisEndDt
-                #print("received endTs = {}".format(thisEndTs.as_datetime()))
-                if 'resumeToken' in qMessage:
-                    resumeToken = qMessage['resumeToken']
-                else:
-                    resumeToken = 'N/A'
+                if qMessage['endts'] is not None:
+                    dtDict[thisProcessNum] = qMessage['endts'].as_datetime().replace(tzinfo=None)
+                caughtUpDict[thisProcessNum] = qMessage['caughtUp']
+                if qMessage['resumeToken'] is not None:
+                    durableDict[thisProcessNum] = (qMessage['resumeSeq'],qMessage['resumeToken'])
 
             elif qMessage['name'] == "processCompleted":
                 numWorkersCompleted += 1
+
+        # every processor reads the entire stream, so the only safe place to resume from is the oldest durable position across all processors
+        if len(durableDict) == appConfig["numProcessingThreads"]:
+            resumeToken = min(durableDict.values(), key=lambda x: x[0])[1]
+        else:
+            resumeToken = 'N/A'
 
         # total total
         elapsedSeconds = nowTime - startTime
@@ -270,19 +290,16 @@ def reporter(appConfig, perfQ):
         intervalElapsedSeconds = nowTime - lastTime
         intervalOpsPerSecond = int((numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds)
         
-        # how far behind current time
-        if numBatchEntries == 0:
-            # no work this interval, we are fully caught up
-            avgSecondsBehind = 0
-        else:
-            dtUtcNow = datetime.utcnow()
-            totSecondsBehind = 0
-            numSecondsBehindEntries = 0
-            for thisDt in dtDict:
-                totSecondsBehind += (dtUtcNow - dtDict[thisDt].replace(tzinfo=None)).total_seconds()
-                numSecondsBehindEntries += 1
+        # how far behind current time, processors that are caught up are 0 seconds behind
+        dtUtcNow = datetime.utcnow()
+        totSecondsBehind = 0
+        numSecondsBehindEntries = 0
+        for thisProcessNum in caughtUpDict:
+            if (not caughtUpDict[thisProcessNum]) and (thisProcessNum in dtDict):
+                totSecondsBehind += max((dtUtcNow - dtDict[thisProcessNum]).total_seconds(),0)
+            numSecondsBehindEntries += 1
 
-            avgSecondsBehind = int(totSecondsBehind / max(numSecondsBehindEntries,1))
+        avgSecondsBehind = int(totSecondsBehind / max(numSecondsBehindEntries,1))
 
         logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
         print("[{0}] elapsed {1} | total o/s {2:9,d} | interval o/s {3:9,d} | tot {4:16,d} | {5:12,d} secs behind | resume token = {6}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind,resumeToken))
@@ -426,19 +443,23 @@ def main():
 
     logIt(-1,"processing {} using {} threads".format(appConfig['cdcSource'],appConfig['numProcessingThreads']))
 
-    if len(appConfig["startPosition"]) == 36:
-        # resume token
+    startPosition = appConfig["startPosition"]
+    if (len(startPosition) >= 20) and all(c in '0123456789abcdefABCDEF' for c in startPosition):
+        # resume token, a hex string whose length varies by server (MongoDB and DocumentDB tokens differ)
         appConfig["startTs"] = "RESUME_TOKEN"
 
-        logIt(-1,"starting with resume token = {}".format(appConfig["startPosition"]))
+        logIt(-1,"starting with resume token = {}".format(startPosition))
 
     else:
-        if appConfig["startPosition"].upper() == "NOW":
+        if startPosition.upper() == "NOW":
             # start with current time
             appConfig["startTs"] = Timestamp(datetime.utcnow(), 1)
         else:
             # start at an arbitrary position
-            appConfig["startTs"] = Timestamp(datetime.fromisoformat(args.start_position), 1)
+            try:
+                appConfig["startTs"] = Timestamp(datetime.fromisoformat(startPosition), 1)
+            except ValueError:
+                parser.error("--start-position must be NOW, YYYY-MM-DD+HH:MM:SS in UTC, or a change stream resume token")
 
         logIt(-1,"starting with timestamp = {}".format(appConfig["startTs"].as_datetime()))
 
