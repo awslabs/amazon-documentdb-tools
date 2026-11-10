@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import sys
 import time
@@ -13,7 +13,7 @@ import warnings
 
 
 def logIt(threadnum, message):
-    logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
+    logTimeStamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
     print("[{}] thread {:>3d} | {}".format(logTimeStamp,threadnum,message))
 
 
@@ -263,7 +263,7 @@ def reporter(appConfig, perfQ):
                 numProcessedOplogEntries += qMessage['operations']
                 thisProcessNum = qMessage['processNum']
                 if qMessage['endts'] is not None:
-                    dtDict[thisProcessNum] = qMessage['endts'].as_datetime().replace(tzinfo=None)
+                    dtDict[thisProcessNum] = qMessage['endts'].as_datetime()
                 caughtUpDict[thisProcessNum] = qMessage['caughtUp']
                 if qMessage['resumeToken'] is not None:
                     durableDict[thisProcessNum] = (qMessage['resumeSeq'],qMessage['resumeToken'])
@@ -291,7 +291,7 @@ def reporter(appConfig, perfQ):
         intervalOpsPerSecond = int((numProcessedOplogEntries - lastProcessedOplogEntries) / intervalElapsedSeconds)
         
         # how far behind current time, processors that are caught up are 0 seconds behind
-        dtUtcNow = datetime.utcnow()
+        dtUtcNow = datetime.now(timezone.utc)
         totSecondsBehind = 0
         numSecondsBehindEntries = 0
         for thisProcessNum in caughtUpDict:
@@ -301,7 +301,7 @@ def reporter(appConfig, perfQ):
 
         avgSecondsBehind = int(totSecondsBehind / max(numSecondsBehindEntries,1))
 
-        logTimeStamp = datetime.utcnow().isoformat()[:-3] + 'Z'
+        logTimeStamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
         print("[{0}] elapsed {1} | total o/s {2:9,d} | interval o/s {3:9,d} | tot {4:16,d} | {5:12,d} secs behind | resume token = {6}".format(logTimeStamp,thisHMS,totalOpsPerSecond,intervalOpsPerSecond,numProcessedOplogEntries,avgSecondsBehind,resumeToken))
         nextReportTime = nowTime + appConfig["feedbackSeconds"]
         
@@ -453,7 +453,7 @@ def main():
     else:
         if startPosition.upper() == "NOW":
             # start with current time
-            appConfig["startTs"] = Timestamp(datetime.utcnow(), 1)
+            appConfig["startTs"] = Timestamp(datetime.now(timezone.utc), 1)
         else:
             # start at an arbitrary position
             try:
