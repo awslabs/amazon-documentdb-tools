@@ -54,7 +54,7 @@ from pathlib import Path
 from requests.auth import HTTPDigestAuth
 import requests
 
-__version__ = "2.5.0"
+__version__ = "2.5.1"
 
 # Runtime logger -- writes to runtime.log in output directory
 _runtime_log = None
@@ -480,7 +480,7 @@ def _sample_compression_ratio(db, coll_name, sample_size=100):
 
     # Train dictionary from all sampled docs (DocumentDB uses 100-doc dictionary)
     try:
-        dict_data = zstd.train_dictionary(65536, raw_docs)
+        dict_data = zstd.train_dictionary(4096, raw_docs)  # DocumentDB uses a 4KB dictionary
         compressor = zstd.ZstdCompressor(level=3, dict_data=dict_data)
     except Exception:
         # Fallback: no dictionary (small collections)

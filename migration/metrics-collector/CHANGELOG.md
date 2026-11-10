@@ -2,6 +2,16 @@
 
 All notable changes to metrics_collector.py are documented here.
 
+## [2.5.1] — 2026-11-10
+
+### Fixed — Compression sampling dictionary size now matches DocumentDB
+
+`_sample_compression_ratio` trained its zstd dictionary at 64KB
+(`train_dictionary(65536, ...)`). DocumentDB uses a 4KB dictionary, and the
+compression-review metadata already reported `dictionarySize: 4096`. The
+oversized dictionary overstated the projected compression ratio. Training now
+uses 4096 bytes. ([#223](https://github.com/awslabs/amazon-documentdb-tools/issues/223))
+
 ## [2.5.0] — 2026-09-30
 
 Interoperability and correctness fixes on the Cost Estimator CSV, plus two

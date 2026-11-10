@@ -2,7 +2,7 @@
 
 Collects capacity metrics from a MongoDB deployment and produces a sizing package for migrating to Amazon DocumentDB. Works against MongoDB Atlas or self-managed MongoDB on Amazon EC2.
 
-**Current version:** 2.5.0 (see CHANGELOG.md)
+**Current version:** 2.5.1 (see CHANGELOG.md)
 
 Part of [amazon-documentdb-tools](https://github.com/awslabs/amazon-documentdb-tools). This is the measured counterpart to [`migration/sizing-tool`](../sizing-tool): `sizing-tool` is the quick self-service CSV and leaves the workload columns as placeholders for you to fill in by hand, while this tool measures them from a real metric window. Both use the same [`compression-review`](../../performance/compression-review) sampling.
 
