@@ -98,6 +98,17 @@ class TestCompatibilityIssues(BaseTestCase):
                              expected_compatibility_issues, \
                              "Compatibility issues should've matched")
 
+    def test_wildcard_indexes_compatible(self):
+        """
+        tests wildcard indexes ($**, path.$**, wildcardProjection) are not flagged
+        """
+        metadata = self.index_tool.get_metadata(
+            'test/fixtures/metadata/wildcard_index')
+        compatibility_issues = self.index_tool.find_compatibility_issues(
+            metadata)
+        self.assertDictEqual(compatibility_issues, {},
+                             "Wildcard indexes should be compatible")
+
 
 if __name__ == '__main__':
     unittest.main()
