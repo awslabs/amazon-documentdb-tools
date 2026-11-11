@@ -118,11 +118,6 @@ If everything is compatible, the tool prints `No incompatibilities found.` Other
             }
         },
         "users": {
-            "$**_1": {
-                "unsupported_field_names": [
-                    "$**"
-                ]
-            },
             "userId_hashed": {
                 "unsupported_index_types": "hashed"
             }
@@ -143,7 +138,6 @@ python3 migrationtools/documentdb_index_tool.py --show-compatible --dir index_ex
 |---|---|---|
 | `unsupported_collection_options` | The collection is `capped`. | The whole collection and all of its indexes. |
 | `unsupported_index_types` | The index is `2d`, `2dsphere`, `geoHaystack`, or `hashed`. | The index. |
-| `unsupported_field_names` | The index is a wildcard index (`$**`). | The index. |
 | `unsupported_index_options` | The index uses the `storageEngine` or `dropDuplicates` option. | The index. |
 | `unsupported_index_sort_value` | A key's sort order is a number other than `1` or `-1`. | The index. |
 | `exceeded_limits` | A name or index exceeds an Amazon DocumentDB limit (see below). | The index, or the whole collection if the collection name or namespace is too long. A database name that's too long is reported but not skipped, so the target rejects it during restore. |
@@ -155,7 +149,7 @@ The `exceeded_limits` checks are:
 - More than 32 keys in a compound index
 - Text indexes that include non-text fields (for example `{title: "text", category: 1}`)
 
-The tool doesn't know which Amazon DocumentDB version you're restoring to, and these checks are the same for every version. Some name-length limits differ by version: for example, Amazon DocumentDB 5.0 and later allow `<database>.<collection>` up to 255 characters, while 4.0 and earlier allow collection names of only 57 characters. Compare names close to these limits against [Amazon DocumentDB quotas](https://docs.aws.amazon.com/documentdb/latest/developerguide/limits.html) for your version. Support for some index features also varies by version (see [Supported MongoDB APIs, operations, and data types](https://docs.aws.amazon.com/documentdb/latest/developerguide/mongo-apis.html)). If the target rejects an index during restore, the tool logs the reason and moves on when `--skip-incompatible` is used.
+The tool doesn't know which Amazon DocumentDB version you're restoring to, and these checks are the same for every version. Some name-length limits differ by version: for example, Amazon DocumentDB 5.0 and later allow `<database>.<collection>` up to 255 characters, while 4.0 and earlier allow collection names of only 57 characters. Compare names close to these limits against [Amazon DocumentDB quotas](https://docs.aws.amazon.com/documentdb/latest/developerguide/limits.html) for your version. Support for some index features also varies by version. For example, wildcard indexes (`$**`) require Amazon DocumentDB 8.0.3 or later and aren't reported as issues (see [Supported MongoDB APIs, operations, and data types](https://docs.aws.amazon.com/documentdb/latest/developerguide/mongo-apis.html)). If the target rejects an index during restore, the tool logs the reason and moves on when `--skip-incompatible` is used.
 
 #### 2dsphere indexes
 
