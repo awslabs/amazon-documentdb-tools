@@ -54,7 +54,7 @@ from pathlib import Path
 from requests.auth import HTTPDigestAuth
 import requests
 
-__version__ = "2.5.1"
+__version__ = "2.5.2"
 
 # Runtime logger -- writes to runtime.log in output directory
 _runtime_log = None
@@ -1829,6 +1829,44 @@ def fmt(val, unit="", decimals=1):
 
 
 
+def _observed_window(cluster_metrics, granularity=None):
+    """Return the span actually covered by the datapoints in cluster_metrics.
+
+    The Atlas API returns whatever history exists when it is shorter than the
+    requested --period, so the requested period can overstate what was observed.
+    Returns {"start", "end", "days"} (ISO 8601 UTC strings, days rounded to 2
+    places), or None when no datapoint carries a parseable timestamp.
+
+    "start" and "end" are the first and last datapoint timestamps. Each
+    datapoint covers one granularity step, so "days" adds one step to
+    end - start: 7 daily points at P1D cover 7 days, not 6.
+    """
+    stamps = []
+    for data in cluster_metrics.values():
+        for measurements in data.get("batches", {}).values():
+            for m in measurements:
+                for dp in m.get("dataPoints", []):
+                    if dp.get("value") is None or not dp.get("timestamp"):
+                        continue
+                    try:
+                        t = datetime.fromisoformat(str(dp["timestamp"]).replace("Z", "+00:00"))
+                    except ValueError:
+                        continue
+                    if t.tzinfo is None:
+                        t = t.replace(tzinfo=timezone.utc)
+                    stamps.append(t)
+    if not stamps:
+        return None
+    first, last = min(stamps), max(stamps)
+    step_days = _period_days(granularity) or 0.0
+    fmt_ts = "%Y-%m-%dT%H:%M:%SZ"
+    return {
+        "start": first.astimezone(timezone.utc).strftime(fmt_ts),
+        "end": last.astimezone(timezone.utc).strftime(fmt_ts),
+        "days": round((last - first).total_seconds() / 86400 + step_days, 2),
+    }
+
+
 def generate_report(all_metrics, processes, granularity, period, output_dir, pct=95, cluster_names=None, label=None, collstats=None):
     """Generate one JSON sizing report per cluster."""
     output_dir = Path(output_dir)
@@ -1985,6 +2023,7 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
             "cluster_profile": _CLUSTER_PROFILE,
             "granularity": granularity,
             "period": period,
+            "observed_window": _observed_window(cluster_metrics, granularity),
             "percentile": pct,
             "topology": [{"host": p["hostname"], "type": p["typeName"], "port": p["port"]} for p in cluster_procs],
             "processes": proc_reports,
@@ -2038,7 +2077,17 @@ def _generate_sizing_summary_md(report, md_path, pct):
     a(f"# {cluster} -- Sizing Summary")
     a(f"")
     a(f"**Generated:** {report.get('generated', 'N/A')}")
-    a(f"**Granularity:** {report.get('granularity')} | **Period:** {report.get('period')} | **Percentile:** {pcol}")
+    a(f"**Granularity:** {report.get('granularity')} | **Period requested:** {report.get('period')} | **Percentile:** {pcol}")
+    ow = report.get("observed_window")
+    if ow:
+        a(f"**Period observed:** {ow.get('days')} days ({ow.get('start')} to {ow.get('end')})")
+        try:
+            req_days = _period_days(report.get("period"))
+        except Exception:
+            req_days = None
+        if req_days and ow.get("days") is not None and ow["days"] < req_days * 0.9:
+            a(f"**WARNING:** the source returned less history than requested; "
+              f"treat this as a {ow['days']}-day sample, not {report.get('period')}.")
     a(f"**Topology:** {len(procs)} nodes ({sum(1 for p in procs if 'PRIMARY' in p['type'])} primary, {len(secondaries)} secondary)")
     prof = report.get("cluster_profile") or {}
     if prof:
