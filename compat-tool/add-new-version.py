@@ -3,8 +3,8 @@
 import compat
 
 def main():
-    existingVersion = "8.0.1"
-    newVersion = "8.0.2"
+    existingVersion = "8.0.2"
+    newVersion = "8.0.3"
 
     keywords = compat.load_keywords()
 
