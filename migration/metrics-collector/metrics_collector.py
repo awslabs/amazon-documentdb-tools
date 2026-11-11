@@ -54,7 +54,7 @@ from pathlib import Path
 from requests.auth import HTTPDigestAuth
 import requests
 
-__version__ = "2.5.2"
+__version__ = "2.5.3"
 
 # Runtime logger -- writes to runtime.log in output directory
 _runtime_log = None
