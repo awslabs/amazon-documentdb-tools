@@ -2,6 +2,18 @@
 
 All notable changes to metrics_collector.py are documented here.
 
+## [2.5.3] — 2026-11-11
+
+### Fixed — Profiler unsupported-operator list updated for DocumentDB 8.0.3
+
+The EC2 profiler cross-reference (`_EC2_DOCDB_UNSUPPORTED_OPERATORS`) flagged
+operators that DocumentDB already supports, so common operators such as `$lookup`,
+`$expr`, and `$merge` were reported as unsupported. The list now holds only the
+operators still unsupported in DocumentDB 8.0.3: `$where`, `$function`,
+`$accumulator`, and `$documents`. Removed 14 operators supported since 8.0, three
+supported since 8.0.2 (`$facet`, `$graphLookup`, `$bucketAuto`), and `$mapReduce`,
+which is a command rather than a `$` operator and never matched the scan.
+
 ## [2.5.2] — 2026-11-11
 
 ### Fixed — Sizing report now shows the history actually observed (#209)
