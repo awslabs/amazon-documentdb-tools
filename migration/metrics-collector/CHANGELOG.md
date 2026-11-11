@@ -2,6 +2,89 @@
 
 All notable changes to metrics_collector.py are documented here.
 
+## [2.6.0] — 2026-11-11
+
+Fixes for three open issues, and the `--source ec2` path now produces the
+same output files as the Atlas path. New fields are additive; one output file
+is renamed (see #211).
+
+### Fixed — Index key sampling now traverses arrays (#205, defect 1)
+
+`_get_nested_value` descended only through dicts, so a dotted path into an
+array of subdocuments (`tags.name`) matched nothing and the key-type record fell
+back to `bson_type: "unknown"`, `avg_bytes: 32`, `is_array: false`. Multikey
+indexes were then sized as one entry per document. The traversal now follows
+MongoDB multikey semantics (fan out over array elements, flatten nested arrays,
+honour positional components such as `a.0.b`), and type and size are measured
+over the array elements rather than the first one only. Each `key_types` record
+now carries `sampled` and `sampled_docs`; `sampled: false` marks a default.
+
+### Added — Windowed cache figure in `collstats.json` (#205, defect 2)
+
+On the Atlas path the `CACHE_USED_BYTES` percentile was written only to
+`*-sizing-report.json`. `collstats.json` now also carries `cache_used_gb`
+(decimal GB, max across data-bearing nodes of the report percentile) and
+`cache_used_gb_source` (metric, statistic, window, per-node values, and the
+count of nodes whose percentile sits at the series max, where the figure is a
+lower bound).
+
+### Added — `--source ec2` now writes the full output set (#205, defect 3)
+
+The EC2 path stopped after collection and printed that the sizing report,
+summary and Cost Estimator CSV were "not yet generated". It now writes the same
+files as the Atlas path: `<cluster>-14d-sizing-report.json`,
+`<cluster>-14d-sizing-summary.md`, `cost-estimator.csv`, and (with `--compat`)
+`operator_usage.json`. `runtime.log` now sits in the cluster directory, so it is
+included in the handoff zip, as on Atlas.
+
+The report is built by the same writer as the Atlas one, from an adapter over
+the EC2 sources, and records where each section came from (`source: "ec2"`,
+`metric_sources`); the summary prints those sources at the top.
+
+- **CloudWatch, full window, per instance:** total CPU (`cpu.total_utilization_pct`,
+  a new field: CloudWatch has no user/kernel split, so it is not mapped onto
+  `user_normalized`); read/write IOPS, latency and queue depth summed over all
+  attached EBS volumes. EBS publishes 1-minute data points, so IOPS is the
+  5-minute `Average` divided by 60.
+- **serverStatus on each member, `--samples` window:** operations per second,
+  connections, resident/virtual memory, replication lag. Each member is reached
+  with a direct connection using the URI's credentials; a member that cannot be
+  reached is listed in `unsampled_members` and still reported from CloudWatch.
+- **dbStats:** data, storage and index size.
+- No EC2 source exists for system memory, swap, cache percentiles, tickets,
+  query targeting or oplog rate; those fields stay empty rather than estimated.
+
+`collstats.json` also carries `cache_sampled_gb` (max WiredTiger
+`bytes currently in the cache` over the `--samples` span, with
+`cache_sampled_gb_source`). It uses its own name, and the sampled figure is not
+written into the report's `cache_used_bytes`, so it cannot be mistaken for the
+Atlas windowed percentile. `mongo_sampling.json` gains a `members` list
+(additive).
+
+### Fixed — mongos fallback states the cache loss it actually has (#205, defect 4)
+
+The docstring said only `max_bytes_configured` was lost; the writer emits
+`wt_server_caches: {}`. The docstring now matches, and the output carries
+`wt_server_caches_unavailable` with the reason.
+
+### Fixed — `_id_` index never reported as redundant (#210)
+
+Prefix redundancy flagged `_id_` whenever another index started with `_id`.
+The three copies of the redundancy check are now one function, which never
+flags `_id_`, unique indexes (they enforce a constraint), or sparse and partial
+indexes (they cover a different set of documents), and compares indexes only
+within the same shard. Unique is now recorded on index records.
+
+### Changed — Compatibility checks use compat-tool's default version (#211)
+
+The operator scan passed `--version 8.0` to compat-tool. It now calls
+compat-tool without `--version`, so it checks against the latest version that
+compat-tool supports. The version is read from compat-tool's `--help` and used
+only for labels. **The output file is renamed from `compat-8.0.txt` to
+`compat-<version>.txt`** (for example `compat-8.0.3.txt`). `operator_usage.json`
+`target_version` and the index compatibility heading carry the same value.
+Printed guidance no longer pins `--version 8.0`.
+
 ## [2.5.3] — 2026-11-11
 
 ### Fixed — Profiler unsupported-operator list updated for DocumentDB 8.0.3

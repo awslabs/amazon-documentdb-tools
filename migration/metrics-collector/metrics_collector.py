@@ -54,7 +54,7 @@ from pathlib import Path
 from requests.auth import HTTPDigestAuth
 import requests
 
-__version__ = "2.5.3"
+__version__ = "2.6.0"
 
 # Runtime logger -- writes to runtime.log in output directory
 _runtime_log = None
@@ -408,15 +408,45 @@ def _python_to_bson_type(val):
 
 
 def _get_nested_value(doc, dotted_path):
-    """Traverse a document using dot-notation path. Returns (value, found)."""
+    """Traverse a document using dot-notation path. Returns (value, found).
+
+    Follows MongoDB multikey semantics: when the path crosses an array, the
+    remaining path is applied to every element and the matches are collected
+    into a flat list, so ``tags.name`` over ``tags: [{name: a}, {name: b}]``
+    returns ``(["a", "b"], True)``. A numeric component on an array selects
+    that position (``a.0.b``). A list result means one index entry per element;
+    an empty list (an empty array on the path) still counts as found.
+    """
     parts = dotted_path.split(".")
-    cur = doc
-    for p in parts:
-        if isinstance(cur, dict) and p in cur:
-            cur = cur[p]
-        else:
-            return None, False
-    return cur, True
+    multikey = False
+
+    def _walk(cur, i):
+        nonlocal multikey
+        if i == len(parts):
+            if isinstance(cur, list):
+                multikey = True
+                return list(cur), True
+            return [cur], True
+        p = parts[i]
+        if isinstance(cur, dict):
+            return _walk(cur[p], i + 1) if p in cur else ([], False)
+        if isinstance(cur, list):
+            if p.isdigit() and int(p) < len(cur):
+                return _walk(cur[int(p)], i + 1)
+            multikey = True
+            out, hit = [], False
+            for el in cur:
+                vals, found = _walk(el, i)
+                if found:
+                    hit = True
+                    out.extend(vals)
+            return out, (hit or not cur)
+        return [], False
+
+    vals, found = _walk(doc, 0)
+    if not found:
+        return None, False
+    return (vals, True) if multikey else (vals[0], True)
 
 
 def _value_byte_size(val, bson_type):
@@ -530,10 +560,10 @@ def _sample_index_key_types(db, coll_name, index_key, sample_size=100):
                 seen.add(key)
                 docs.append(doc)
     except Exception:
-        return [{"field": f, "bson_type": "unknown", "avg_bytes": 32, "is_array": False} for f in fields]
+        return [_unsampled_key_type(f) for f in fields]
 
     if not docs:
-        return [{"field": f, "bson_type": "unknown", "avg_bytes": 32, "is_array": False} for f in fields]
+        return [_unsampled_key_type(f) for f in fields]
 
     result = []
     for field in fields:
@@ -549,14 +579,15 @@ def _sample_index_key_types(db, coll_name, index_key, sample_size=100):
             found_count += 1
             if isinstance(val, list):
                 array_count += 1
-                # For multikey, sample first element for type
-                if val:
-                    val = val[0]
-                else:
-                    continue
-            bt = _python_to_bson_type(val)
-            types[bt] = types.get(bt, 0) + 1
-            sizes.append(_value_byte_size(val, bt))
+                # Multikey: every element is its own index entry, so type and
+                # size come from the elements (capped to bound the cost).
+                elements = val[:_KEY_SAMPLE_MAX_ELEMENTS]
+            else:
+                elements = [val]
+            for el in elements:
+                bt = _python_to_bson_type(el)
+                types[bt] = types.get(bt, 0) + 1
+                sizes.append(_value_byte_size(el, bt))
 
         # Pick dominant type
         dominant_type = max(types, key=types.get) if types else "unknown"
@@ -579,9 +610,50 @@ def _sample_index_key_types(db, coll_name, index_key, sample_size=100):
             "avg_bytes": avg_bytes,
             "is_array": is_array,
             "avg_array_length": avg_arr_len,
+            # False means no sampled document carried this path, so bson_type
+            # and avg_bytes above are defaults rather than measurements.
+            "sampled": bool(sizes),
+            "sampled_docs": found_count,
         })
 
     return result
+
+
+_KEY_SAMPLE_MAX_ELEMENTS = 1000
+
+
+def _unsampled_key_type(field):
+    """Placeholder key-type record when sampling could not run. Marked so a
+    consumer can tell the 32-byte default from a measured size."""
+    return {"field": field, "bson_type": "unknown", "avg_bytes": 32, "is_array": False,
+            "avg_array_length": None, "sampled": False, "sampled_docs": 0}
+
+
+def _mark_redundant_indexes(all_indexes, namespaces=None):
+    """Flag an index as redundant when its key is a strict prefix of another
+    index on the same namespace (and shard, when present).
+
+    Never flags indexes that cannot be dropped or that a longer index does not
+    replace: the ``_id_`` index, unique indexes (they enforce a constraint), and
+    sparse or partial indexes (they cover a different set of documents).
+    """
+    if namespaces is None:
+        namespaces = sorted(set(i["namespace"] for i in all_indexes))
+    for ns in namespaces:
+        ns_indexes = [i for i in all_indexes if i["namespace"] == ns]
+        for idx in ns_indexes:
+            if (idx.get("name") == "_id_" or idx.get("unique")
+                    or idx.get("sparse") or idx.get("partial")):
+                continue
+            keys = list(idx["key"].items()) if isinstance(idx["key"], dict) else []
+            for other in ns_indexes:
+                if other["name"] == idx["name"] or other.get("shard") != idx.get("shard"):
+                    continue
+                other_keys = list(other["key"].items()) if isinstance(other["key"], dict) else []
+                if len(keys) < len(other_keys) and keys == other_keys[:len(keys)]:
+                    idx["redundant"] = True
+                    idx["redundant_of"] = other["name"]
+                    break
 
 
 def _compute_wt_keystring_size(key_types):
@@ -856,6 +928,8 @@ def _collect_collstats_single_node(client, namespaces, shard_name=None):
                     idx_entry["sparse"] = True
                 if partial_expr:
                     idx_entry["partial"] = True
+                if spec.get("unique"):
+                    idx_entry["unique"] = True
 
                 # Detect special index types
                 for v in idx_key.values():
@@ -877,19 +951,7 @@ def _collect_collstats_single_node(client, namespaces, shard_name=None):
 
         coll_metrics.append(entry)
 
-    # Detect redundant indexes
-    for ns in set(e["namespace"] for e in all_indexes):
-        ns_indexes = [i for i in all_indexes if i["namespace"] == ns]
-        for idx in ns_indexes:
-            keys = list(idx["key"].items()) if isinstance(idx["key"], dict) else []
-            for other in ns_indexes:
-                if other["name"] == idx["name"]:
-                    continue
-                other_keys = list(other["key"].items()) if isinstance(other["key"], dict) else []
-                if len(keys) < len(other_keys) and keys == other_keys[:len(keys)]:
-                    idx["redundant"] = True
-                    idx["redundant_of"] = other["name"]
-                    break
+    _mark_redundant_indexes(all_indexes)
 
     return coll_metrics, all_indexes, wt_server_cache
 
@@ -909,8 +971,14 @@ def _collect_collstats_via_mongos_sharded(mongos_client, namespaces, output_dir,
       - Live Zstd compression sampling (mongos-routed find works)
       - Live index key type sampling (mongos-routed find works)
 
-    Loss: `wt_server_cache.max_bytes_configured` per shard (only in direct-shard
-    serverStatus). Inferable from Atlas API metrics OR instance tier lookup.
+    Loss: the whole server-level WiredTiger cache block per shard
+    (`bytes_in_cache` AND `max_bytes_configured`). Both come only from a
+    direct-shard serverStatus; a mongos has no storage engine. The output
+    therefore writes `wt_server_caches: {}` together with
+    `wt_server_caches_unavailable` naming the reason. On Atlas the windowed
+    `cache_used_gb` is still stamped from the Admin API metrics (see
+    _stamp_cache_used_into_collstats); on self-hosted sources no server-level
+    cache figure is available from this path.
 
     Output shape mirrors what direct-shard would produce plus a `data_source`
     marker for transparency.
@@ -1114,6 +1182,8 @@ def _collect_collstats_via_mongos_sharded(mongos_client, namespaces, output_dir,
                 idx_entry["sparse"] = True
             if spec.get("partialFilterExpression"):
                 idx_entry["partial"] = True
+            if spec.get("unique"):
+                idx_entry["unique"] = True
 
             # Detect special index types
             for v in idx_key.values():
@@ -1131,19 +1201,7 @@ def _collect_collstats_via_mongos_sharded(mongos_client, namespaces, output_dir,
 
             all_indexes.append(idx_entry)
 
-    # Detect redundant indexes (same logic as direct-shard path)
-    for ns in set(e["namespace"] for e in all_indexes):
-        ns_indexes = [i for i in all_indexes if i["namespace"] == ns]
-        for idx in ns_indexes:
-            keys = list(idx["key"].items()) if isinstance(idx["key"], dict) else []
-            for other in ns_indexes:
-                if other["name"] == idx["name"]:
-                    continue
-                other_keys = list(other["key"].items()) if isinstance(other["key"], dict) else []
-                if len(keys) < len(other_keys) and keys == other_keys[:len(keys)]:
-                    idx["redundant"] = True
-                    idx["redundant_of"] = other["name"]
-                    break
+    _mark_redundant_indexes(all_indexes)
 
     # Persist outputs
     cdir = Path(output_dir) / cluster_name
@@ -1156,6 +1214,10 @@ def _collect_collstats_via_mongos_sharded(mongos_client, namespaces, output_dir,
             "shard_count": len(shards_seen),
             "shards": sorted(shards_seen),
             "wt_server_caches": {},
+            "wt_server_caches_unavailable": (
+                "collected through mongos: server-level WiredTiger cache "
+                "(bytes_in_cache, max_bytes_configured) needs a direct connection "
+                "to each shard"),
             "collections": all_coll_metrics,
         }
         json.dump(output, f, indent=2, default=str)
@@ -1415,6 +1477,15 @@ def _collect_collstats_via_uri(namespaces, output_dir, cluster_name):
                 spec = idx_specs.get(idx_name, {})
                 is_sparse = spec.get("sparse", False)
                 partial_expr = spec.get("partialFilterExpression")
+                # Flags first, so a failed count below cannot drop them: the
+                # redundancy check relies on them. `sparse` keeps its earlier
+                # shape: present (possibly False) on every sparse or partial index.
+                if is_sparse or partial_expr:
+                    idx_entry["sparse"] = bool(is_sparse)
+                if partial_expr:
+                    idx_entry["partial"] = True
+                if spec.get("unique"):
+                    idx_entry["unique"] = True
                 if is_sparse or partial_expr:
                     try:
                         if partial_expr:
@@ -1427,9 +1498,6 @@ def _collect_collstats_via_uri(namespaces, output_dir, cluster_name):
                             else:
                                 effective_count = doc_count
                         idx_entry["effective_doc_count"] = effective_count
-                        idx_entry["sparse"] = is_sparse
-                        if partial_expr:
-                            idx_entry["partial"] = True
                     except Exception:
                         pass
 
@@ -1497,20 +1565,7 @@ def _collect_collstats_via_uri(namespaces, output_dir, cluster_name):
 
         coll_metrics.append(entry)
 
-    # Detect redundant indexes (prefix subsets)
-    for ns in namespaces:
-        ns_indexes = [i for i in all_indexes if i["namespace"] == ns]
-        for idx in ns_indexes:
-            keys = list(idx["key"].items()) if isinstance(idx["key"], dict) else []
-            for other in ns_indexes:
-                if other["name"] == idx["name"]:
-                    continue
-                other_keys = list(other["key"].items()) if isinstance(other["key"], dict) else []
-                # idx is redundant if it's a prefix of other
-                if len(keys) < len(other_keys) and keys == other_keys[:len(keys)]:
-                    idx["redundant"] = True
-                    idx["redundant_of"] = other["name"]
-                    break
+    _mark_redundant_indexes(all_indexes, namespaces)
 
     # Save outputs
     cdir = Path(output_dir) / cluster_name
@@ -1867,8 +1922,11 @@ def _observed_window(cluster_metrics, granularity=None):
     }
 
 
-def generate_report(all_metrics, processes, granularity, period, output_dir, pct=95, cluster_names=None, label=None, collstats=None):
-    """Generate one JSON sizing report per cluster."""
+def generate_report(all_metrics, processes, granularity, period, output_dir, pct=95, cluster_names=None, label=None, collstats=None, report_extra=None):
+    """Generate one JSON sizing report per cluster.
+
+    ``report_extra`` is merged into every report (the --source ec2 path uses it
+    to record where each section's data came from)."""
     output_dir = Path(output_dir)
     pk = f"p{pct}"
 
@@ -1928,12 +1986,12 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
             proc_reports.append({
                 "host": host_port,
                 "type": data["type"],
-                "cpu": {
+                "cpu": _with_optional({
                     "user_normalized": _s(fm("PROCESS_CPU_USER")),
                     "steal": _s(fm("SYSTEM_CPU_STEAL")),
                     "kernel": _s(fm("PROCESS_CPU_KERNEL")),
                     "iowait": _s(fm("SYSTEM_CPU_IOWAIT")),
-                },
+                }, total_utilization_pct=_s(fm(_EC2_CPU_METRIC))),
                 "memory": {
                     "system_used": _s(fm("SYSTEM_MEMORY_USED")),
                     "system_free": _s(fm("SYSTEM_MEMORY_FREE")),
@@ -2029,6 +2087,8 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
             "processes": proc_reports,
             "collection_inventory": coll_inventory,
         }
+        if report_extra:
+            report.update(report_extra)
 
         suffix = f"-{label}" if label else ""
         cluster_dir = output_dir / cluster_name
@@ -2037,6 +2097,8 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
         with open(report_path, "w") as f:
             json.dump(report, f, indent=2)
         print(f"Report saved: {report_path}")
+        _stamp_cache_used_into_collstats(cluster_dir, proc_reports, pct, granularity,
+                                         period, report["observed_window"])
 
         # Generate markdown sizing summary
         md_path = cluster_dir / f"{cluster_name}{suffix}-sizing-summary.md"
@@ -2046,6 +2108,64 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
         report_paths.append(report_path)
 
     return report_paths
+
+
+CACHE_SATURATION_RATIO = 0.98
+
+
+def _stamp_cache_used_into_collstats(cluster_dir, proc_reports, pct, granularity, period, observed_window):
+    """Copy the windowed WiredTiger cache figure into collstats.json (#205).
+
+    collstats.json otherwise carries only the instantaneous serverStatus cache
+    reading, so a consumer reading it alone had no cache measurement. Writes a
+    top-level ``cache_used_gb`` (decimal GB, 1e9 bytes: the max across
+    data-bearing nodes of the CACHE_USED_BYTES percentile) and a
+    ``cache_used_gb_source`` object saying where it came from. No-op when
+    collstats.json is absent or no node reported the metric.
+    """
+    path = Path(cluster_dir) / "collstats.json"
+    if not path.exists():
+        return None
+    pk = f"p{pct}"
+    nodes = {}
+    saturated = 0
+    for pr in proc_reports:
+        if "config" in str(pr.get("host", "")).lower():
+            continue
+        cu = (pr.get("wiredtiger") or {}).get("cache_used_bytes") or {}
+        v = cu.get(pk)
+        if not v or v <= 0:
+            continue
+        nodes[pr["host"]] = round(v / 1e9, 3)
+        peak = cu.get("max") or 0
+        if peak > 0 and v / peak >= CACHE_SATURATION_RATIO:
+            saturated += 1
+    if not nodes:
+        return None
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    data["cache_used_gb"] = max(nodes.values())
+    data["cache_used_gb_source"] = {
+        "metric": "Atlas CACHE_USED_BYTES",
+        "statistic": pk,
+        "aggregation": "max across data-bearing nodes",
+        "unit": "GB (1e9 bytes)",
+        "granularity": granularity,
+        "period": period,
+        "observed_window": observed_window,
+        "per_node_gb": nodes,
+        # The percentile at or near the series max means the cache ran full,
+        # so the figure is a lower bound on demand, not a measurement of it.
+        "saturated_nodes": saturated,
+    }
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+    return data["cache_used_gb"]
 
 
 def _generate_sizing_summary_md(report, md_path, pct):
@@ -2098,6 +2218,14 @@ def _generate_sizing_summary_md(report, md_path, pct):
           f"**Type:** {prof.get('cluster_type') or '?'} | "
           f"**Region:** {prof.get('region_name') or '?'} | "
           f"**MongoDB:** {prof.get('mongodb_version') or '?'}")
+    srcs = report.get("metric_sources")
+    if srcs:
+        a(f"")
+        a(f"**Data sources (--source {report.get('source', '?')}):** sections below mix windows, so read each figure against its source.")
+        for name, d in srcs.items():
+            a(f"- **{name}:** {d.get('detail')}")
+        for m in report.get("unsampled_members") or []:
+            a(f"- **Not sampled:** {m.get('address')} ({m.get('error')}); CloudWatch figures only for that node.")
     a(f"")
 
     # --- 1. CPU ---
@@ -2106,7 +2234,8 @@ def _generate_sizing_summary_md(report, md_path, pct):
     a(f"")
     a(f"| Metric | Avg | {pcol} | Max |")
     a(f"|--------|-----|-----|-----|")
-    for label, key in [("User", "user_normalized"), ("Kernel", "kernel"), ("IOWait", "iowait")]:
+    for label, key in [("User", "user_normalized"), ("Kernel", "kernel"), ("IOWait", "iowait"),
+                       ("Total (EC2 CPUUtilization)", "total_utilization_pct")]:
         d = cpu.get(key)
         if d:
             a(f"| {label} | {v(d)}% | {vp(d)}% | {v(d,'max')}% |")
@@ -2230,6 +2359,11 @@ def _generate_sizing_summary_md(report, md_path, pct):
     cu = wt.get("cache_used_bytes")
     if cu:
         a(f"| Cache Used | {(cu.get('avg',0) or 0)/1024/1024:,.1f} MB | {(cu.get(pk,0) or 0)/1024/1024:,.1f} MB | {(cu.get('max',0) or 0)/1024/1024:,.1f} MB |")
+    cs_ = report.get("cache_sampled")
+    if not cu and cs_:
+        a(f"| Cache in use (max of {cs_.get('readings')} readings over {cs_.get('span_seconds')}s, not a {pcol}) | | | {(cs_.get('gb') or 0)*1000:,.1f} MB |")
+        if cs_.get("cache_configured_gb"):
+            a(f"| Cache configured | | | {cs_['cache_configured_gb']*1000:,.1f} MB |")
     cf = wt.get("cache_fill_ratio_pct")
     if cf:
         a(f"| Cache Fill Ratio | {v(cf)}% | {vp(cf)}% | {v(cf,'max')}% |")
@@ -2919,7 +3053,7 @@ def _preflight_check(args):
             _fail(
                 f"--compat requires MongoDB 5.0+. Detected version: {mongo_version_full}.\n"
                 "  For older versions, run compat-tool separately with --directory or --file:\n"
-                "    python3 compat.py --directory /path/to/source --version 8.0"
+                "    python3 compat.py --directory /path/to/source"
             )
         print(f"        OK: MongoDB {mongo_version_full} supports --compat.")
     else:
@@ -3489,7 +3623,9 @@ def _ec2_preflight(args):
     # Determine output dir early for logging
     out = args.output or f"metrics-collector-{datetime.now().strftime('%Y%m%d-%H%M')}"
     Path(out).mkdir(parents=True, exist_ok=True)
-    _init_log(out)
+    # Same place as the Atlas path: inside the cluster directory, so the log
+    # travels in the handoff zip.
+    _init_log(Path(out) / args.cluster)
     _log(f"metrics_collector.py {__version__} --source ec2 preflight starting")
 
     # Gate 1
@@ -3597,11 +3733,16 @@ _EC2_DOCDB_UNSUPPORTED_OPERATORS = {
 }
 
 
-def _ec2_collect_mongo_sampling(client, samples=1):
+def _ec2_collect_mongo_sampling(client, samples=1, members=None):
     """Take N delta snapshots of serverStatus, _EC2_DELTA_INTERVAL_SECONDS apart.
 
     Returns dict with per-sample and aggregate opcounter/network rates.
     samples=1 → one delta (60s wall-clock). samples=3 → three deltas for variance.
+
+    ``members`` is an optional list of {"address", "type", "client"} from
+    _ec2_member_clients. Each member is snapshotted at the same instants as the
+    main client, so per-node figures for the sizing report share one window.
+    Results go under ``members`` (additive; the top-level shape is unchanged).
     """
     intervals = max(1, samples)
     _log(f"collect_mongo_sampling: taking {intervals} delta(s) at "
@@ -3650,7 +3791,26 @@ def _ec2_collect_mongo_sampling(client, samples=1):
             d[f"network_{k}_per_sec"] = round(max(0, b - a) / interval, 2)
         return d
 
+    member_state = []
+    for m in members or []:
+        member_state.append({"address": m["address"], "type": m["type"], "client": m["client"],
+                             "snapshots": [], "deltas": [], "errors": []})
+
+    def _snapshot_members():
+        lags = _ec2_replication_lag(client)
+        for ms in member_state:
+            try:
+                ss = ms["client"].admin.command("serverStatus")
+                snap = _ec2_server_snapshot(ss)
+                if ms["address"] in lags:
+                    snap["repl_lag_sec"] = lags[ms["address"]]
+                ms["snapshots"].append(snap)
+            except Exception as e:
+                ms["errors"].append(f"{type(e).__name__}: {e}")
+                _log(f"member snapshot failed on {ms['address']}: {e}", "warning")
+
     snapshots = [_snapshot()]
+    _snapshot_members()
     deltas = []
     for i in range(intervals):
         with _Timer(f"mongo_sample delta {i+1}/{intervals}"):
@@ -3658,6 +3818,11 @@ def _ec2_collect_mongo_sampling(client, samples=1):
             snap = _snapshot()
             snapshots.append(snap)
             deltas.append(_delta(snapshots[-2], snapshots[-1], _EC2_DELTA_INTERVAL_SECONDS))
+            _snapshot_members()
+    for ms in member_state:
+        sn = ms["snapshots"]
+        for a, b in zip(sn, sn[1:]):
+            ms["deltas"].append(_delta(a, b, _EC2_DELTA_INTERVAL_SECONDS))
 
     aggregate = {}
     if deltas:
@@ -3669,13 +3834,341 @@ def _ec2_collect_mongo_sampling(client, samples=1):
                 "max": values[-1],
             }
 
-    return {
+    out = {
         "delta_interval_seconds": _EC2_DELTA_INTERVAL_SECONDS,
         "samples": intervals,
         "snapshots": snapshots,
         "deltas": deltas,
         "aggregate": aggregate,
     }
+    if member_state:
+        out["members"] = [{k: v for k, v in ms.items() if k != "client"} for ms in member_state]
+    return out
+
+
+def _ec2_server_snapshot(ss):
+    """The serverStatus fields the EC2 sizing report reads, from one reading."""
+    wt = (ss.get("wiredTiger") or {}).get("cache", {})
+    return {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "uptime": ss.get("uptime", 0),
+        "opcounters": dict(ss.get("opcounters", {})),
+        "network": {k: (ss.get("network") or {}).get(k, 0) for k in ("bytesIn", "bytesOut", "numRequests")},
+        "connections": {k: (ss.get("connections") or {}).get(k, 0) for k in ("current", "available", "totalCreated")},
+        "wt_cache": {
+            "bytes_currently_in_cache": wt.get("bytes currently in the cache", 0),
+            "maximum_bytes_configured": wt.get("maximum bytes configured", 0),
+            "tracked_dirty_bytes": wt.get("tracked dirty bytes in the cache", 0),
+        },
+        "mem": {"resident_mb": (ss.get("mem") or {}).get("resident", 0),
+                "virtual_mb": (ss.get("mem") or {}).get("virtual", 0)},
+    }
+
+
+def _ec2_replication_lag(client):
+    """Seconds each replica-set member trails the primary, from one
+    replSetGetStatus reading. {} when not a replica set or not permitted."""
+    try:
+        st = client.admin.command("replSetGetStatus")
+    except Exception:
+        return {}
+    members = st.get("members", [])
+    prim = next((m for m in members if m.get("stateStr") == "PRIMARY"), None)
+    if not prim or not prim.get("optimeDate"):
+        return {}
+    out = {}
+    for m in members:
+        od = m.get("optimeDate")
+        if od and m.get("stateStr") in ("PRIMARY", "SECONDARY"):
+            out[m.get("name")] = max(0.0, (prim["optimeDate"] - od).total_seconds())
+    return out
+
+
+def _ec2_member_addresses(client, topology):
+    """host:port of every data-bearing member (ports kept, unlike the
+    hostname list used for EC2 discovery)."""
+    addrs = []
+    try:
+        if topology == "replicaset":
+            for m in client.admin.command("replSetGetStatus").get("members", []):
+                if m.get("stateStr") in ("PRIMARY", "SECONDARY") and m.get("name"):
+                    addrs.append(m["name"])
+        elif topology == "sharded":
+            for sh in client["config"]["shards"].find({}, {"host": 1}):
+                hs = sh.get("host", "")
+                hs = hs.split("/", 1)[1] if "/" in hs else hs
+                addrs.extend(h.strip() for h in hs.split(",") if h.strip())
+        elif client.address:
+            addrs.append("%s:%s" % client.address)
+    except Exception as e:
+        _log(f"member address discovery failed: {e}", "warning")
+    return [a if ":" in a else f"{a}:27017" for a in addrs]
+
+
+def _ec2_member_clients(uri, addresses, topology="replicaset"):
+    """One direct connection per member, reusing the URI's credentials and
+    options. Members that cannot be reached or authenticated are returned with
+    ``client: None`` and a reason, never silently dropped. On a sharded
+    cluster a user created through mongos does not exist on the shards, so
+    direct connections there usually fail authentication."""
+    import pymongo
+    from urllib.parse import urlparse
+    parsed = urlparse(uri.replace("mongodb+srv://", "mongodb://"))
+    creds = f"{parsed.username}:{parsed.password}@" if parsed.username else ""
+    params = [q for q in (parsed.query or "").split("&")
+              if q and not q.lower().startswith(("replicaset=", "directconnection="))]
+    if uri.startswith("mongodb+srv://") and not any(q.lower().startswith(("tls=", "ssl=")) for q in params):
+        params.append("tls=true")  # SRV implies TLS; a plain URI must say so
+    out = []
+    for addr in addresses:
+        node_uri = f"mongodb://{creds}{addr}/?directConnection=true" + "".join("&" + q for q in params)
+        try:
+            c = pymongo.MongoClient(node_uri, serverSelectionTimeoutMS=10000,
+                                    appname=f"metrics_collector/{__version__} (source=ec2,member)")
+            hello = c.admin.command("hello")
+            if hello.get("isWritablePrimary") or hello.get("ismaster"):
+                kind = "PRIMARY"
+            elif hello.get("secondary"):
+                kind = "SECONDARY"
+            else:
+                c.close()
+                continue  # arbiters and hidden non-data members carry no workload
+            prefix = "SHARD" if topology == "sharded" else "REPLICA"
+            c.admin.command("serverStatus")  # proves the user can read it here
+            out.append({"address": addr, "type": f"{prefix}_{kind}", "client": c})
+        except Exception as e:
+            _log(f"direct connection to member {addr} failed: {e}", "warning")
+            out.append({"address": addr, "type": "UNKNOWN", "client": None, "error": str(e)})
+    return out
+
+
+def _ec2_db_totals(client):
+    """Sum of dbStats over user databases (excludes admin, local, config)."""
+    tot = {"data_size": 0, "storage_size": 0, "index_size": 0}
+    try:
+        for name in client.list_database_names():
+            if name in ("admin", "local", "config"):
+                continue
+            st = client[name].command("dbStats")
+            tot["data_size"] += st.get("dataSize", 0) or 0
+            tot["storage_size"] += st.get("storageSize", 0) or 0
+            tot["index_size"] += st.get("indexSize", 0) or 0
+    except Exception as e:
+        _log(f"dbStats totals failed: {e}", "warning")
+        return None
+    return tot
+
+
+_EC2_CPU_METRIC = "EC2_CPU_UTILIZATION"
+
+
+def _with_optional(d, **optional):
+    """Return ``d`` plus each optional key whose value is not None, so a field
+    one source cannot fill does not appear as null in the other's report."""
+    d = dict(d)
+    d.update({k: v for k, v in optional.items() if v is not None})
+    return d
+
+
+def _iso_z(ts):
+    """Normalise a timestamp string to the Atlas 'YYYY-MM-DDTHH:MM:SSZ' form."""
+    try:
+        t = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        return t.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return str(ts)
+
+
+def _measurement(name, points):
+    return {"name": name, "dataPoints": [{"timestamp": _iso_z(t), "value": v} for t, v in points if v is not None]}
+
+
+def _ec2_cloudwatch_measurements(inst_cw, period_seconds):
+    """Atlas-shaped measurements from one instance's CloudWatch series.
+
+    EBS volumes publish 1-minute data points, so the 5-minute ``Average`` of
+    VolumeReadOps/VolumeWriteOps is operations per minute and IOPS is that
+    divided by 60 (AWS docs: IOPS = operations in the period / seconds in the
+    period). Latency per operation is TotalTime / Ops; the ratio of two
+    Averages over the same data points equals the ratio of their Sums. All
+    attached volumes are summed, so these are per-instance figures.
+    """
+    out = []
+    cpu = (inst_cw.get("ec2_metrics") or {}).get("CPUUtilization") or {}
+    if cpu.get("values"):
+        out.append(_measurement(_EC2_CPU_METRIC, zip(cpu["timestamps"], cpu["values"])))
+
+    sums = {}
+    for vol in (inst_cw.get("ebs_metrics") or {}).values():
+        for metric in ("VolumeReadOps", "VolumeWriteOps", "VolumeTotalReadTime",
+                       "VolumeTotalWriteTime", "VolumeQueueLength"):
+            ser = vol.get(metric) or {}
+            for t, v in zip(ser.get("timestamps", []), ser.get("values", [])):
+                sums.setdefault(metric, {}).setdefault(t, 0.0)
+                sums[metric][t] += v or 0.0
+    per_min = 60.0
+    for src, name in (("VolumeReadOps", "DISK_PARTITION_IOPS_READ"),
+                      ("VolumeWriteOps", "DISK_PARTITION_IOPS_WRITE")):
+        ser = sums.get(src) or {}
+        if ser:
+            out.append(_measurement(name, sorted((t, v / per_min) for t, v in ser.items())))
+    for ops, tm, name in (("VolumeReadOps", "VolumeTotalReadTime", "DISK_PARTITION_LATENCY_READ"),
+                          ("VolumeWriteOps", "VolumeTotalWriteTime", "DISK_PARTITION_LATENCY_WRITE")):
+        o, t_ = sums.get(ops) or {}, sums.get(tm) or {}
+        pts = sorted((t, t_[t] / o[t] * 1000.0) for t in o if o[t] > 0 and t in t_)
+        if pts:
+            out.append(_measurement(name, pts))
+    q = sums.get("VolumeQueueLength") or {}
+    if q:
+        out.append(_measurement("DISK_QUEUE_DEPTH", sorted(q.items())))
+    return out
+
+
+def _ec2_server_measurements(snapshots, deltas, db_totals):
+    """Atlas-shaped measurements from serverStatus readings of one member."""
+    out = []
+    if deltas and len(snapshots) > 1:
+        ts = [sn["ts"] for sn in snapshots[1:]]
+        for op, name in (("insert", "OPCOUNTER_INSERT"), ("query", "OPCOUNTER_QUERY"),
+                         ("update", "OPCOUNTER_UPDATE"), ("delete", "OPCOUNTER_DELETE"),
+                         ("getmore", "OPCOUNTER_GETMORE")):
+            out.append(_measurement(name, zip(ts, [d.get(f"{op}_per_sec") for d in deltas])))
+    if snapshots:
+        out.append(_measurement("CONNECTIONS", [(sn["ts"], sn["connections"].get("current")) for sn in snapshots]))
+        out.append(_measurement("MEMORY_RESIDENT", [(sn["ts"], sn["mem"].get("resident_mb")) for sn in snapshots]))
+        out.append(_measurement("MEMORY_VIRTUAL", [(sn["ts"], sn["mem"].get("virtual_mb")) for sn in snapshots]))
+        lag = [(sn["ts"], sn.get("repl_lag_sec")) for sn in snapshots if sn.get("repl_lag_sec") is not None]
+        if lag:
+            out.append(_measurement("OPLOG_SLAVE_LAG_MASTER_TIME", lag))
+        if db_totals:
+            last = snapshots[-1]["ts"]
+            out.append(_measurement("DB_DATA_SIZE_TOTAL", [(last, db_totals["data_size"])]))
+            out.append(_measurement("DB_STORAGE_TOTAL", [(last, db_totals["storage_size"])]))
+            out.append(_measurement("DB_INDEX_SIZE_TOTAL", [(last, db_totals["index_size"])]))
+    return [m for m in out if m["dataPoints"]]
+
+
+def _ec2_build_report_inputs(cluster, ctx, cw, sampling, db_totals, unsampled=None):
+    """Convert --source ec2 artifacts into the (all_metrics, processes) shape
+    generate_report() consumes, plus the provenance block for the report.
+
+    Only metrics with a genuine EC2 equivalent are produced. System memory,
+    swap, CPU user/kernel split, cache percentiles, tickets, query targeting and
+    oplog rate have no source here (CloudWatch does not see inside the OS or
+    WiredTiger), so those report fields stay empty rather than approximated.
+    """
+    host_to_ip = dict(zip(ctx.get("hostnames") or [], ctx.get("private_ips") or []))
+    ip_to_inst = {i.get("private_ip"): i for i in ctx.get("instances") or []}
+    cw_insts = (cw or {}).get("instances") or {}
+    period = (cw or {}).get("period_seconds", 300)
+
+    members = list((sampling or {}).get("members") or [])
+    if not members:
+        # No per-member sampling (e.g. every direct connection failed): fall
+        # back to the main client's readings as a single node.
+        members = [{"address": (sampling or {}).get("sampled_from") or "primary:27017",
+                    "type": "REPLICA_PRIMARY", "snapshots": (sampling or {}).get("snapshots") or [],
+                    "deltas": (sampling or {}).get("deltas") or []}]
+
+    all_metrics, processes, seen_inst = {}, [], set()
+    for m in members + [dict(u, snapshots=[], deltas=[]) for u in (unsampled or [])]:
+        host, _, port = m["address"].rpartition(":")
+        ip = host_to_ip.get(host, host)
+        inst = ip_to_inst.get(ip)
+        batches = {"server_status": _ec2_server_measurements(m.get("snapshots") or [], m.get("deltas") or [], db_totals)}
+        if inst and inst["instance_id"] in cw_insts:
+            batches["cloudwatch"] = _ec2_cloudwatch_measurements(cw_insts[inst["instance_id"]], period)
+            seen_inst.add(inst["instance_id"])
+        all_metrics[m["address"]] = {"cluster": cluster, "type": m["type"], "batches": batches}
+        processes.append({"hostname": host, "port": int(port or 27017), "typeName": m["type"]})
+
+    snaps = (sampling or {}).get("snapshots") or []
+    extra = {
+        "source": "ec2",
+        "metric_sources": {
+            "CPU and disk I/O": {
+                "source": "CloudWatch AWS/EC2 CPUUtilization + AWS/EBS (all attached volumes)",
+                "start": (cw or {}).get("start"), "end": (cw or {}).get("end"),
+                "period_seconds": period,
+                "detail": (f"CloudWatch, {period}s points, requested window {(cw or {}).get('start')} to "
+                           f"{(cw or {}).get('end')} (see Period observed for the data actually returned); "
+                           "CPU is total instance utilisation (no user/kernel split); IOPS and latency "
+                           "are summed over every attached EBS volume."),
+            },
+            "Operations, connections, memory, replication lag": {
+                "source": "serverStatus / replSetGetStatus on each member",
+                "readings": len(snaps),
+                "start": snaps[0]["ts"] if snaps else None, "end": snaps[-1]["ts"] if snaps else None,
+                "detail": (f"{len(snaps)} serverStatus readings per member, "
+                           f"{_EC2_DELTA_INTERVAL_SECONDS}s apart ({max(len(snaps) - 1, 0)} delta(s)); "
+                           "a short sample, not a multi-day percentile. Raise --samples for variance."),
+            },
+            "Storage": {
+                "source": "dbStats summed over user databases",
+                "detail": "dbStats at collection time, summed over user databases.",
+            },
+        },
+    }
+    if unsampled:
+        extra["unsampled_members"] = [{"address": u["address"], "error": u.get("error")} for u in unsampled]
+    missing = [i["instance_id"] for i in ctx.get("instances") or [] if i["instance_id"] not in seen_inst]
+    if missing:
+        extra["instances_without_member"] = missing
+    return all_metrics, processes, extra
+
+
+def _ec2_cluster_profile(ctx):
+    types = sorted({i.get("instance_type") for i in ctx.get("instances") or [] if i.get("instance_type")})
+    return {
+        "cluster_type": {"replicaset": "REPLICASET", "sharded": "SHARDED"}.get(ctx.get("topology"),
+                                                                              (ctx.get("topology") or "").upper()),
+        "instance_size": ", ".join(types) or None,
+        "region_name": ctx.get("aws_region"),
+        "electable_node_count": len(ctx.get("instances") or []),
+        "mongodb_version": ".".join(str(x) for x in ctx.get("version") or []) or None,
+        "source": "ec2_describe_instances",
+    }
+
+
+def _ec2_stamp_sampled_cache(cluster_dir, sampling, sampled_from=None):
+    """Write the WiredTiger cache readings taken by --samples into collstats.json.
+
+    --source ec2 has no windowed cache series (CloudWatch does not expose
+    WiredTiger internals), so the only cache figure is the instantaneous
+    serverStatus reading at each sample. It is written as ``cache_sampled_gb``
+    rather than ``cache_used_gb`` because it is a different, weaker statistic:
+    the max of a few readings over minutes, not a percentile over 14 days.
+    A consumer that wants the Atlas figure must not silently take this one.
+    """
+    path = Path(cluster_dir) / "collstats.json"
+    snaps = (sampling or {}).get("snapshots") or []
+    readings = [sn.get("wt_cache", {}).get("bytes_currently_in_cache") or 0 for sn in snaps]
+    readings = [r for r in readings if r > 0]
+    if not path.exists() or not readings:
+        _log("no WiredTiger cache readings to stamp into collstats.json", "warning")
+        return None
+    with open(path) as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        return None
+    configured = max((sn.get("wt_cache", {}).get("maximum_bytes_configured") or 0) for sn in snaps)
+    data["cache_sampled_gb"] = round(max(readings) / 1e9, 3)
+    data["cache_sampled_gb_source"] = {
+        "metric": "serverStatus wiredTiger.cache 'bytes currently in the cache'",
+        "statistic": "max of instantaneous readings",
+        "unit": "GB (1e9 bytes)",
+        "readings": len(readings),
+        "span_seconds": (sampling.get("samples") or 0) * (sampling.get("delta_interval_seconds") or 0),
+        "first_reading": snaps[0].get("ts"),
+        "last_reading": snaps[-1].get("ts"),
+        "sampled_from": sampled_from,
+        "cache_configured_gb": round(configured / 1e9, 3) if configured else None,
+        "note": ("Instantaneous readings over the --samples span, not a windowed percentile. "
+                 "Not interchangeable with cache_used_gb from the Atlas path."),
+    }
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+    return data["cache_sampled_gb"]
 
 
 def _ec2_pull_cloudwatch(cw_client, instances, days=None):
@@ -4101,7 +4594,7 @@ def _flatten_index_issues(issues):
     return flat
 
 
-def _append_index_compat_to_summary(cluster_dir, target_version="8.0", max_rows=50):
+def _append_index_compat_to_summary(cluster_dir, target_version=None, max_rows=50):
     """Append an Index Compatibility section to the sizing summary markdown.
 
     The summary is written by _generate_sizing_summary_md during generate_report,
@@ -4116,6 +4609,7 @@ def _append_index_compat_to_summary(cluster_dir, target_version="8.0", max_rows=
     No-ops when no summary exists (the --source ec2 path does not produce one)
     or when the section is already present (idempotent on re-run).
     """
+    target_version = target_version or _compat_version_label()
     cluster_dir = Path(cluster_dir)
     compat_path = cluster_dir / "index_compat.json"
     if not compat_path.exists():
@@ -4220,7 +4714,7 @@ def _append_index_compat_to_summary(cluster_dir, target_version="8.0", max_rows=
     return written
 
 
-def _run_index_compat_scan(uri, cluster_dir, target_version="8.0"):
+def _run_index_compat_scan(uri, cluster_dir, target_version=None):
     """Run index-tool against the live cluster and persist index_compat.json.
 
     Raises on dump failure so _Step records it and main() exits 2. A degraded
@@ -4262,6 +4756,9 @@ def _run_index_compat_scan(uri, cluster_dir, target_version="8.0"):
 
 def _write_index_compat_report(issues, dumped, cluster_dir, target_version, source):
     """Shared by the live scan and --index-compat-from."""
+    # index-tool has no version flag; label with the version compat-tool
+    # defaults to, so both compatibility outputs name the same target.
+    target_version = target_version or _compat_version_label()
     flat = _flatten_index_issues(issues)
 
     by_type = {}
@@ -4325,8 +4822,42 @@ def _write_index_compat_report(issues, dumped, cluster_dir, target_version, sour
     return report
 
 
-def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames):
-    """Run the DocumentDB 8.0 compat scan for --source ec2. Same pattern as
+_COMPAT_DEFAULT_VERSION = None
+
+
+def _compat_default_version(compat_script=None):
+    """Return the DocumentDB version compat-tool checks when called without
+    --version (its default, which tracks the latest release), read from its
+    own --help so this tool never pins a stale target. None if unreadable.
+
+    The scan itself is always run WITHOUT --version; this value only labels
+    output files and report headings.
+    """
+    global _COMPAT_DEFAULT_VERSION
+    if _COMPAT_DEFAULT_VERSION is not None:
+        return _COMPAT_DEFAULT_VERSION
+    try:
+        if compat_script is None:
+            compat_script = _resolve_documentdb_tool(("compat-tool", "compat.py"))
+        r = subprocess.run([sys.executable, str(compat_script), "--help"],
+                           capture_output=True, text=True, timeout=60)
+        flat = " ".join((r.stdout or "").split())
+        m = re.search(r"--version \{[^}]*\}\s+[^\[]*\[default:\s*([0-9A-Za-z.]+)\s*\]", flat)
+        if m:
+            _COMPAT_DEFAULT_VERSION = m.group(1)
+    except Exception as e:
+        _log(f"could not read compat-tool default version: {e}", "warning")
+    return _COMPAT_DEFAULT_VERSION
+
+
+def _compat_version_label(compat_script=None):
+    """Version string for file names and headings; 'latest' if unreadable."""
+    return _compat_default_version(compat_script) or "latest"
+
+
+def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames, primary_host=None):
+    """Run the DocumentDB compat scan for --source ec2 against compat-tool's
+    default (latest) target version. Same pattern as
     atlas compat block but takes explicit hostnames (already discovered by
     preflight) instead of re-running hello.
     """
@@ -4357,18 +4888,20 @@ def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames):
 
         cdir = Path(output_dir)
         cdir.mkdir(parents=True, exist_ok=True)
-        version = "8.0"
+        version = _compat_version_label(compat_script)
         all_output = []
+        per_node = {}
         _log(f"Running compat scan (DocumentDB {version}) against {len(node_uris)} node(s)...")
 
         for node_name, node_uri in node_uris:
             _log(f"compat -> {node_name}")
             try:
                 result = subprocess.run(
-                    [sys.executable, str(compat_script), "--uri", node_uri, "--version", version],
+                    [sys.executable, str(compat_script), "--uri", node_uri],
                     capture_output=True, text=True, timeout=300,
                 )
                 all_output.append(f"--- Node: {node_name} ---\n{result.stdout}")
+                per_node[node_name] = _parse_compat_uri_output(result.stdout)
                 if result.stderr:
                     all_output.append(f"--- STDERR ({node_name}) ---\n{result.stderr}")
             except subprocess.TimeoutExpired:
@@ -4382,7 +4915,80 @@ def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames):
         with open(compat_out, "w") as f:
             f.write("\n".join(all_output))
         _log(f"compat scan saved to {compat_out}")
+        usage = _ec2_operator_usage(per_node, version, cluster_name, primary_host)
+        with open(cdir / "operator_usage.json", "w") as f:
+            json.dump(usage, f, indent=2)
+        _log(f"operator usage saved to {cdir / 'operator_usage.json'}")
         return {"path": str(compat_out), "nodes_scanned": len(node_uris)}
+
+
+def _parse_compat_uri_output(stdout):
+    """{"unsupported": {op: n}, "supported": {op: n}} from compat.py output.
+    Entry lines look like '  $add | executed 14 time(s)' (--uri) or
+    '  $facet | found 1 time(s)' (--file)."""
+    out = {"unsupported": {}, "supported": {}}
+    section = None
+    for line in (stdout or "").splitlines():
+        st = line.strip()
+        if st.startswith("The following") and "unsupported operators" in st:
+            section = "unsupported"
+            continue
+        if st.startswith("The following") and "supported operators" in st:
+            section = "supported"
+            continue
+        if not st:
+            section = None
+            continue
+        if section and st.startswith("$") and "|" in st:
+            op, rest = (x.strip() for x in st.split("|", 1))
+            m = re.search(r"(\d+)\s+time", rest)
+            out[section][op] = int(m.group(1)) if m else 0
+    return out
+
+
+def _ec2_operator_usage(per_node, version, cluster_name, primary_host=None):
+    """operator_usage.json for --source ec2, same top-level keys as the Atlas
+    file. Counts come from the primary (as on Atlas); every node's counts are
+    kept under per_node because the compat scan ran on each member."""
+    host = primary_host if primary_host in per_node else (next(iter(per_node), None))
+    base = per_node.get(host) or {"unsupported": {}, "supported": {}}
+    uns = sorted(({"operator": k, "executions": v} for k, v in base["unsupported"].items()),
+                 key=lambda x: -x["executions"])
+    sup = sorted(({"operator": k, "executions": v} for k, v in base["supported"].items()),
+                 key=lambda x: -x["executions"])
+    tu, ts_ = sum(x["executions"] for x in uns), sum(x["executions"] for x in sup)
+    total = tu + ts_
+
+    def _pct(part):
+        return round(100.0 * part / total, 4) if total > 0 else 0.0
+    return {
+        "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "cluster": cluster_name,
+        "target_version": version,
+        "topology": "replica_set",
+        "sampled_from": host or "unknown",
+        "source": "compat.py --uri (db.serverStatus() operator counters) on each member",
+        "classifier": "amazon-documentdb-tools compat.py --uri (delegated)",
+        "coverage_note": ("Counts are cumulative since each member last restarted. Top-level "
+                          "figures are the primary's; per_node holds every member scanned."),
+        "summary": {
+            "total_operators_executed": len(uns) + len(sup),
+            "total_operators_known_to_server": None,
+            "total_executions": total,
+            "unsupported_operators": len(uns),
+            "unsupported_executions": tu,
+            "unsupported_execution_pct": _pct(tu),
+            "supported_operators": len(sup),
+            "supported_executions": ts_,
+            "supported_execution_pct": _pct(ts_),
+            "unclassified_operators": 0,
+            "unclassified_executions": 0,
+        },
+        "unsupported": uns,
+        "supported": sup,
+        "unclassified": [],
+        "per_node": per_node,
+    }
 
 
 def _ec2_write_output_zip(cluster_dir_str, cluster_name):
@@ -4443,10 +5049,28 @@ def _ec2_collect_pipeline(args, ctx):
 
     # 2. MongoDB serverStatus sampling (60s delta)
     samples = getattr(args, "samples", 1)
+    members, unsampled = [], []
+    with _Step("connect to each member for per-node sampling"):
+        found = _ec2_member_clients(args.uri, _ec2_member_addresses(client, ctx["topology"]),
+                                    ctx["topology"])
+        members = [m for m in found if m.get("client")]
+        unsampled = [m for m in found if not m.get("client")]
+        _log(f"per-member sampling: {len(members)} reachable, {len(unsampled)} not")
+
+    sampling = {}
     with _Step(f"mongo_sampling {samples} sample(s) ({samples * _EC2_DELTA_INTERVAL_SECONDS}s wall-clock)"):
-        sampling = _ec2_collect_mongo_sampling(client, samples=samples)
+        sampling = _ec2_collect_mongo_sampling(client, samples=samples, members=members)
+        try:
+            sampling["sampled_from"] = "%s:%s" % client.address if client.address else None
+        except Exception:
+            sampling["sampled_from"] = None
         with open(cluster_dir / "mongo_sampling.json", "w") as f:
             json.dump(sampling, f, indent=2, default=str)
+    for m in members:
+        m["client"].close()
+
+    # Defaults so a failed step below leaves the later steps something to work with.
+    cw, cs, all_metrics = {}, None, {}
 
     # 3. CloudWatch pull (14 days of EC2 + EBS metrics for all instances)
     with _Step(f"pull_cloudwatch {_EC2_CLOUDWATCH_DAYS_DEFAULT} days"):
@@ -4474,8 +5098,35 @@ def _ec2_collect_pipeline(args, ctx):
         # _collect_collstats_via_uri detects topology internally and dispatches to
         # either _collect_collstats_via_mongos_sharded (mongos + shards aggregation)
         # or _collect_collstats_single_node (RS/standalone)
-        _collect_collstats_via_uri(namespaces=namespaces, output_dir=output_dir,
-                                    cluster_name=args.cluster)
+        cs = _collect_collstats_via_uri(namespaces=namespaces, output_dir=output_dir,
+                                         cluster_name=args.cluster)
+
+    cache_sampled = None
+    with _Step("stamp sampled WiredTiger cache into collstats.json"):
+        _ec2_stamp_sampled_cache(cluster_dir, sampling, sampling.get("sampled_from"))
+        try:
+            with open(cluster_dir / "collstats.json") as f:
+                _c = json.load(f)
+            if _c.get("cache_sampled_gb") is not None:
+                cache_sampled = dict(_c.get("cache_sampled_gb_source") or {}, gb=_c["cache_sampled_gb"])
+        except (OSError, ValueError, AttributeError):
+            pass
+
+    # 4b. Sizing report, summary and Cost Estimator CSV -- same writers as the
+    #     Atlas path, fed by an adapter over CloudWatch + serverStatus samples.
+    global _CLUSTER_PROFILE
+    with _Step("generate_report (sizing report + summary)"):
+        all_metrics, procs, extra = _ec2_build_report_inputs(
+            args.cluster, ctx, cw, sampling, _ec2_db_totals(client), unsampled)
+        if cache_sampled:
+            extra["cache_sampled"] = cache_sampled
+        _CLUSTER_PROFILE = _ec2_cluster_profile(ctx)
+        days = _EC2_CLOUDWATCH_DAYS_DEFAULT
+        generate_report(all_metrics, procs, f"PT{cw.get('period_seconds', 300) // 60}M", f"P{days}D",
+                        output_dir, args.percentile, label=f"{days}d",
+                        collstats={args.cluster: cs or []}, report_extra=extra)
+    with _Step("generate_sizing_csv"):
+        generate_sizing_csv(args.uri, {args.cluster: cs or []}, all_metrics, args.percentile, output_dir)
 
     # 5. Profiler cross-ref (read-only; guidance if profiler not enabled)
     with _Step("profiler_data (read-only cross-ref against DocDB unsupported operators)"):
@@ -4485,11 +5136,12 @@ def _ec2_collect_pipeline(args, ctx):
 
     # 6. Compat scan (optional)
     if args.compat:
-        with _Step("compat scan (8.0) via amazon-documentdb-tools"):
+        with _Step("compat scan (compat-tool default version) via amazon-documentdb-tools"):
+            _primary = (sampling.get("sampled_from") or "").rpartition(":")[0] or None
             _ec2_run_compat_scan(args.uri, str(cluster_dir), args.cluster,
-                                  ctx["hostnames"])
+                                  ctx["hostnames"], primary_host=_primary)
 
-        with _Step("index compat scan (8.0) via amazon-documentdb-tools index-tool"):
+        with _Step("index compat scan via amazon-documentdb-tools index-tool"):
             _run_index_compat_scan(args.uri, str(cluster_dir))
 
     # 7. Auto-zip handoff
@@ -4502,14 +5154,14 @@ def _ec2_collect_pipeline(args, ctx):
     print(f"Output directory: {cluster_dir}")
     if zip_info:
         print(f"Handoff zip:      {zip_info['path']} ({zip_info['size_kb']:.1f} KB)")
-    print(f"\nNote: sizing_summary.md and cost_estimator.csv are not yet generated for")
-    print(f"      --source ec2. Adapter work to consume the CloudWatch metric shape for\n"
-          f"      those two outputs is planned for a follow-up release.\n")
+    print(f"\nNote: the sizing summary labels each section with its data source. CPU and")
+    print(f"      disk come from CloudWatch over the full window; operations, connections")
+    print(f"      and memory come from {samples} serverStatus delta(s). Raise --samples for variance.\n")
 
     return {"output_dir": str(cluster_dir), "zip": zip_info}
 
 
-def _rescan_index_compat_from(meta_dir, target_version="8.0"):
+def _rescan_index_compat_from(meta_dir, target_version=None):
     """Re-classify a previously saved index_metadata/ directory.
 
     The stored dump is real server output, so this carries no fidelity caveat --
@@ -4555,7 +5207,8 @@ def main():
     if "--index-compat-from" in sys.argv:
         pre = argparse.ArgumentParser(add_help=False)
         pre.add_argument("--index-compat-from", type=str, required=True)
-        pre.add_argument("--target-version", default="8.0")
+        pre.add_argument("--target-version", default=None,
+                         help="Label only; defaults to compat-tool's default version")
         known, _unknown = pre.parse_known_args()
         _rescan_index_compat_from(known.index_compat_from, known.target_version)
         return
@@ -4677,7 +5330,7 @@ def main():
         if not args.uri:
             print("WARNING: --compat requires --uri to connect to the cluster.")
         else:
-          with _Step("compat scan (8.0)"):
+          with _Step("compat scan (compat-tool default version)"):
             import subprocess
 
             # Step 1: Check MongoDB version first
@@ -4697,8 +5350,8 @@ def main():
                 print(f"   The --uri option uses db.serverStatus() which needs MongoDB 5.0 or later.")
                 print(f"   For older versions, run the compat-tool separately with --directory to scan your source code or log files:")
                 print(f"")
-                print(f"   python3 compat.py --directory /path/to/your/source/code --version 8.0")
-                print(f"   python3 compat.py --file /path/to/mongodb-profiler.log --version 8.0")
+                print(f"   python3 compat.py --directory /path/to/your/source/code")
+                print(f"   python3 compat.py --file /path/to/mongodb-profiler.log")
             else:
                 # Step 2: Find compat-tool
                 # Locate (and clone if needed) amazon-documentdb-tools via the
@@ -4740,7 +5393,7 @@ def main():
                     compat_dir = Path(out) / _URI_CLUSTER_NAME if _URI_CLUSTER_NAME else Path(out)
                     compat_dir.mkdir(parents=True, exist_ok=True)
 
-                    for version in ["8.0"]:
+                    for version in [_compat_version_label(compat_script)]:
                         print(f"\n=== Sampling operators from primary serverStatus ===")
                         counters = {}
                         primary_host = None
@@ -4816,7 +5469,7 @@ def main():
                             print(f"  Executed operators: {len(executed_counters)} of {len(counters)} known to server")
                             with _Timer(f"compat {version} --file"):
                                 result = subprocess.run(
-                                    [sys.executable, str(compat_script), "--file", dump_path, "--version", version],
+                                    [sys.executable, str(compat_script), "--file", dump_path],
                                     capture_output=True, text=True, timeout=300,
                                 )
                             try:
@@ -4942,7 +5595,7 @@ def main():
                                         "# COVERAGE NOTE (sharded): serverStatus reflects mongos-level routing view.\n"
                                         "# Operators evaluated only shard-side (some $function/$accumulator/$where on\n"
                                         "# sharded collections) may not surface here. For full coverage complement with:\n"
-                                        "#   python3 compat.py --directory /path/to/source-code --version 8.0\n"
+                                        "#   python3 compat.py --directory /path/to/source-code\n"
                                     )
                                 f.write("\n")
                                 f.write(result.stdout)
@@ -4983,15 +5636,15 @@ def main():
                                 else:
                                     f.write("No operator counters returned from serverStatus.\n\n")
                                 f.write("For static-analysis coverage, run compat.py against source or profiler:\n")
-                                f.write("  python3 compat.py --directory /path/to/source-code --version 8.0\n")
-                                f.write("  python3 compat.py --file /path/to/mongodb-profiler.log --version 8.0\n")
+                                f.write("  python3 compat.py --directory /path/to/source-code\n")
+                                f.write("  python3 compat.py --file /path/to/mongodb-profiler.log\n")
                         print(f"  Saved: {compat_out}")
 
     # Index compatibility. Runs after the operator compat scan so both land in
     # the same handoff zip. Delegates entirely to index-tool -- see
     # _run_index_compat_scan.
     if args.compat and args.uri:
-        with _Step("index compat scan (8.0) via amazon-documentdb-tools index-tool"):
+        with _Step("index compat scan via amazon-documentdb-tools index-tool"):
             _idx_dir = Path(out) / _URI_CLUSTER_NAME if _URI_CLUSTER_NAME else Path(out)
             _run_index_compat_scan(args.uri, str(_idx_dir))
 
