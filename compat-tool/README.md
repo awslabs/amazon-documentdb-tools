@@ -45,7 +45,7 @@ Scan a folder of log files or source code:
 python3 compat.py --directory /path/to/files
 ```
 
-By default, compatibility is checked against the latest Amazon DocumentDB version supported by the tool (`8.0.2`). Use `--version` to check against a different one (see [Supported versions](#supported-amazon-documentdb-versions)).
+By default, compatibility is checked against the latest Amazon DocumentDB version supported by the tool (`8.0.3`). Use `--version` to check against a different one (see [Supported versions](#supported-amazon-documentdb-versions)).
 
 ## Scan a running MongoDB server (`--uri`)
 
@@ -244,7 +244,7 @@ The following 10 supported operators were found:
 | `--uri URI` | Connect to a MongoDB 5.0+ server and check the operators counted by `db.serverStatus()`. |
 | `--file FILE` | Scan a single log or source file. |
 | `--directory DIR` | Scan every file in a directory, including subdirectories and hidden files. Version control directories (`.git`, `.hg`, `.svn`) are always skipped. |
-| `--version VERSION` | Amazon DocumentDB version to check against. Default: `8.0.2`. |
+| `--version VERSION` | Amazon DocumentDB version to check against. Default: `8.0.3`. |
 | `--included-extensions LIST` | Comma-separated extensions to scan, without the dot (for example `py,js`). Default: all files. Only used with `--directory`. |
 | `--excluded-extensions LIST` | Comma-separated extensions to skip, without the dot (for example `txt,md`). Only used with `--directory`. |
 | `--excluded-directories LIST` | Comma-separated directories to skip, including their subdirectories. Paths are relative to the current directory (not to `--directory`) or absolute, for example `--directory app --excluded-directories app/node_modules`. A warning is printed for any path that doesn't exist. Only used with `--directory`. |
@@ -260,7 +260,7 @@ Valid values for `--version` are:
 | `3.6` | 3.6 |
 | `4.0` | 4.0 |
 | `5.0.0`, `5.0.1` | 5.0 |
-| `8.0`, `8.0.1`, `8.0.2` | 8.0 |
+| `8.0`, `8.0.1`, `8.0.2`, `8.0.3` | 8.0 |
 | `EC5.0` | Elastic clusters (5.0) |
 
 Values such as `5.0` or `8` are rejected. When a version has more than one value, use the latest one unless you need to match a specific older release.

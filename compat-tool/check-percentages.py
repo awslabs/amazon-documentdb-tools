@@ -3,7 +3,7 @@
 import compat
 
 def main():
-    versions = ['3.6','4.0','5.0.0','5.0.1','8.0','8.0.1','8.0.2']
+    versions = ['3.6','4.0','5.0.0','5.0.1','8.0','8.0.1','8.0.2','8.0.3']
     keywords = compat.load_keywords()
 
     totOps = 0
