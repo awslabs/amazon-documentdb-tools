@@ -10,7 +10,8 @@ When a cluster had less history than the requested `--period`, the report and
 summary still labeled the output with the requested period (for example
 "Period: P14D" for about two days of data). The JSON report now carries an
 `observed_window` object (`start`, `end`, `days`) computed from the datapoint
-timestamps. The markdown summary prints both the requested and the observed
+timestamps; `days` includes the last granularity step, so 7 daily points at
+`P1D` count as 7 days. The markdown summary prints both the requested and the observed
 period, and adds a warning when less than 90% of the requested span was returned.
 `period` keeps its previous meaning (the requested value).
 

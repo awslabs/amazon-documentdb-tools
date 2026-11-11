@@ -1829,13 +1829,17 @@ def fmt(val, unit="", decimals=1):
 
 
 
-def _observed_window(cluster_metrics):
+def _observed_window(cluster_metrics, granularity=None):
     """Return the span actually covered by the datapoints in cluster_metrics.
 
     The Atlas API returns whatever history exists when it is shorter than the
     requested --period, so the requested period can overstate what was observed.
     Returns {"start", "end", "days"} (ISO 8601 UTC strings, days rounded to 2
     places), or None when no datapoint carries a parseable timestamp.
+
+    "start" and "end" are the first and last datapoint timestamps. Each
+    datapoint covers one granularity step, so "days" adds one step to
+    end - start: 7 daily points at P1D cover 7 days, not 6.
     """
     stamps = []
     for data in cluster_metrics.values():
@@ -1854,11 +1858,12 @@ def _observed_window(cluster_metrics):
     if not stamps:
         return None
     first, last = min(stamps), max(stamps)
+    step_days = _period_days(granularity) or 0.0
     fmt_ts = "%Y-%m-%dT%H:%M:%SZ"
     return {
         "start": first.astimezone(timezone.utc).strftime(fmt_ts),
         "end": last.astimezone(timezone.utc).strftime(fmt_ts),
-        "days": round((last - first).total_seconds() / 86400, 2),
+        "days": round((last - first).total_seconds() / 86400 + step_days, 2),
     }
 
 
@@ -2018,7 +2023,7 @@ def generate_report(all_metrics, processes, granularity, period, output_dir, pct
             "cluster_profile": _CLUSTER_PROFILE,
             "granularity": granularity,
             "period": period,
-            "observed_window": _observed_window(cluster_metrics),
+            "observed_window": _observed_window(cluster_metrics, granularity),
             "percentile": pct,
             "topology": [{"host": p["hostname"], "type": p["typeName"], "port": p["port"]} for p in cluster_procs],
             "processes": proc_reports,

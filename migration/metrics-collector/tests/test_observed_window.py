@@ -1,13 +1,13 @@
 """Tests for the observed-window reporting (issue #209).
 
-Run from this directory:  python -m pytest test_observed_window.py
+Run from the metrics-collector directory:  python -m pytest tests/
 """
 import json
 from datetime import datetime, timedelta, timezone
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import metrics_collector as mc  # noqa: E402
 
 
@@ -48,3 +48,31 @@ def test_report_and_summary_show_observed_period(tmp_path):
     assert "Period requested:** P14D" in text
     assert "Period observed:** 2.0 days" in text
     assert "less history than requested" in text
+
+
+def _daily_cluster_metrics(points):
+    start = datetime(2026, 10, 19, tzinfo=timezone.utc)
+    series = {"name": "SYSTEM_NORMALIZED_CPU_USER",
+              "dataPoints": [{"timestamp": (start + timedelta(days=i)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                              "value": float(i)} for i in range(points)]}
+    return {"host:27017": {"cluster": "c1", "type": "REPLICA_PRIMARY",
+                           "batches": {"cpu": [series]}}}
+
+
+def test_observed_window_counts_last_step_at_coarse_granularity():
+    # 7 daily points at P1D cover 7 days, not 6.
+    ow = mc._observed_window(_daily_cluster_metrics(7), "P1D")
+    assert ow["days"] == 7.0
+    assert ow["start"] == "2026-10-19T00:00:00Z"
+    assert ow["end"] == "2026-10-25T00:00:00Z"
+
+
+def test_no_false_warning_when_coarse_data_is_complete(tmp_path):
+    procs = [{"hostname": "host", "port": 27017, "typeName": "REPLICA_PRIMARY"}]
+    paths = mc.generate_report(_daily_cluster_metrics(7), procs, "P1D", "P7D", tmp_path)
+    report = json.loads(Path(paths[0]).read_text())
+    md = tmp_path / "summary.md"
+    mc._generate_sizing_summary_md(report, md, 95)
+    text = md.read_text()
+    assert "Period observed:** 7.0 days" in text
+    assert "less history than requested" not in text
