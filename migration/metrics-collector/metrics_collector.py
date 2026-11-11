@@ -3591,19 +3591,9 @@ _EBS_METRICS_LIST = [
     "BurstBalance",
 ]
 
-# DocumentDB 8.0 unsupported operators — used for profiler cross-reference.
+# DocumentDB 8.0.3 unsupported operators — used for profiler cross-reference.
 _EC2_DOCDB_UNSUPPORTED_OPERATORS = {
-    "$facet", "$lookup", "$graphLookup", "$where", "$expr", "$function",
-    "$accumulator", "$merge",
-    "$dateFromString", "$dateFromParts",
-    "$regexFind", "$regexFindAll",
-    "$mergeObjects", "$objectToArray", "$arrayToObject",
-    "$mapReduce",
-    "$out",
-    "$search",
-    "$bucket", "$bucketAuto",
-    "$documents",
-    "$geoNear",
+    "$where", "$function", "$accumulator", "$documents",
 }
 
 
