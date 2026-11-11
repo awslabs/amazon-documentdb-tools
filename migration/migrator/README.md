@@ -92,7 +92,7 @@ Run the [dms-segments tool](../dms-segments) with `--num-segments` set to the nu
 boundaries as list | "64a0f0b2c1e4a8b9d0f1e2a3","64b1a2c3d4e5f60718293a4b","64c2b3d4e5f6071829304b5c"
 ```
 
-Pass the values to `--boundaries` separated by commas, without the double quotes and without spaces.
+Pass the values to `--boundaries` separated by commas. You can paste the list exactly as dms-segments prints it, or leave out the double quotes. Put the whole list in single quotes so your shell keeps it together, for example `--boundaries '"64a0f0b2c1e4a8b9d0f1e2a3","64b1a2c3d4e5f60718293a4b"'`.
 
 Things to know about boundaries:
 
@@ -251,7 +251,7 @@ The tool uses the standard [boto3 credentials](https://boto3.amazonaws.com/v1/do
 
 - **`UserWarning: You appear to be connected to a DocumentDB cluster`:** this message comes from `pymongo` and is harmless.
 - **Full load fails with `E11000 duplicate key error`:** the target collection already has some of the documents, for example from an earlier run. Drop or empty the target collection and run the full load again.
-- **`bson.errors.InvalidId` or `ValueError` when the full load starts:** a boundary doesn't match `--boundary-datatype`, or it still has the double quotes from the dms-segments output.
+- **`bson.errors.InvalidId` or `ValueError` when the full load starts:** a boundary doesn't match `--boundary-datatype`.
 - **Full load finishes, but the target has fewer documents than the source:** some documents don't have the boundary field, or have a value of a different type. See [Boundaries](#boundaries). Documents inserted into the source during the load may also be missing. CDC copies those.
 - **`Retryable writes are not supported`:** add `retryWrites=false` to the target URI.
 - **`ServerSelectionTimeoutError` after about 30 seconds:** the tool couldn't reach the server. Check that you're running from inside the cluster's VPC (or through an SSH tunnel), that the security group allows inbound traffic on port 27017 from your machine, and that the TLS options match your cluster's settings.

@@ -33,6 +33,27 @@ def getCollectionCount(appConfig):
     return max(collStats['count'],1)
 
 
+def stripBoundaryQuotes(thisBoundary):
+    # dms-segments.py outputs boundaries as a double quoted list ("a","b","c"), accept either quoted or unquoted values
+    strippedBoundary = thisBoundary.strip()
+    if len(strippedBoundary) >= 2 and strippedBoundary.startswith('"') and strippedBoundary.endswith('"'):
+        return strippedBoundary[1:-1]
+    return thisBoundary
+
+
+def parseBoundaries(boundariesString, boundaryDatatype):
+    boundaries = []
+    for thisBoundary in boundariesString.split(','):
+        thisBoundary = stripBoundaryQuotes(thisBoundary)
+        if boundaryDatatype == 'objectid':
+            boundaries.append(ObjectId(thisBoundary.strip()))
+        elif boundaryDatatype == 'string':
+            boundaries.append(thisBoundary)
+        else:
+            boundaries.append(int(thisBoundary))
+    return boundaries
+
+
 def full_load_loader(threadnum, appConfig, perfQ):
     warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
 
@@ -308,15 +329,7 @@ def main():
     appConfig['createCloudwatchMetrics'] = args.create_cloudwatch_metrics
     appConfig['clusterName'] = args.cluster_name
 
-    boundaryList = args.boundaries.split(',')
-    appConfig['boundaries'] = []
-    for thisBoundary in boundaryList:
-        if appConfig['boundaryDatatype'] == 'objectid':
-            appConfig['boundaries'].append(ObjectId(thisBoundary))
-        elif appConfig['boundaryDatatype'] == 'string':
-            appConfig['boundaries'].append(thisBoundary)
-        else:
-            appConfig['boundaries'].append(int(thisBoundary))
+    appConfig['boundaries'] = parseBoundaries(args.boundaries, appConfig['boundaryDatatype'])
 
     appConfig['numProcessingThreads'] = len(appConfig['boundaries'])+1
     appConfig['numDocumentsToMigrate'] = getCollectionCount(appConfig)
