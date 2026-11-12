@@ -420,7 +420,7 @@ Same files as the Atlas source (sizing report, sizing summary, `cost-estimator.c
 - CPU (`cpu.total_utilization_pct`, total instance CPU) and disk IOPS / latency / queue depth (summed over every attached EBS volume) come from CloudWatch over the full window.
 - Operations, connections, memory and replication lag come from `serverStatus` on each member over the `--samples` span only. Raise `--samples` for variance; it does not give multi-day coverage.
 - System memory, swap, cache percentiles, tickets, query targeting and oplog rate have no EC2 source and stay empty. The WiredTiger cache figure is `cache_sampled_gb` (max of the sampled readings), not a percentile.
-- Each member is reached with a direct connection using the URI's credentials. A member that refuses the connection is listed in `unsampled_members` and reported from CloudWatch only (common on sharded clusters, where a user created through mongos does not exist on the shards).
+- Each member is reached with a direct connection using the URI's credentials. A member that refuses the connection is listed in `unsampled_members` and reported from CloudWatch only (common on sharded clusters, where a user created through mongos does not exist on the shards; create the same user on each shard to sample them). On sharded clusters the mongos is reported as `SHARD_MONGOS` with cluster-wide operation rates, and the compatibility scan reads the mongos.
 
 ---
 

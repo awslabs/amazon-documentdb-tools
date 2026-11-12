@@ -2224,8 +2224,12 @@ def _generate_sizing_summary_md(report, md_path, pct):
         a(f"**Data sources (--source {report.get('source', '?')}):** sections below mix windows, so read each figure against its source.")
         for name, d in srcs.items():
             a(f"- **{name}:** {d.get('detail')}")
-        for m in report.get("unsampled_members") or []:
-            a(f"- **Not sampled:** {m.get('address')} ({m.get('error')}); CloudWatch figures only for that node.")
+        uns = report.get("unsampled_members") or []
+        if uns:
+            reasons = sorted({(m.get("error") or "unknown").rstrip(".") for m in uns})
+            a(f"- **Not sampled ({len(uns)} member(s)):** {', '.join(m.get('address') for m in uns)}. "
+              f"Reason: {'; '.join(reasons)}. These nodes are reported from CloudWatch alone; on a sharded "
+              f"cluster, create the same user on each shard to sample them.")
     a(f"")
 
     # --- 1. CPU ---
@@ -3798,6 +3802,12 @@ def _ec2_collect_mongo_sampling(client, samples=1, members=None):
 
     def _snapshot_members():
         lags = _ec2_replication_lag(client)
+        if not lags:
+            # Main client is a mongos (sharded): read each shard's lag from
+            # that shard's own primary.
+            for ms in member_state:
+                if ms["type"].endswith("_PRIMARY"):
+                    lags.update(_ec2_replication_lag(ms["client"]))
         for ms in member_state:
             try:
                 ss = ms["client"].admin.command("serverStatus")
@@ -3938,8 +3948,15 @@ def _ec2_member_clients(uri, addresses, topology="replicaset"):
             out.append({"address": addr, "type": f"{prefix}_{kind}", "client": c})
         except Exception as e:
             _log(f"direct connection to member {addr} failed: {e}", "warning")
-            out.append({"address": addr, "type": "UNKNOWN", "client": None, "error": str(e)})
+            out.append({"address": addr, "type": "SHARD_MEMBER" if topology == "sharded" else "UNKNOWN",
+                        "client": None, "error": _short_error(e)})
     return out
+
+
+def _short_error(e):
+    """One-line error text: pymongo appends the full server reply (including
+    $clusterTime signatures) after ', full error:'."""
+    return str(e).split(", full error:")[0].strip()[:200]
 
 
 def _ec2_db_totals(client):
@@ -4063,12 +4080,18 @@ def _ec2_build_report_inputs(cluster, ctx, cw, sampling, db_totals, unsampled=No
     period = (cw or {}).get("period_seconds", 300)
 
     members = list((sampling or {}).get("members") or [])
-    if not members:
+    main = {"address": (sampling or {}).get("sampled_from") or "primary:27017",
+            "snapshots": (sampling or {}).get("snapshots") or [],
+            "deltas": (sampling or {}).get("deltas") or []}
+    if ctx.get("topology") == "sharded":
+        # The main client is a mongos: its readings are the cluster-wide
+        # routing view. Report it first (named as Atlas names it) so the
+        # summary falls back to it when no shard member could be sampled.
+        members = [dict(main, type="SHARD_MONGOS")] + members
+    elif not members:
         # No per-member sampling (e.g. every direct connection failed): fall
         # back to the main client's readings as a single node.
-        members = [{"address": (sampling or {}).get("sampled_from") or "primary:27017",
-                    "type": "REPLICA_PRIMARY", "snapshots": (sampling or {}).get("snapshots") or [],
-                    "deltas": (sampling or {}).get("deltas") or []}]
+        members = [dict(main, type="REPLICA_PRIMARY")]
 
     all_metrics, processes, seen_inst = {}, [], set()
     for m in members + [dict(u, snapshots=[], deltas=[]) for u in (unsampled or [])]:
@@ -4855,7 +4878,7 @@ def _compat_version_label(compat_script=None):
     return _compat_default_version(compat_script) or "latest"
 
 
-def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames, primary_host=None):
+def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames, primary_host=None, topology=None):
     """Run the DocumentDB compat scan for --source ec2 against compat-tool's
     default (latest) target version. Same pattern as
     atlas compat block but takes explicit hostnames (already discovered by
@@ -4882,6 +4905,13 @@ def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames, primary_host=
             pass
 
         node_uris = []
+        if topology == "sharded":
+            # The mongos holds the cluster-wide routing view (what the Atlas
+            # path samples), and the URI's user exists there; shard members
+            # usually reject it because users created through mongos are not
+            # replicated to the shards.
+            node_uris.append(("mongos", uri))
+            primary_host = "mongos"
         for host in hostnames:
             node_uri = f"mongodb://{creds_part}{host}:27017/?directConnection=true{query_part}"
             node_uris.append((host, node_uri))
@@ -4901,7 +4931,7 @@ def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames, primary_host=
                     capture_output=True, text=True, timeout=300,
                 )
                 all_output.append(f"--- Node: {node_name} ---\n{result.stdout}")
-                per_node[node_name] = _parse_compat_uri_output(result.stdout)
+                per_node[node_name] = _parse_compat_uri_output(result.stdout, result.stderr)
                 if result.stderr:
                     all_output.append(f"--- STDERR ({node_name}) ---\n{result.stderr}")
             except subprocess.TimeoutExpired:
@@ -4915,18 +4945,25 @@ def _ec2_run_compat_scan(uri, output_dir, cluster_name, hostnames, primary_host=
         with open(compat_out, "w") as f:
             f.write("\n".join(all_output))
         _log(f"compat scan saved to {compat_out}")
-        usage = _ec2_operator_usage(per_node, version, cluster_name, primary_host)
+        usage = _ec2_operator_usage(per_node, version, cluster_name, primary_host, topology)
         with open(cdir / "operator_usage.json", "w") as f:
             json.dump(usage, f, indent=2)
         _log(f"operator usage saved to {cdir / 'operator_usage.json'}")
         return {"path": str(compat_out), "nodes_scanned": len(node_uris)}
 
 
-def _parse_compat_uri_output(stdout):
+def _parse_compat_uri_output(stdout, stderr=""):
     """{"unsupported": {op: n}, "supported": {op: n}} from compat.py output.
     Entry lines look like '  $add | executed 14 time(s)' (--uri) or
-    '  $facet | found 1 time(s)' (--file)."""
+    '  $facet | found 1 time(s)' (--file). Adds "error" when the scan did not
+    reach its report (e.g. authentication failed on that node)."""
     out = {"unsupported": {}, "supported": {}}
+    text = (stdout or "") + "\n" + (stderr or "")
+    if "operators found" not in text and "operators were found" not in text:
+        err = next((l.strip() for l in reversed(text.splitlines())
+                    if "Error" in l or "Failure" in l or "failed" in l), None)
+        if err:
+            out["error"] = err.split(", full error:")[0][:200]
     section = None
     for line in (stdout or "").splitlines():
         st = line.strip()
@@ -4946,11 +4983,13 @@ def _parse_compat_uri_output(stdout):
     return out
 
 
-def _ec2_operator_usage(per_node, version, cluster_name, primary_host=None):
+def _ec2_operator_usage(per_node, version, cluster_name, primary_host=None, topology=None):
     """operator_usage.json for --source ec2, same top-level keys as the Atlas
-    file. Counts come from the primary (as on Atlas); every node's counts are
-    kept under per_node because the compat scan ran on each member."""
-    host = primary_host if primary_host in per_node else (next(iter(per_node), None))
+    file. Counts come from the primary, or the mongos on a sharded cluster (as
+    on Atlas); every node's result, including scan errors, is kept under
+    per_node because the compat scan ran on each member."""
+    ok = [h for h, d in per_node.items() if not d.get("error")]
+    host = primary_host if primary_host in ok else (ok[0] if ok else next(iter(per_node), None))
     base = per_node.get(host) or {"unsupported": {}, "supported": {}}
     uns = sorted(({"operator": k, "executions": v} for k, v in base["unsupported"].items()),
                  key=lambda x: -x["executions"])
@@ -4965,12 +5004,15 @@ def _ec2_operator_usage(per_node, version, cluster_name, primary_host=None):
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "cluster": cluster_name,
         "target_version": version,
-        "topology": "replica_set",
+        "topology": "sharded" if topology == "sharded" else "replica_set",
         "sampled_from": host or "unknown",
         "source": "compat.py --uri (db.serverStatus() operator counters) on each member",
+        "nodes_with_errors": sorted(h for h, d in per_node.items() if d.get("error")),
         "classifier": "amazon-documentdb-tools compat.py --uri (delegated)",
-        "coverage_note": ("Counts are cumulative since each member last restarted. Top-level "
-                          "figures are the primary's; per_node holds every member scanned."),
+        "coverage_note": (("Sharded: top-level counts are the mongos routing view; operators "
+                           "evaluated only shard-side may not surface. " if topology == "sharded" else "")
+                          + "Counts are cumulative since each node last restarted; per_node holds "
+                            "every node scanned, with an error where the scan could not run."),
         "summary": {
             "total_operators_executed": len(uns) + len(sup),
             "total_operators_known_to_server": None,
@@ -5139,7 +5181,7 @@ def _ec2_collect_pipeline(args, ctx):
         with _Step("compat scan (compat-tool default version) via amazon-documentdb-tools"):
             _primary = (sampling.get("sampled_from") or "").rpartition(":")[0] or None
             _ec2_run_compat_scan(args.uri, str(cluster_dir), args.cluster,
-                                  ctx["hostnames"], primary_host=_primary)
+                                  ctx["hostnames"], primary_host=_primary, topology=ctx["topology"])
 
         with _Step("index compat scan via amazon-documentdb-tools index-tool"):
             _run_index_compat_scan(args.uri, str(cluster_dir))

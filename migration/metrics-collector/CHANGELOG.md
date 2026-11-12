@@ -51,6 +51,12 @@ the EC2 sources, and records where each section came from (`source: "ec2"`,
   with a direct connection using the URI's credentials; a member that cannot be
   reached is listed in `unsampled_members` and still reported from CloudWatch.
 - **dbStats:** data, storage and index size.
+- **Sharded clusters:** the mongos is reported as a `SHARD_MONGOS` process with the
+  cluster-wide operation rates, and each shard member as `SHARD_PRIMARY` /
+  `SHARD_SECONDARY` when the URI's user also exists on the shards (users
+  created through mongos are not replicated to them). Otherwise the members
+  are `SHARD_MEMBER`, reported from CloudWatch, and listed in
+  `unsampled_members`. Replication lag is read from each shard's primary.
 - No EC2 source exists for system memory, swap, cache percentiles, tickets,
   query targeting or oplog rate; those fields stay empty rather than estimated.
 
@@ -60,6 +66,14 @@ the EC2 sources, and records where each section came from (`source: "ec2"`,
 written into the report's `cache_used_bytes`, so it cannot be mistaken for the
 Atlas windowed percentile. `mongo_sampling.json` gains a `members` list
 (additive).
+
+### Fixed — `--source ec2` compatibility scan on sharded clusters
+
+The scan connected only to shard members, which reject a user created through
+mongos, so on a typical sharded cluster every node failed authentication and
+no operator was classified. It now also scans the mongos, takes the headline
+counts from it (the routing view the Atlas path uses), and records per-node
+failures in `operator_usage.json` `nodes_with_errors` and `per_node`.
 
 ### Fixed — mongos fallback states the cache loss it actually has (#205, defect 4)
 

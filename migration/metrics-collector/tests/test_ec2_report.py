@@ -123,3 +123,29 @@ def test_parse_compat_uri_output_and_operator_usage():
 def test_ec2_log_lives_in_cluster_dir():
     src = Path(mc.__file__).read_text()
     assert "_init_log(Path(out) / args.cluster)" in src
+
+
+def test_sharded_reports_mongos_first_and_unsampled_shards():
+    ctx = dict(_ctx(), topology="sharded")
+    sampling = {"samples": 1, "sampled_from": "192.0.2.50:27017",
+                "snapshots": [_snap(TS[1], 0), _snap(TS[2], 600)],
+                "deltas": [{"insert_per_sec": 10.0}], "members": []}
+    am, procs, extra = mc._ec2_build_report_inputs(
+        "c1", ctx, _cw(), sampling, None,
+        unsampled=[{"address": "192.0.2.1:27017", "type": "UNKNOWN", "error": "Authentication failed."}])
+    assert procs[0] == {"hostname": "192.0.2.50", "port": 27017, "typeName": "SHARD_MONGOS"}
+    assert "cloudwatch" in am["192.0.2.1:27017"]["batches"]
+    assert extra["unsampled_members"][0]["error"] == "Authentication failed."
+
+
+def test_compat_error_nodes_do_not_become_the_headline():
+    err = mc._parse_compat_uri_output("", "pymongo.errors.OperationFailure: Authentication failed., full error: {'x': 1}")
+    assert err["error"] == "pymongo.errors.OperationFailure: Authentication failed."
+    ok = mc._parse_compat_uri_output("The following 1 supported operators were found:\n  $add | executed 5 time(s)\n")
+    u = mc._ec2_operator_usage({"shard-a": err, "mongos": ok}, "8.0.3", "c1", primary_host="shard-a", topology="sharded")
+    assert u["sampled_from"] == "mongos" and u["topology"] == "sharded"
+    assert u["nodes_with_errors"] == ["shard-a"] and u["summary"]["supported_executions"] == 5
+
+
+def test_short_error_drops_server_reply():
+    assert mc._short_error(Exception("Authentication failed., full error: {'$clusterTime': 1}")) == "Authentication failed."
