@@ -6,6 +6,7 @@ from bson import ObjectId
 import time
 import os
 import argparse
+import math
 import warnings
 
 
@@ -59,20 +60,36 @@ def via_time(appConfig):
 
     queryStartTime = time.time()
 
-    # first boundary is the actual minimum _id
-    boundaryList.append(str(minId))
-    print("  boundary   0 - {} (min _id)".format(minId))
-
-    # remaining boundaries are time-uniform splits, zero-filled ObjectIds
+    # DMS treats each boundary as an inclusive upper limit and adds a final open-ended segment,
+    # so numSegments segments need numSegments - 1 boundaries (time-uniform splits, zero-filled ObjectIds)
+    # a zero-filled ObjectId sorts before every real ObjectId created in the same second, so round each split
+    # up to the next whole second, that way a boundary always falls after the min _id when the range is at least a second
+    # boundaries that are not greater than the previous boundary (or the min _id), or not less than the max _id,
+    # would create empty or duplicate segments, this happens when the collection spans only a few seconds, so skip them
+    lastId = minId
     for n in range(1, numSegments):
         boundaryTs = minTs + (step * n)
-        boundarySecs = int(boundaryTs)
+        boundarySecs = math.ceil(boundaryTs)
         hexSecs = format(boundarySecs, '08x')
         boundaryId = ObjectId(hexSecs + '0000000000000000')
+        if boundaryId <= lastId or boundaryId >= maxId:
+            continue
         boundaryList.append(str(boundaryId))
-        print("  boundary {:3d} - {} ({})".format(n, boundaryId, datetime.fromtimestamp(boundarySecs, tz=timezone.utc)))
+        lastId = boundaryId
+        print("  boundary {:3d} - {} ({})".format(len(boundaryList), boundaryId, datetime.fromtimestamp(boundarySecs, tz=timezone.utc)))
 
     print("")
+
+    if len(boundaryList) == 0:
+        print("the _id values in {}.{} were all created within the same second, time-based segmentation is not possible, use the default or --single-cursor mode instead".format(appConfig['database'], appConfig['collection']))
+        print("")
+        client.close()
+        return
+
+    if len(boundaryList) < numSegments - 1:
+        print("WARNING: the _id values in {}.{} span only {} seconds, so only {} segments could be calculated instead of the {} requested".format(
+            appConfig['database'], appConfig['collection'], int(maxTs - minTs), len(boundaryList) + 1, numSegments))
+        print("")
 
     boundaryListAsString = "{}".format(",".join('"{}"'.format(i) for i in boundaryList))
     print("boundaries as list | {}".format(boundaryListAsString))
@@ -91,6 +108,14 @@ def via_time(appConfig):
     client.close()
 
 
+def segments_fit_collection(appConfig, numDocuments):
+    # count-based modes need at least one document per segment
+    if numDocuments < appConfig['numSegments']:
+        print("collection {}.{} contains {} documents, which is fewer than the {} segments requested, stopping".format(appConfig['database'],appConfig['collection'],numDocuments,appConfig['numSegments']))
+        return False
+    return True
+
+
 def via_skips(appConfig):
     # get boundaries by performing large server-side skips
     warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
@@ -105,8 +130,10 @@ def via_skips(appConfig):
 
     collStats = db.command("collStats",appConfig['collection'])
     numDocuments = collStats['count']
+    if not segments_fit_collection(appConfig, numDocuments):
+        client.close()
+        return
     feedbackDocuments = int(numDocuments/appConfig['numSegments'])
-    progressDocuments = int((numDocuments - feedbackDocuments)*0.01)
 
     print("")
     print("collection {}.{} contains {} documents".format(appConfig['database'],appConfig['collection'],numDocuments))
@@ -114,13 +141,21 @@ def via_skips(appConfig):
 
     queryStartTime = time.time()
 
-    # get the first _id
-    currentId = col.find_one(filter=None,projection={"_id":True},sort=[("_id",pymongo.ASCENDING)])
-    print("  found first _id")
+    # each boundary is the last _id of its segment, so boundary n is the (n * feedbackDocuments)th document
+    # the first boundary skips (feedbackDocuments - 1) documents from the start of the collection, each later
+    # boundary skips (feedbackDocuments - 1) documents after the previous boundary
+    currentId = None
     numDocsTotal = 0
 
     for x in range(numBoundaries):
-        currentId = col.find_one(filter={"_id":{"$gt":currentId["_id"]}},projection={"_id":True},sort=[("_id",pymongo.ASCENDING)],skip=feedbackDocuments)
+        idFilter = None if currentId is None else {"_id":{"$gt":currentId["_id"]}}
+        currentId = col.find_one(filter=idFilter,projection={"_id":True},sort=[("_id",pymongo.ASCENDING)],skip=feedbackDocuments-1)
+        if currentId is None:
+            # collection has fewer documents than collStats reported, likely due to concurrent deletes
+            print("")
+            print("reached the end of {}.{} after {} boundaries, the collection has fewer documents than collStats reported, stopping".format(appConfig['database'],appConfig['collection'],x))
+            client.close()
+            return
         numDocsTotal += feedbackDocuments
         pctDone = numDocsTotal/(numDocuments - feedbackDocuments)*100
         elapsedSecs = int(time.time() - queryStartTime)
@@ -160,8 +195,12 @@ def via_cursor(appConfig):
 
     collStats = db.command("collStats",appConfig['collection'])
     numDocuments = collStats['count']
+    if not segments_fit_collection(appConfig, numDocuments):
+        client.close()
+        return
     feedbackDocuments = int(numDocuments/appConfig['numSegments'])
-    progressDocuments = int((numDocuments - feedbackDocuments)*0.01)
+    # report progress about every 1 percent, at least every document for small collections
+    progressDocuments = max(1, int((numDocuments - feedbackDocuments)*0.01))
 
     print("")
     print("collection {}.{} contains {} documents".format(appConfig['database'],appConfig['collection'],numDocuments))
@@ -193,6 +232,13 @@ def via_cursor(appConfig):
             print("  documents processed = {:12,d} - {:5,.1f} percent - {:10,d} seconds duration - done in approx {:10,d} seconds".format(numDocsTotal,pctDone,elapsedSecs,estimatedSecsToDone))
 
     print("")
+
+    if len(boundaryList) < numBoundaries:
+        # collection has fewer documents than collStats reported, likely due to concurrent deletes
+        print("reached the end of {}.{} after {} boundaries, the collection has fewer documents than collStats reported, stopping".format(appConfig['database'],appConfig['collection'],len(boundaryList)))
+        print("")
+        client.close()
+        return
 
     # output full boundary list
     boundaryNum = 0
@@ -232,8 +278,16 @@ def check_for_mixed_types(appConfig):
     db = client[appConfig['database']]
     col = db[appConfig['collection']]
 
-    idTypeFirst = col.aggregate([{"$sort":{"_id":pymongo.ASCENDING}},{"$project":{"_id":False,"idType":{"$type":"$_id"}}},{"$limit":1}]).next()['idType']
-    idTypeLast = col.aggregate([{"$sort":{"_id":pymongo.DESCENDING}},{"$project":{"_id":False,"idType":{"$type":"$_id"}}},{"$limit":1}]).next()['idType']
+    firstDocs = list(col.aggregate([{"$sort":{"_id":pymongo.ASCENDING}},{"$project":{"_id":False,"idType":{"$type":"$_id"}}},{"$limit":1}]))
+    lastDocs = list(col.aggregate([{"$sort":{"_id":pymongo.DESCENDING}},{"$project":{"_id":False,"idType":{"$type":"$_id"}}},{"$limit":1}]))
+
+    if len(firstDocs) == 0 or len(lastDocs) == 0:
+        print("collection {}.{} is empty, nothing to do".format(appConfig['database'],appConfig['collection']))
+        client.close()
+        return False
+
+    idTypeFirst = firstDocs[0]['idType']
+    idTypeLast = lastDocs[0]['idType']
 
     if idTypeFirst not in supportedIdTypes:
         # unsupported data type
@@ -242,7 +296,7 @@ def check_for_mixed_types(appConfig):
 
     if idTypeLast not in supportedIdTypes:
         # unsupported data type
-        print("Unsupported data type of '{}' for first _id value in {}.{} - only {} types are supported, stopping".format(idTypeLast,appConfig['database'],appConfig['collection'],supportedIdTypes))
+        print("Unsupported data type of '{}' for last _id value in {}.{} - only {} types are supported, stopping".format(idTypeLast,appConfig['database'],appConfig['collection'],supportedIdTypes))
         returnValue = False
 
     if idTypeFirst != idTypeLast:
@@ -275,8 +329,8 @@ def main():
 
     parser.add_argument('--num-segments',
                         required=True,
-                        type=str,
-                        help='Number of segments')
+                        type=int,
+                        help='Number of segments, must be 2 or more')
 
     parser.add_argument('--single-cursor',
                         required=False,
@@ -294,7 +348,10 @@ def main():
     appConfig['uri'] = args.uri
     appConfig['database'] = args.database
     appConfig['collection'] = args.collection
-    appConfig['numSegments'] = int(args.num_segments)
+    appConfig['numSegments'] = args.num_segments
+
+    if appConfig['numSegments'] < 2:
+        parser.error('--num-segments must be 2 or more, a single segment does not need boundaries')
 
     if args.time_based_segments:
         via_time(appConfig)
