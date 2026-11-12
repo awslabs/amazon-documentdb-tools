@@ -75,9 +75,9 @@ Collected by connecting to the deployment and running database commands:
 
 - **Per-collection operations:** insert, update, delete, search counts from WiredTiger cursor stats
 - **Per-collection working set:** percentage of data actively accessed
-- **Index analysis:** unused indexes (0 accesses) and redundant indexes (prefix subsets)
+- **Index analysis:** unused indexes (0 accesses) and redundant indexes (prefix subsets). The `_id_` index and unique, sparse and partial indexes are never reported as redundant
 - **Compression sampling:** real Zstandard-3 with 100-document dictionary training, matching DocumentDB 8.0 behavior
-- **Index key type sampling:** first-50 and last-50 documents per collection, sampled for actual key sizes (compound, hashed, multikey)
+- **Index key type sampling:** first-50 and last-50 documents per collection, sampled for actual key sizes (compound, hashed, multikey). Dotted paths into arrays of subdocuments are traversed; each `key_types` record carries `sampled` / `sampled_docs`, and `sampled: false` means `bson_type` and `avg_bytes` are defaults, not measurements
 - **Cost Estimator CSV:** fields auto-populated, ready to upload to the DocumentDB Cost Estimator
 
 When real Zstandard sampling is unavailable (the `zstandard` package is not installed, or the collection is empty), the tool falls back to a conservative **3.5:1** ratio. A real sampled ratio always takes precedence. The fallback is deliberately conservative: estimated size is data size divided by the ratio, so a higher ratio yields a smaller instance recommendation, and understating compression oversizes rather than undersizes.
@@ -86,7 +86,7 @@ When real Zstandard sampling is unavailable (the `zstandard` package is not inst
 
 Runs the DocumentDB compatibility checkers against the deployment:
 
-- **`compat-8.0.txt`** -- operators and API features unsupported in DocumentDB 8.0
+- **`compat-<version>.txt`** -- operators and API features unsupported in the DocumentDB version compat-tool checks by default (its latest supported release, e.g. `compat-8.0.3.txt`)
 - **`index_compat.json`** -- index types DocumentDB does not support, with a coverage verdict
 - **`index_metadata/`** -- the index dump, re-scannable later without a cluster connection
 
@@ -211,7 +211,7 @@ Runs at 1-minute granularity over 48 hours (the defaults). Takes roughly 5 minut
 | `--cluster NAME` | **Yes** | Atlas cluster name |
 | `--source atlas` | No | Default. See [Sources](#sources). |
 | `--all` | No | Standard sizing run. **Implicitly sets `--granularity PT5M --period P14D`; explicit values for those two flags are ignored when `--all` is present.** |
-| `--compat` | No | Run DocumentDB 8.0 operator and index compatibility checks (requires MongoDB 5.0+) |
+| `--compat` | No | Run DocumentDB operator and index compatibility checks against compat-tool's default (latest) version (requires MongoDB 5.0+) |
 | `--index-compat-from DIR` | No | Re-classify a stored index dump with no cluster connection |
 | `--granularity` | No | `PT10S` (M40+ clusters only, see [retention](#data-retention-per-granularity)), `PT1M` (default), `PT5M`, `PT1H`, `P1D` |
 | `--period` | No | ISO 8601 duration, `P2D` default. Accepts `P<n>Y`, `P<n>W`, `P<n>D`, `PT<n>H`, `PT<n>M`. Rejected at startup if unparseable. Warns if it exceeds retention. |
@@ -246,7 +246,7 @@ metrics-collector-<timestamp>/
 │   ├── index_compat.json
 │   ├── index_metadata/
 │   ├── cost-estimator.csv
-│   ├── compat-8.0.txt
+│   ├── compat-<version>.txt
 │   ├── runtime.log
 │   └── <node>_<batch>.json                 # raw Atlas API metrics
 ├── <cluster>.zip                           # 9-10x compressed, one-file handoff
@@ -257,12 +257,12 @@ metrics-collector-<timestamp>/
 |------|-------------|
 | `<cluster>-14d-sizing-summary.md` | Human-readable sizing report with recommendations |
 | `<cluster>-14d-sizing-report.json` | Machine-readable report, all metrics as structured JSON |
-| `collstats.json` | Per-collection metrics, working set, cursor stats, compression sampling |
+| `collstats.json` | Per-collection metrics, working set, cursor stats, compression sampling; `cache_used_gb` + `cache_used_gb_source` (windowed WiredTiger cache from the Atlas metrics) |
 | `index_analysis.json` | Unused and redundant index report |
 | `index_compat.json` | Index types unsupported by DocumentDB, plus a coverage verdict |
 | `index_metadata/` | Index dump in mongodump format, re-scannable via `--index-compat-from` |
 | `cost-estimator.csv` | Ready to upload to the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/) |
-| `compat-8.0.txt` | Operator compatibility output (with `--compat`) |
+| `compat-<version>.txt` | Operator compatibility output (with `--compat`) |
 | `runtime.log` | Full run log |
 | `<node>_<batch>.json` | Raw Atlas API measurements per process and metric batch |
 | `<cluster>.zip` | All of the above bundled, typically 200-500 KB |
@@ -389,7 +389,7 @@ Flags below are specific to, or behave differently under, `--source ec2`. Everyt
 | `--cluster NAME` | **Yes** | Label for the deployment, used for output naming |
 | `--aws-region` | No | AWS region. Auto-detected if omitted, see above. **EC2 source only.** |
 | `--samples N` | No | Number of **consecutive** 60-second `serverStatus` delta samples. Default 1. Samples run back-to-back with no gap between them, so this lengthens a single observation window rather than spreading samples over time. **EC2 source only.** |
-| `--compat` | No | Run DocumentDB 8.0 operator and index compatibility checks |
+| `--compat` | No | Run DocumentDB operator and index compatibility checks against compat-tool's default (latest) version |
 | `--percentile` | No | Sizing percentile: 90, 95 (default), or 99 |
 | `--output` | No | Output directory (auto-generated if omitted) |
 
@@ -404,18 +404,23 @@ python3 metrics_collector.py --source ec2 --samples 3 \
 
 ### Output
 
-Same structure as the Atlas source, with these additions and one omission:
+Same files as the Atlas source (sizing report, sizing summary, `cost-estimator.csv`, `collstats.json`, index and compatibility reports, `operator_usage.json` with `--compat`, `runtime.log`, handoff zip), with these additions:
 
 | File | Description |
 |------|-------------|
 | `ec2_instances.json` | AWS account, region, MongoDB topology, server version, and per-instance metadata (private IP, instance type, state, attached EBS volumes) |
 | `cloudwatch.json` | 14 days of EC2 and EBS metrics at 5-minute granularity for every discovered instance |
-| `mongo_sampling.json` | One or more 60-second `serverStatus` deltas: op rates, network throughput, connection counts, WiredTiger cache pressure, memory |
+| `mongo_sampling.json` | One or more 60-second `serverStatus` deltas: op rates, network throughput, connection counts, WiredTiger cache pressure, memory; `members` holds the same readings per replica-set member |
 | `profiler_data.json` | Cross-references the MongoDB profiler, if enabled, against the DocumentDB unsupported-operator list |
-| `collstats.json`, `index_analysis.json` | Per-collection stats with unused-index detection and prefix-subset redundancy, via the same mongos-aware collector the Atlas source uses for sharded clusters |
-| `compat-8.0.txt`, `index_compat.json` | Compatibility reports (with `--compat`) |
+| `collstats.json`, `index_analysis.json` | Per-collection stats (plus `cache_sampled_gb`: the max WiredTiger cache reading over the `--samples` span, labelled separately from the Atlas windowed figure) with unused-index detection and prefix-subset redundancy, via the same mongos-aware collector the Atlas source uses for sharded clusters |
+| `compat-<version>.txt`, `index_compat.json` | Compatibility reports (with `--compat`) |
 
-**Not produced by this source:** `sizing-summary.md` and `cost-estimator.csv` are Atlas-source only. Adapter work to consume the CloudWatch metric shape for these two outputs is planned for a follow-up release.
+**How the EC2 sizing report differs from Atlas.** It is written by the same code, and records each section's source in `metric_sources` (printed at the top of the summary):
+
+- CPU (`cpu.total_utilization_pct`, total instance CPU) and disk IOPS / latency / queue depth (summed over every attached EBS volume) come from CloudWatch over the full window.
+- Operations, connections, memory and replication lag come from `serverStatus` on each member over the `--samples` span only. Raise `--samples` for variance; it does not give multi-day coverage.
+- System memory, swap, cache percentiles, tickets, query targeting and oplog rate have no EC2 source and stay empty. The WiredTiger cache figure is `cache_sampled_gb` (max of the sampled readings), not a percentile.
+- Each member is reached with a direct connection using the URI's credentials. A member that refuses the connection is listed in `unsampled_members` and reported from CloudWatch only (common on sharded clusters, where a user created through mongos does not exist on the shards; create the same user on each shard to sample them). On sharded clusters the mongos is reported as `SHARD_MONGOS` with cluster-wide operation rates, and the compatibility scan reads the mongos.
 
 ---
 
@@ -425,7 +430,7 @@ Same structure as the Atlas source, with these additions and one omission:
 2. **Review index analysis** (`index_analysis.json`) and drop unused and redundant indexes before migrating
 3. **Review index compatibility** (`index_compat.json`) and plan replacements for any unsupported index types
 4. **Upload the CSV** (`cost-estimator.csv`) to the [DocumentDB Cost Estimator](https://aws.improving.com/documentdb/cost-estimator/)
-5. **Review operator compatibility** (`compat-8.0.txt`) and plan workarounds for unsupported operators
+5. **Review operator compatibility** (`compat-<version>.txt`) and plan workarounds for unsupported operators
 
 ## Troubleshooting
 
@@ -468,7 +473,7 @@ Originally documented at v2.0.0 and re-confirmed at v2.4.0.
 - **Wildcard indexes** are captured in output but are not supported in DocumentDB. Flag them in the migration plan.
 - **URI passwords with special characters** must be percent-encoded, per pymongo.
 - **`--source ec2` is single-region.** All discovered instances must be in one AWS region.
-- **`--source ec2` does not produce `sizing-summary.md` or `cost-estimator.csv`.** See that section's Output notes.
+- **`--source ec2` operations and memory figures cover the `--samples` window only**, not 14 days. See that section's Output notes.
 - **`--source onp`** (on-premises) is reserved and not implemented.
 
 ## License
