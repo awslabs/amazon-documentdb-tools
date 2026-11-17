@@ -17,6 +17,33 @@ def logIt(threadnum, message):
     print("[{}] thread {:>3d} | {}".format(logTimeStamp,threadnum,message))
 
 
+def get_shard_key_fields(destConnection, targetNs):
+    # shard key fields of the target collection, other than _id, or [] if the target is not sharded on another key
+    #   a sharded cluster rejects an upsert whose filter does not contain the full shard key (code 61), and the
+    #   change stream documentKey from Amazon DocumentDB contains only _id, so the filter is built from the document
+    isMongos = (destConnection.admin.command('hello').get('msg') == 'isdbgrid')
+    if not isMongos:
+        return []
+    try:
+        collInfo = destConnection['config']['collections'].find_one({'_id': targetNs})
+    except pymongo.errors.OperationFailure as e:
+        sys.exit("\nTarget is a sharded cluster, but the target user cannot read config.collections to find the shard key of {}: {}\n".format(targetNs,e))
+    if collInfo is None:
+        # collection is not sharded
+        return []
+    return [k for k in collInfo['key'].keys() if k != '_id']
+
+
+def get_field_value(doc, path):
+    # value of a (possibly dotted) field, None if missing (a missing shard key field is matched as null)
+    cur = doc
+    for part in path.split('.'):
+        if not isinstance(cur, dict) or part not in cur:
+            return None
+        cur = cur[part]
+    return cur
+
+
 def change_stream_processor(threadnum, appConfig, perfQ):
     warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
 
@@ -34,6 +61,21 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     destConnection = pymongo.MongoClient(host=appConfig["targetUri"],appname=myAppname)
     destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
     destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
+
+    shardKeyFields = get_shard_key_fields(destConnection, appConfig["targetNs"])
+    if (threadnum == 0) and shardKeyFields:
+        logIt(threadnum,'target is sharded on {}, shard key added to write filters'.format(shardKeyFields))
+
+    def writeFilter(doc):
+        # _id plus the shard key fields, so the write can be routed to one shard
+        thisFilter = {'_id': doc['_id']}
+        for keyField in shardKeyFields:
+            thisFilter[keyField] = get_field_value(doc, keyField)
+        return thisFilter
+
+    def staleCopyFilter(doc):
+        # a document with this _id but a different shard key value, left behind if the source changed the shard key
+        return {'_id': doc['_id'], '$nor': [{keyField: get_field_value(doc, keyField) for keyField in shardKeyFields}]}
 
     startTime = time.time()
 
@@ -135,14 +177,18 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     if (thisNs == appConfig["sourceNs"]):
                         bulkOpList.append(pymongo.InsertOne(change['fullDocument']))
                         # if replaying older changes, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
-                        bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        bulkOpListReplace.append(pymongo.ReplaceOne(writeFilter(change['fullDocument']),change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
 
                 elif (thisOp in ['update','replace']):
                     # update/replace
                     if (change['fullDocument'] is not None) and (thisNs == appConfig["sourceNs"]):
-                        bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
-                        bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        if shardKeyFields:
+                            # the update may have changed the shard key, remove the copy that has the old value
+                            bulkOpList.append(pymongo.DeleteOne(staleCopyFilter(change['fullDocument'])))
+                            bulkOpListReplace.append(pymongo.DeleteOne(staleCopyFilter(change['fullDocument'])))
+                        bulkOpList.append(pymongo.ReplaceOne(writeFilter(change['fullDocument']),change['fullDocument'],upsert=True))
+                        bulkOpListReplace.append(pymongo.ReplaceOne(writeFilter(change['fullDocument']),change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
 
                 elif (thisOp == 'delete'):
@@ -477,9 +523,23 @@ def main():
     for process in processList:
         process.start()
         
+    # stop everything if a processor fails, otherwise the reporter keeps printing progress for changes nobody applies
+    while any(process.is_alive() for process in processList):
+        failedList = [process for process in processList if (process.exitcode is not None) and (process.exitcode != 0)]
+        if failedList:
+            logIt(-1,"ERROR: {} of {} processors exited with an error, stopping, restart from the last resume token printed".format(len(failedList),len(processList)))
+            for process in processList:
+                if process.is_alive():
+                    process.terminate()
+            os._exit(1)
+        time.sleep(1)
+
     for process in processList:
         process.join()
-        
+        if process.exitcode != 0:
+            logIt(-1,"ERROR: a processor exited with an error, restart from the last resume token printed")
+            os._exit(1)
+
     t.join()
 
 

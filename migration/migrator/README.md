@@ -20,7 +20,7 @@ The scripts only copy documents. They don't:
 - Python 3.7 or later.
 - The [`pymongo`](https://pypi.org/project/pymongo/) and [`boto3`](https://pypi.org/project/boto3/) Python packages (installed from `requirements.txt` below). Both scripts need `boto3`, even if you don't create CloudWatch metrics.
 - Network access to both the source and the target. Amazon DocumentDB clusters are only reachable from inside their VPC, so run the tool from a machine in the same VPC (for example an Amazon EC2 instance) or through an SSH tunnel. See [Connecting to an Amazon DocumentDB cluster from outside an Amazon VPC](https://docs.aws.amazon.com/documentdb/latest/developerguide/connect-from-outside-a-vpc.html).
-- A database user on the source that can read the collection, run `collStats`, and open a change stream on it, and a user on the target that can write to the target collection.
+- A database user on the source that can read the collection, run `collStats`, and open a change stream on it, and a user on the target that can write to the target collection. If the target is a sharded MongoDB cluster, the target user must also be able to read `config.collections` (for example with the `clusterMonitor` role), so CDC can find the shard key. See [Sharded targets](#sharded-targets).
 - For CDC, change streams on the source:
   - **MongoDB:** the source must be a replica set or a sharded cluster. A standalone server has no change stream.
   - **Amazon DocumentDB:** change streams are off by default. Turn them on for the collection before you start the migration, and check that the change stream log retention is long enough. See [Change streams in Amazon DocumentDB](#change-streams-in-amazon-documentdb).
@@ -162,7 +162,7 @@ The start position must still be in the change stream. On MongoDB, that means it
 
 ### Stopping and resuming
 
-CDC runs until you press Ctrl+C, or for `--duration-seconds` seconds if you set it.
+CDC runs until you press Ctrl+C, or for `--duration-seconds` seconds if you set it. If a process fails, for example because the target rejects a write, CDC stops all processes and exits with code 1. Fix the cause, then start CDC again from the last resume token it printed.
 
 Each progress report shows a `resume token`. Every change up to that point has been written to the target. To continue later without missing any changes, start CDC again with `--start-position` set to the last resume token it printed. Some changes may be applied a second time, which is safe.
 
@@ -182,6 +182,15 @@ Each process opens its own change stream on the source, so more processes put mo
 - **Updates and replaces** replace the whole target document with the source document's current version (the change stream's `updateLookup` option), creating it if it doesn't exist. If the document has been deleted from the source since then, the change is skipped, and the later delete is applied.
 - **Deletes** delete the document, if it exists in the target.
 - **Other events**, such as collection drops and renames, are ignored.
+
+### Sharded targets
+
+A sharded MongoDB cluster rejects an upsert unless its filter contains the full shard key (error 61, `Failed to target upsert by query :: could not extract exact shard key`). The change stream from Amazon DocumentDB identifies a document by `_id` only. So when the target is a `mongos`, CDC reads the target collection's shard key from `config.collections` at startup and:
+
+- Uses `_id` plus the shard key fields, taken from the source document, as the filter for every replace.
+- Before each update or replace, deletes any target document with the same `_id` and a different shard key value. This removes the old copy when the source changed the shard key, which would otherwise stay on another shard. This adds one delete for each update or replace, sent to all shards.
+
+Nothing changes when the target is not a `mongos`, or when the target collection is not sharded or is sharded on `_id` only. A missing shard key field is matched as null.
 
 Changes are written in batches. A batch is written when it has `--max-operations-per-batch` changes, or when its oldest change has waited `--max-seconds-between-batches` seconds, whichever comes first. So even when CDC is caught up, a change can take up to 5 seconds (by default) to reach the target.
 
