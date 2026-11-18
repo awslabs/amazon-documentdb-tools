@@ -1,0 +1,14 @@
+# data-differ.py dependencies, Python 3.9 or later
+#
+#   pip3 install -r requirements.txt
+#
+# The minimum versions were verified by running test-scripts/test_data_differ.py (unit and integration tests).
+
+# bson.datetime_ms.DatetimeMS and DatetimeConversion (dates outside the Python datetime range) require 4.3
+pymongo>=4.3.3
+
+# 8.6.1 fixes CVE-2025-58367 (Delta pickle deserialization, data-differ doesn't use Delta)
+deepdiff>=8.6.1
+
+# optional, provides the live dashboard (plain progress lines are printed without it), rich.console.Group requires 10.7
+rich>=10.7.0
