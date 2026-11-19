@@ -24,26 +24,59 @@ def parseOplog(appConfig):
 
     secondsBehind = 999999
 
-    if appConfig['startFromOplogStart']:
-        # start with first oplog entry
-        first = oplog.find().sort('$natural', pymongo.ASCENDING).limit(1).next()
+    # oldest and newest oplog entries
+    first = oplog.find({},{'ts':1}).sort('$natural', pymongo.ASCENDING).limit(1).next()
+    last = oplog.find({},{'ts':1}).sort('$natural', pymongo.DESCENDING).limit(1).next()
+
+    endTs = None
+    if appConfig['startTime'] is None and appConfig['windowSeconds'] is None:
+        # start with first oplog entry, read until stopped (original behavior)
         startTs = first['ts']
-        #printLog(first,fp)
     else:
-        # start at an arbitrary position
-        startTs = Timestamp(1641240727, 5)
-        # get proper startTs from oplog
-        printLog('starting with an arbitrary timestamp is not yet supported.',fp)
-        sys.exit(1)
-        # start with right now
-        #startTs = Timestamp(int(time.time()), 1)
+        # read a fixed time window [startTs, endTs]
+        if appConfig['startTime'] is not None:
+            startSec = int(appConfig['startTime'].timestamp())
+            if appConfig['windowSeconds'] is not None:
+                endSec = startSec + appConfig['windowSeconds']
+                endTs = Timestamp(endSec, 4294967295) if endSec < last['ts'].time else last['ts']
+            else:
+                endTs = last['ts']
+        else:
+            # window ends at the newest oplog entry
+            endTs = last['ts']
+            startSec = endTs.time - appConfig['windowSeconds']
+        if (endTs.time < first['ts'].time) or (startSec > last['ts'].time):
+            printLog("ERROR: the requested window is outside the oplog, which covers {} to {}.".format(first['ts'].as_datetime(),last['ts'].as_datetime()),fp)
+            sys.exit(1)
+        if startSec < first['ts'].time:
+            printLog("WARNING: the oplog starts at {}, after the requested start; the window starts at the oldest entry.".format(first['ts'].as_datetime()),fp)
+            startTs = first['ts']
+        else:
+            startTs = Timestamp(startSec, 0)
 
     currentTs = startTs
 
     printLog("starting with opLog timestamp = {}".format(currentTs.as_datetime()),fp)
+    if endTs is not None:
+        printLog("stopping at opLog timestamp  = {}".format(endTs.as_datetime()),fp)
 
     numTotalOplogEntries = 0
+    numMigrateEntries = 0
+    numTxnEntries = 0
     opDict = {}
+    multiNsTxnDict = {}
+    opKeys = {'i':'ins','u':'upd','d':'del','c':'com','n':'nop'}
+
+    def countOp(thisOp, thisNs):
+        # one oplog operation = one changed document for i/u/d
+        if thisOp == 'n':
+            thisNs = '**NO-OP**'
+        if thisOp not in opKeys:
+            return False
+        if thisNs not in opDict:
+            opDict[thisNs] = {'ins':0,'upd':0,'del':0,'com':0,'nop':0}
+        opDict[thisNs][opKeys[thisOp]] += 1
+        return True
 
     '''
     i  = insert
@@ -56,13 +89,18 @@ def parseOplog(appConfig):
 
     startTime = time.time()
     lastFeedback = time.time()
+    elapsedSeconds = 0
     allDone = False
 
     #sourceNs = "<database>.<collection>"
 
     while not allDone:
         if appConfig['includeAllDatabases']:
-            cursor = oplog.find({'ts': {'$gte': currentTs}},{'op':1,'ns':1,'ts':1},cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True,batch_size=appConfig['batchSize'])
+            thisProjection = {'op':1,'ns':1,'ts':1,'fromMigrate':1,'o.applyOps.op':1,'o.applyOps.ns':1,'o.applyOps.fromMigrate':1}
+            if endTs is None:
+                cursor = oplog.find({'ts': {'$gte': currentTs}},thisProjection,cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True,batch_size=appConfig['batchSize'])
+            else:
+                cursor = oplog.find({'ts': {'$gte': currentTs, '$lte': endTs}},thisProjection,oplog_replay=True,batch_size=appConfig['batchSize'])
         else:
             #cursor = oplog.find({'ts': {'$gte': currentTs},'ns':sourceNs},cursor_type=pymongo.CursorType.TAILABLE_AWAIT,oplog_replay=True)
             printLog('Namespace specific parsing is not yet supported.',fp)
@@ -84,63 +122,56 @@ def parseOplog(appConfig):
 
                     # check if time to stop
                     elapsedSeconds = time.time() - startTime
-                    if ((elapsedSeconds >= appConfig['collectSeconds']) or (appConfig['stopWhenOplogCurrent'] and (secondsBehind < 60))):
+                    if ((elapsedSeconds >= appConfig['collectSeconds']) or (appConfig['stopWhenOplogCurrent'] and (endTs is None) and (secondsBehind < 60))):
                         allDone = True
                         break
 
-                if (doc['op'] == 'i'):
-                    # insert
-                    thisOp = doc['ns']
-                    if thisOp in opDict:
-                        opDict[thisOp]['ins'] += 1
-                    else:
-                        opDict[thisOp] = {'ins':1,'upd':0,'del':0,'com':0,'nop':0}
-                        
-                elif (doc['op'] == 'u'):
-                    # update
-                    thisOp = doc['ns']
-                    if thisOp in opDict:
-                        opDict[thisOp]['upd'] += 1
-                    else:
-                        opDict[thisOp] = {'ins':0,'upd':1,'del':0,'com':0,'nop':0}
-                        
-                elif (doc['op'] == 'd'):
-                    # delete
-                    thisOp = doc['ns']
-                    if thisOp in opDict:
-                        opDict[thisOp]['del'] += 1
-                    else:
-                        opDict[thisOp] = {'ins':0,'upd':0,'del':1,'com':0,'nop':0}
-                        
-                elif (doc['op'] == 'c'):
-                    # command
-                    thisOp = doc['ns']
-                    if thisOp in opDict:
-                        opDict[thisOp]['com'] += 1
-                    else:
-                        opDict[thisOp] = {'ins':0,'upd':0,'del':0,'com':1,'nop':0}
-                        
-                elif (doc['op'] == 'n'):
-                    # no-op
-                    thisOp = '**NO-OP**'
-                    if thisOp in opDict:
-                        opDict[thisOp]['nop'] += 1
-                    else:
-                        opDict[thisOp] = {'ins':0,'upd':0,'del':0,'com':0,'nop':1}
-                        
-                else:
+                if doc.get('fromMigrate', False) and not appConfig['includeMigrations']:
+                    # chunk migration (balancer / moveChunk), not an application write
+                    numMigrateEntries += 1
+                    continue
+
+                if (doc['op'] == 'c') and isinstance(doc.get('o',{}).get('applyOps'), list):
+                    # transaction (or applyOps command): count each inner operation on its own namespace
+                    numTxnEntries += 1
+                    txnNamespaces = set()
+                    for innerOp in doc['o']['applyOps']:
+                        if innerOp.get('fromMigrate', False) and not appConfig['includeMigrations']:
+                            numMigrateEntries += 1
+                            continue
+                        if not countOp(innerOp.get('op'), innerOp.get('ns')):
+                            printLog(innerOp,fp)
+                            sys.exit(1)
+                        if innerOp.get('op') in ('i','u','d'):
+                            txnNamespaces.add(innerOp.get('ns'))
+                    if len(txnNamespaces) > 1:
+                        thisKey = ' | '.join(sorted(txnNamespaces))
+                        multiNsTxnDict[thisKey] = multiNsTxnDict.get(thisKey,0) + 1
+                    continue
+
+                if not countOp(doc['op'], doc.get('ns')):
                     printLog(doc,fp)
                     sys.exit(1)
-                
+
             # check if time to stop
             elapsedSeconds = time.time() - startTime
-            if ((elapsedSeconds >= appConfig['collectSeconds']) or (appConfig['stopWhenOplogCurrent'] and (secondsBehind < 60))):
+            if (endTs is not None) or (elapsedSeconds >= appConfig['collectSeconds']) or (appConfig['stopWhenOplogCurrent'] and (endTs is None) and (secondsBehind < 60)):
                 allDone = True
                 break
 
+        if endTs is not None:
+            # bounded window: one pass of the cursor reads all of it
+            allDone = True
+
     # print overall ops, ips/ups/dps
 
-    oplogSeconds = (currentTs.as_datetime()-startTs.as_datetime()).total_seconds()
+    if endTs is not None:
+        if numTotalOplogEntries > 0 and (elapsedSeconds >= appConfig['collectSeconds']) and (currentTs.time < endTs.time):
+            printLog("WARNING: --collect-seconds stopped the read before the end of the window; rates cover {} to {} only.".format(startTs.as_datetime(),currentTs.as_datetime()),fp)
+            endTs = currentTs
+        oplogSeconds = max((endTs.as_datetime()-startTs.as_datetime()).total_seconds(),1)
+    else:
+        oplogSeconds = max((currentTs.as_datetime()-startTs.as_datetime()).total_seconds(),1)
     oplogMinutes = oplogSeconds/60
     oplogHours = oplogMinutes/60
     oplogDays = oplogHours/24
@@ -165,6 +196,11 @@ def parseOplog(appConfig):
     printLog("",fp)
    
     printLog("opLog elapsed seconds = {}".format(oplogSeconds),fp)
+    printLog("transaction (applyOps) entries unwound = {:,d}".format(numTxnEntries),fp)
+    if appConfig['includeMigrations']:
+        printLog("chunk migration (fromMigrate) entries are INCLUDED in the counts",fp)
+    else:
+        printLog("chunk migration (fromMigrate) operations skipped = {:,d}".format(numMigrateEntries),fp)
 
     # Write to CSV if requested
     if appConfig['outputToCsv']:
@@ -216,7 +252,13 @@ def parseOplog(appConfig):
             ),fp)
 
     printLog("",fp)
-            
+
+    if multiNsTxnDict:
+        printLog("transactions that change more than one namespace on this replica set (oplog entries; a large transaction can span several entries)",fp)
+        for thisKey in sorted(multiNsTxnDict, key=multiNsTxnDict.get, reverse=True):
+            printLog("  {:>10,d} | {}".format(multiNsTxnDict[thisKey],thisKey),fp)
+        printLog("",fp)
+
     client.close()
     fp.close()
 
@@ -287,6 +329,21 @@ def main():
                         type=str,
                         help='Name of the CSV file to write (default: <server-alias>_oplog_stats.csv)')
 
+    parser.add_argument('--start-time',
+                        required=False,
+                        type=str,
+                        help='Start of the window to read, UTC ISO 8601 (e.g. 2026-11-19T14:00:00Z). Default: the oldest oplog entry.')
+
+    parser.add_argument('--window-seconds',
+                        required=False,
+                        type=int,
+                        help='Length of the window to read in seconds. With --start-time the window starts there; without it the window ends at the newest oplog entry.')
+
+    parser.add_argument('--include-migrations',
+                        required=False,
+                        action='store_true',
+                        help='Count chunk migration entries (fromMigrate: true) as inserts/deletes (default: skip them)')
+
     args = parser.parse_args()
     
     MIN_PYTHON = (3, 7)
@@ -297,7 +354,22 @@ def main():
         message = "--unit-of-measure must be one of ['sec','min','hr','day'] for second, minute, hour, day."
         parser.error(message)
         
+    startTime = None
+    if args.start_time is not None:
+        try:
+            startTime = datetime.fromisoformat(args.start_time.replace('Z','+00:00'))
+        except ValueError:
+            parser.error("--start-time must be UTC ISO 8601, for example 2026-11-19T14:00:00Z")
+        if startTime.tzinfo is None:
+            startTime = startTime.replace(tzinfo=timezone.utc)
+
+    if args.window_seconds is not None and args.window_seconds < 1:
+        parser.error("--window-seconds must be >= 1")
+
     appConfig = {}
+    appConfig['startTime'] = startTime
+    appConfig['windowSeconds'] = args.window_seconds
+    appConfig['includeMigrations'] = args.include_migrations
     appConfig['uri'] = args.uri
     appConfig['serverAlias'] = args.server_alias
     appConfig['collectSeconds'] = args.collect_seconds
@@ -306,9 +378,6 @@ def main():
     appConfig['outputToCsv'] = args.output_to_csv
     appConfig['fileName'] = args.file_name if args.file_name else f"{args.server_alias}_oplog_stats.csv"
     
-    # start from the beginning of the oplog rather than an aribtrary timestamp
-    appConfig['startFromOplogStart'] = True
-
     # consume all of the oplog rather than scoping to particular namespaces
     appConfig['includeAllDatabases'] = True
 
