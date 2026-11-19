@@ -20,7 +20,7 @@ The scripts only copy documents. They don't:
 - Python 3.7 or later.
 - The [`pymongo`](https://pypi.org/project/pymongo/) and [`boto3`](https://pypi.org/project/boto3/) Python packages (installed from `requirements.txt` below). Both scripts need `boto3`, even if you don't create CloudWatch metrics.
 - Network access to both the source and the target. Amazon DocumentDB clusters are only reachable from inside their VPC, so run the tool from a machine in the same VPC (for example an Amazon EC2 instance) or through an SSH tunnel. See [Connecting to an Amazon DocumentDB cluster from outside an Amazon VPC](https://docs.aws.amazon.com/documentdb/latest/developerguide/connect-from-outside-a-vpc.html).
-- A database user on the source that can read the collection, run `collStats`, and open a change stream on it, and a user on the target that can write to the target collection. If the target is a sharded MongoDB cluster, the target user must also be able to read `config.collections` (for example with the `clusterMonitor` role), so CDC can find the shard key. See [Sharded targets](#sharded-targets).
+- A database user on the source that can read the collection, run `collStats`, and open a change stream on it, and a user on the target that can write to the target collection. If the target is a sharded MongoDB cluster with a shard key other than `_id`, see [Sharded targets](#sharded-targets).
 - For CDC, change streams on the source:
   - **MongoDB:** the source must be a replica set or a sharded cluster. A standalone server has no change stream.
   - **Amazon DocumentDB:** change streams are off by default. Turn them on for the collection before you start the migration, and check that the change stream log retention is long enough. See [Change streams in Amazon DocumentDB](#change-streams-in-amazon-documentdb).
@@ -185,12 +185,12 @@ Each process opens its own change stream on the source, so more processes put mo
 
 ### Sharded targets
 
-A sharded MongoDB cluster rejects an upsert unless its filter contains the full shard key (error 61, `Failed to target upsert by query :: could not extract exact shard key`). The change stream from Amazon DocumentDB identifies a document by `_id` only. So when the target is a `mongos`, CDC reads the target collection's shard key from `config.collections` at startup and:
+A sharded MongoDB cluster rejects an upsert unless its filter contains the full shard key (error 61, `Failed to target upsert by query :: could not extract exact shard key`). The change stream from Amazon DocumentDB identifies a document by `_id` only. So when the target collection is sharded on a key other than `_id`, pass the shard key fields with `--target-shard-key`, and CDC:
 
 - Uses `_id` plus the shard key fields, taken from the source document, as the filter for every replace.
-- Before each update or replace, deletes any target document with the same `_id` and a different shard key value. This removes the old copy when the source changed the shard key, which would otherwise stay on another shard. This adds one delete for each update or replace, sent to all shards.
+- Before each update or replace, deletes any target document with the same `_id` and a different shard key value. This removes the old copy when the source changed the shard key, which would otherwise stay on another shard. This adds one delete for each update or replace, sent to all shards. When older changes are applied again (for example after a restart from an earlier start position), inserts are written as replaces and get the same delete first.
 
-Nothing changes when the target is not a `mongos`, or when the target collection is not sharded or is sharded on `_id` only. A missing shard key field is matched as null.
+Give the fields comma separated, without `_id` (for example `--target-shard-key region,customerId`). Dotted paths are supported. To find the shard key, run `db.getSiblingDB("config").collections.findOne({_id: "<database>.<collection>"}).key` on the target. CDC does not check the value you pass: if a shard key field is left out, the target rejects the writes with error 61 and CDC stops. Without `--target-shard-key`, nothing changes. A shard key field that is missing from a document is matched as null.
 
 Changes are written in batches. A batch is written when it has `--max-operations-per-batch` changes, or when its oldest change has waited `--max-seconds-between-batches` seconds, whichever comes first. So even when CDC is caught up, a change can take up to 5 seconds (by default) to reach the target.
 
@@ -212,6 +212,7 @@ Changes are written in batches. A batch is written when it has `--max-operations
 | `--dry-run` | off | Read changes from the source, but don't write anything to the target. |
 | `--verbose` | off | Print more detail, such as the time of the first change each process reads. |
 | `--get-resume-token` | off | Wait for the next change to the source collection, print its resume token, and exit. Doesn't apply any changes. Starting CDC from this token starts *after* that change. `--start-position` must still be given, but is ignored. |
+| `--target-shard-key` | none | Comma separated shard key fields of the target collection, other than `_id`, when the target is a sharded MongoDB cluster. See [Sharded targets](#sharded-targets). |
 | `--create-cloudwatch-metrics` | off | Publish progress to Amazon CloudWatch. Requires `--cluster-name`. See [CloudWatch metrics](#cloudwatch-metrics). |
 | `--cluster-name` | none | Value of the `Cluster` dimension for the CloudWatch metrics. |
 | `--skip-python-version-check` | off | Run on Python versions older than 3.7. Not tested. |

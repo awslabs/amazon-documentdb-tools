@@ -17,23 +17,6 @@ def logIt(threadnum, message):
     print("[{}] thread {:>3d} | {}".format(logTimeStamp,threadnum,message))
 
 
-def get_shard_key_fields(destConnection, targetNs):
-    # shard key fields of the target collection, other than _id, or [] if the target is not sharded on another key
-    #   a sharded cluster rejects an upsert whose filter does not contain the full shard key (code 61), and the
-    #   change stream documentKey from Amazon DocumentDB contains only _id, so the filter is built from the document
-    isMongos = (destConnection.admin.command('hello').get('msg') == 'isdbgrid')
-    if not isMongos:
-        return []
-    try:
-        collInfo = destConnection['config']['collections'].find_one({'_id': targetNs})
-    except pymongo.errors.OperationFailure as e:
-        sys.exit("\nTarget is a sharded cluster, but the target user cannot read config.collections to find the shard key of {}: {}\n".format(targetNs,e))
-    if collInfo is None:
-        # collection is not sharded
-        return []
-    return [k for k in collInfo['key'].keys() if k != '_id']
-
-
 def get_field_value(doc, path):
     # value of a (possibly dotted) field, None if missing (a missing shard key field is matched as null)
     cur = doc
@@ -62,9 +45,9 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
     destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
 
-    shardKeyFields = get_shard_key_fields(destConnection, appConfig["targetNs"])
+    shardKeyFields = appConfig["targetShardKey"]
     if (threadnum == 0) and shardKeyFields:
-        logIt(threadnum,'target is sharded on {}, shard key added to write filters'.format(shardKeyFields))
+        logIt(threadnum,'target shard key {}, added to write filters'.format(shardKeyFields))
 
     def writeFilter(doc):
         # _id plus the shard key fields, so the write can be routed to one shard
@@ -177,6 +160,9 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     if (thisNs == appConfig["sourceNs"]):
                         bulkOpList.append(pymongo.InsertOne(change['fullDocument']))
                         # if replaying older changes, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
+                        if shardKeyFields:
+                            # the document may have a different shard key value by now, remove that copy, later changes restore it
+                            bulkOpListReplace.append(pymongo.DeleteOne(staleCopyFilter(change['fullDocument'])))
                         bulkOpListReplace.append(pymongo.ReplaceOne(writeFilter(change['fullDocument']),change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
 
@@ -450,6 +436,12 @@ def main():
                         action='store_true',
                         help='Display the current change stream resume token')
 
+    parser.add_argument('--target-shard-key',
+                        required=False,
+                        type=str,
+                        default='',
+                        help='Comma separated shard key fields of a sharded target collection, other than _id, for example "region,customerId"')
+
     parser.add_argument('--create-cloudwatch-metrics',required=False,action='store_true',help='Create CloudWatch metrics')
     parser.add_argument('--cluster-name',required=False,type=str,help='Name of cluster for CloudWatch metrics')
 
@@ -480,6 +472,7 @@ def main():
     appConfig['verboseLogging'] = args.verbose
     appConfig['createCloudwatchMetrics'] = args.create_cloudwatch_metrics
     appConfig['clusterName'] = args.cluster_name
+    appConfig['targetShardKey'] = [k.strip() for k in args.target_shard_key.split(',') if (k.strip() != '') and (k.strip() != '_id')]
 
     if args.get_resume_token:
         get_resume_token(appConfig)
@@ -510,7 +503,8 @@ def main():
         logIt(-1,"starting with timestamp = {}".format(appConfig["startTs"].as_datetime()))
 
     mp.set_start_method('spawn')
-    q = mp.Manager().Queue()
+    manager = mp.Manager()
+    q = manager.Queue()
 
     t = threading.Thread(target=reporter,args=(appConfig,q))
     t.start()
@@ -531,6 +525,8 @@ def main():
             for process in processList:
                 if process.is_alive():
                     process.terminate()
+            # stop the queue manager too, os._exit skips its cleanup and the orphaned manager process keeps stdout open
+            manager.shutdown()
             os._exit(1)
         time.sleep(1)
 
@@ -538,6 +534,7 @@ def main():
         process.join()
         if process.exitcode != 0:
             logIt(-1,"ERROR: a processor exited with an error, restart from the last resume token printed")
+            manager.shutdown()
             os._exit(1)
 
     t.join()
