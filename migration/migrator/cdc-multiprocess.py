@@ -464,7 +464,8 @@ def main():
         logIt(-1,"starting with timestamp = {}".format(appConfig["startTs"].as_datetime()))
 
     mp.set_start_method('spawn')
-    q = mp.Manager().Queue()
+    manager = mp.Manager()
+    q = manager.Queue()
 
     t = threading.Thread(target=reporter,args=(appConfig,q))
     t.start()
@@ -477,8 +478,25 @@ def main():
     for process in processList:
         process.start()
         
+    # stop everything if a processor fails, otherwise the reporter keeps printing progress for changes nobody applies
+    while any(process.is_alive() for process in processList):
+        failedList = [process for process in processList if (process.exitcode is not None) and (process.exitcode != 0)]
+        if failedList:
+            logIt(-1,"ERROR: {} of {} processors exited with an error, stopping, restart from the last resume token printed".format(len(failedList),len(processList)))
+            for process in processList:
+                if process.is_alive():
+                    process.terminate()
+            # stop the queue manager too, os._exit skips its cleanup and the orphaned manager process keeps stdout open
+            manager.shutdown()
+            os._exit(1)
+        time.sleep(1)
+
     for process in processList:
         process.join()
+        if process.exitcode != 0:
+            logIt(-1,"ERROR: a processor exited with an error, restart from the last resume token printed")
+            manager.shutdown()
+            os._exit(1)
         
     t.join()
 
