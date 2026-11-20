@@ -20,7 +20,7 @@ The scripts only copy documents. They don't:
 - Python 3.7 or later.
 - The [`pymongo`](https://pypi.org/project/pymongo/) and [`boto3`](https://pypi.org/project/boto3/) Python packages (installed from `requirements.txt` below). Both scripts need `boto3`, even if you don't create CloudWatch metrics.
 - Network access to both the source and the target. Amazon DocumentDB clusters are only reachable from inside their VPC, so run the tool from a machine in the same VPC (for example an Amazon EC2 instance) or through an SSH tunnel. See [Connecting to an Amazon DocumentDB cluster from outside an Amazon VPC](https://docs.aws.amazon.com/documentdb/latest/developerguide/connect-from-outside-a-vpc.html).
-- A database user on the source that can read the collection, run `collStats`, and open a change stream on it, and a user on the target that can write to the target collection.
+- A database user on the source that can read the collection, run `collStats`, and open a change stream on it, and a user on the target that can write to the target collection. If the target is a sharded MongoDB cluster with a shard key other than `_id`, see [Sharded targets](#sharded-targets).
 - For CDC, change streams on the source:
   - **MongoDB:** the source must be a replica set or a sharded cluster. A standalone server has no change stream.
   - **Amazon DocumentDB:** change streams are off by default. Turn them on for the collection before you start the migration, and check that the change stream log retention is long enough. See [Change streams in Amazon DocumentDB](#change-streams-in-amazon-documentdb).
@@ -183,6 +183,15 @@ Each process opens its own change stream on the source, so more processes put mo
 - **Deletes** delete the document, if it exists in the target.
 - **Other events**, such as collection drops and renames, are ignored.
 
+### Sharded targets
+
+A sharded MongoDB cluster rejects an upsert unless its filter contains the full shard key (error 61, `Failed to target upsert by query :: could not extract exact shard key`). The change stream from Amazon DocumentDB identifies a document by `_id` only. So when the target collection is sharded on a field other than `_id`, pass that field with `--shard-field`, for example `--shard-field vehicleId`. CDC then:
+
+- Uses `_id` plus the shard field, taken from the source document, as the filter for every replace.
+- Before each update or replace, deletes any target document with the same `_id` and a different shard field value. This removes the old copy when the source changed the shard field, which would otherwise stay on another shard. This adds one delete for each update or replace, sent to all shards.
+
+One field is supported, and it can be a dotted path. CDC does not check the value you pass: if it is not the shard key of the target collection, the target rejects the writes with error 61. `--shard-field _id` is ignored. A shard field that is missing from a document is matched as null. Without `--shard-field`, nothing changes.
+
 Changes are written in batches. A batch is written when it has `--max-operations-per-batch` changes, or when its oldest change has waited `--max-seconds-between-batches` seconds, whichever comes first. So even when CDC is caught up, a change can take up to 5 seconds (by default) to reach the target.
 
 ### CDC options
@@ -203,6 +212,7 @@ Changes are written in batches. A batch is written when it has `--max-operations
 | `--dry-run` | off | Read changes from the source, but don't write anything to the target. |
 | `--verbose` | off | Print more detail, such as the time of the first change each process reads. |
 | `--get-resume-token` | off | Wait for the next change to the source collection, print its resume token, and exit. Doesn't apply any changes. Starting CDC from this token starts *after* that change. `--start-position` must still be given, but is ignored. |
+| `--shard-field` | none | Shard key field of the target collection, when the target is a sharded MongoDB cluster and the collection is sharded on a field other than `_id`. See [Sharded targets](#sharded-targets). |
 | `--create-cloudwatch-metrics` | off | Publish progress to Amazon CloudWatch. Requires `--cluster-name`. See [CloudWatch metrics](#cloudwatch-metrics). |
 | `--cluster-name` | none | Value of the `Cluster` dimension for the CloudWatch metrics. |
 | `--skip-python-version-check` | off | Run on Python versions older than 3.7. Not tested. |
