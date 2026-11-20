@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 import sys
 import time
@@ -11,6 +12,19 @@ import warnings
 def printLog(thisMessage,thisFile):
     print(thisMessage)
     thisFile.write("{}\n".format(thisMessage))
+
+
+def tokenSeconds(resumeToken):
+    # MongoDB resume token: '_data' is a hex keystring; a first byte 0x82 marks
+    # a Timestamp, and the next 4 bytes are its seconds (big-endian).
+    # Returns None for any other format (for example Amazon DocumentDB).
+    try:
+        data = resumeToken['_data']
+        if isinstance(data, str) and len(data) >= 10 and data[0:2].lower() == '82':
+            return int(data[2:10], 16)
+    except Exception:
+        pass
+    return None
 
 
 def parseChangestream(appConfig):
@@ -29,6 +43,14 @@ def parseChangestream(appConfig):
 
     printLog("starting with timestamp = {}".format(startTs.as_datetime()),fp)
 
+    # optional fixed window [startTs, endSec]
+    endSec = None
+    if appConfig['windowSeconds'] is not None:
+        endSec = startTs.time + appConfig['windowSeconds']
+        printLog("stopping at timestamp  = {}".format(Timestamp(endSec, 0).as_datetime()),fp)
+        if endSec > time.time():
+            printLog("NOTE: the window ends in the future; the tool reads until then (or until --collect-seconds)",fp)
+
     numTotalChangestreamEntries = 0
     opDict = {}
 
@@ -39,6 +61,7 @@ def parseChangestream(appConfig):
     startTime = time.time()
     lastFeedback = time.time()
     allDone = False
+    windowDone = False
     
     noChangesPauseSeconds = 5.0
 
@@ -65,6 +88,17 @@ def parseChangestream(appConfig):
             
             if change is None:
                 # no changes available - might be time to stop
+                if endSec is not None:
+                    tokenSec = tokenSeconds(resumeToken) if resumeToken is not None else None
+                    if (tokenSec is not None) and (tokenSec > endSec):
+                        # the stream is past the end of the window
+                        windowDone = True
+                        allDone = True
+                        break
+                    if tokenSec is not None:
+                        # stream position is known and still inside the window - keep reading
+                        time.sleep(noChangesPauseSeconds)
+                        continue
                 if appConfig['stopWhenChangestreamCurrent']:
                     print("change stream is current, stopping")
                     allDone = True
@@ -76,8 +110,14 @@ def parseChangestream(appConfig):
                 #print("change doc is | {}".format(change))
                 pass
 
+            # check if time to stop - past the end of the window
+            if (endSec is not None) and (change['clusterTime'].time > endSec):
+                windowDone = True
+                allDone = True
+                break
+
             # check if time to stop - current enough
-            if (appConfig['stopWhenChangestreamCurrent'] and (secondsBehind < 60)):
+            if (endSec is None) and (appConfig['stopWhenChangestreamCurrent'] and (secondsBehind < 60)):
                 print("change stream is current, stopping")
                 allDone = True
                 break
@@ -137,7 +177,13 @@ def parseChangestream(appConfig):
         fp.close()
         return
 
-    oplogSeconds = (currentTs.as_datetime()-startTs.as_datetime()).total_seconds()
+    if (endSec is not None) and windowDone:
+        oplogSeconds = float(appConfig['windowSeconds'])
+    else:
+        if endSec is not None:
+            printLog("WARNING: the read stopped before the end of the window; rates cover {} to {} only.".format(startTs.as_datetime(),currentTs.as_datetime()),fp)
+        # floor of 1 second: avoids a division by zero when all changes share one second
+        oplogSeconds = max((currentTs.as_datetime()-startTs.as_datetime()).total_seconds(),1)
     oplogMinutes = oplogSeconds/60
     oplogHours = oplogMinutes/60
     oplogDays = oplogHours/24
@@ -162,6 +208,23 @@ def parseChangestream(appConfig):
     printLog("",fp)
    
     printLog("changestream elapsed seconds = {}".format(oplogSeconds),fp)
+
+    if appConfig['outputToCsv']:
+        try:
+            with open(appConfig['fileName'], 'w', newline='') as csvfile:
+                csvwriter = csv.writer(csvfile)
+                csvwriter.writerow(['Namespace',
+                                   'Tot Inserts', 'Per '+appConfig['unitOfMeasure'],
+                                   'Tot Updates', 'Per '+appConfig['unitOfMeasure'],
+                                   'Tot Deletes', 'Per '+appConfig['unitOfMeasure']])
+                for thisOpKey in sorted(opDict.keys()):
+                    csvwriter.writerow([thisOpKey,
+                                       opDict[thisOpKey]['ins'], opDict[thisOpKey]['ins']//calcDivisor,
+                                       opDict[thisOpKey]['upd'], opDict[thisOpKey]['upd']//calcDivisor,
+                                       opDict[thisOpKey]['del'], opDict[thisOpKey]['del']//calcDivisor])
+            printLog("CSV output written to {}".format(appConfig['fileName']),fp)
+        except Exception as e:
+            printLog("Error writing to CSV file: {}".format(str(e)),fp)
 
     # print collection ops, ips/ups/dps
     printLog("{:<{dbWidth}s} | {:<{intWidth}s} | {:<{floatWidth}s} | {:<{intWidth}s} | {:<{floatWidth}s} | {:<{intWidth}s} | {:<{floatWidth}s}".format('Namespace',
@@ -227,7 +290,22 @@ def main():
     parser.add_argument('--start-position',
                         required=True,
                         type=str,
-                        help='Starting position - YYYY-MM-DD+HH:MM:SS in UTC')
+                        help='Starting position in UTC: YYYY-MM-DD+HH:MM:SS or ISO 8601 (e.g. 2026-11-19T14:00:00Z)')
+
+    parser.add_argument('--window-seconds',
+                        required=False,
+                        type=int,
+                        help='Length of the window to read in seconds, from --start-position. Rates use the window length.')
+
+    parser.add_argument('--output-to-csv',
+                        required=False,
+                        action='store_true',
+                        help='Output results to a CSV file')
+
+    parser.add_argument('--file-name',
+                        required=False,
+                        type=str,
+                        help='Name of the CSV file to write (default: <server-alias>_changestream_stats.csv)')
 
     parser.add_argument('--num-operations-feedback',
                         required=False,
@@ -253,7 +331,24 @@ def main():
     appConfig['collectSeconds'] = args.collect_seconds
     appConfig['unitOfMeasure'] = args.unit_of_measure
     appConfig['stopWhenChangestreamCurrent'] = args.stop_when_changestream_current
-    appConfig["startTs"] = Timestamp(datetime.fromisoformat(args.start_position), 1)
+    startText = args.start_position.strip()
+    if len(startText) > 10 and startText[10] in ('+',' '):
+        # original format YYYY-MM-DD+HH:MM:SS
+        startText = startText[:10] + 'T' + startText[11:]
+    try:
+        startDt = datetime.fromisoformat(startText.replace('Z','+00:00'))
+    except ValueError:
+        parser.error("--start-position must be UTC, YYYY-MM-DD+HH:MM:SS or ISO 8601 (e.g. 2026-11-19T14:00:00Z)")
+    if startDt.tzinfo is None:
+        startDt = startDt.replace(tzinfo=timezone.utc)
+
+    if args.window_seconds is not None and args.window_seconds < 1:
+        parser.error("--window-seconds must be >= 1")
+
+    appConfig["startTs"] = Timestamp(startDt, 1)
+    appConfig['windowSeconds'] = args.window_seconds
+    appConfig['outputToCsv'] = args.output_to_csv
+    appConfig['fileName'] = args.file_name if args.file_name else "{}_changestream_stats.csv".format(args.server_alias)
     appConfig['numOperationsFeedback'] = int(args.num_operations_feedback)
     appConfig['numSecondsFeedback'] = int(args.num_seconds_feedback)
     
