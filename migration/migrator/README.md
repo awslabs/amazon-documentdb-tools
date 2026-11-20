@@ -162,7 +162,7 @@ The start position must still be in the change stream. On MongoDB, that means it
 
 ### Stopping and resuming
 
-CDC runs until you press Ctrl+C, or for `--duration-seconds` seconds if you set it. If a process fails, for example because the target rejects a write, CDC stops all processes and exits with code 1. Fix the cause, then start CDC again from the last resume token it printed.
+CDC runs until you press Ctrl+C, or for `--duration-seconds` seconds if you set it.
 
 Each progress report shows a `resume token`. Every change up to that point has been written to the target. To continue later without missing any changes, start CDC again with `--start-position` set to the last resume token it printed. Some changes may be applied a second time, which is safe.
 
@@ -185,12 +185,12 @@ Each process opens its own change stream on the source, so more processes put mo
 
 ### Sharded targets
 
-A sharded MongoDB cluster rejects an upsert unless its filter contains the full shard key (error 61, `Failed to target upsert by query :: could not extract exact shard key`). The change stream from Amazon DocumentDB identifies a document by `_id` only. So when the target collection is sharded on a key other than `_id`, pass the shard key fields with `--target-shard-key`, and CDC:
+A sharded MongoDB cluster rejects an upsert unless its filter contains the full shard key (error 61, `Failed to target upsert by query :: could not extract exact shard key`). The change stream from Amazon DocumentDB identifies a document by `_id` only. So when the target collection is sharded on a field other than `_id`, pass that field with `--shard-field`, for example `--shard-field vehicleId`. CDC then:
 
-- Uses `_id` plus the shard key fields, taken from the source document, as the filter for every replace.
-- Before each update or replace, deletes any target document with the same `_id` and a different shard key value. This removes the old copy when the source changed the shard key, which would otherwise stay on another shard. This adds one delete for each update or replace, sent to all shards. When older changes are applied again (for example after a restart from an earlier start position), inserts are written as replaces and get the same delete first.
+- Uses `_id` plus the shard field, taken from the source document, as the filter for every replace.
+- Before each update or replace, deletes any target document with the same `_id` and a different shard field value. This removes the old copy when the source changed the shard field, which would otherwise stay on another shard. This adds one delete for each update or replace, sent to all shards.
 
-Give the fields comma separated, without `_id` (for example `--target-shard-key region,customerId`). Dotted paths are supported. To find the shard key, run `db.getSiblingDB("config").collections.findOne({_id: "<database>.<collection>"}).key` on the target. CDC does not check the value you pass: if a shard key field is left out, the target rejects the writes with error 61 and CDC stops. Without `--target-shard-key`, nothing changes. A shard key field that is missing from a document is matched as null.
+One field is supported, and it can be a dotted path. CDC does not check the value you pass: if it is not the shard key of the target collection, the target rejects the writes with error 61. `--shard-field _id` is ignored. A shard field that is missing from a document is matched as null. Without `--shard-field`, nothing changes.
 
 Changes are written in batches. A batch is written when it has `--max-operations-per-batch` changes, or when its oldest change has waited `--max-seconds-between-batches` seconds, whichever comes first. So even when CDC is caught up, a change can take up to 5 seconds (by default) to reach the target.
 
@@ -212,7 +212,7 @@ Changes are written in batches. A batch is written when it has `--max-operations
 | `--dry-run` | off | Read changes from the source, but don't write anything to the target. |
 | `--verbose` | off | Print more detail, such as the time of the first change each process reads. |
 | `--get-resume-token` | off | Wait for the next change to the source collection, print its resume token, and exit. Doesn't apply any changes. Starting CDC from this token starts *after* that change. `--start-position` must still be given, but is ignored. |
-| `--target-shard-key` | none | Comma separated shard key fields of the target collection, other than `_id`, when the target is a sharded MongoDB cluster. See [Sharded targets](#sharded-targets). |
+| `--shard-field` | none | Shard key field of the target collection, when the target is a sharded MongoDB cluster and the collection is sharded on a field other than `_id`. See [Sharded targets](#sharded-targets). |
 | `--create-cloudwatch-metrics` | off | Publish progress to Amazon CloudWatch. Requires `--cluster-name`. See [CloudWatch metrics](#cloudwatch-metrics). |
 | `--cluster-name` | none | Value of the `Cluster` dimension for the CloudWatch metrics. |
 | `--skip-python-version-check` | off | Run on Python versions older than 3.7. Not tested. |

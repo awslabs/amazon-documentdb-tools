@@ -45,20 +45,9 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
     destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
 
-    shardKeyFields = appConfig["targetShardKey"]
-    if (threadnum == 0) and shardKeyFields:
-        logIt(threadnum,'target shard key {}, added to write filters'.format(shardKeyFields))
-
-    def writeFilter(doc):
-        # _id plus the shard key fields, so the write can be routed to one shard
-        thisFilter = {'_id': doc['_id']}
-        for keyField in shardKeyFields:
-            thisFilter[keyField] = get_field_value(doc, keyField)
-        return thisFilter
-
-    def staleCopyFilter(doc):
-        # a document with this _id but a different shard key value, left behind if the source changed the shard key
-        return {'_id': doc['_id'], '$nor': [{keyField: get_field_value(doc, keyField) for keyField in shardKeyFields}]}
+    shardField = appConfig["shardField"]
+    if (threadnum == 0) and (shardField is not None):
+        logIt(threadnum,'target shard field {}, added to write filters'.format(shardField))
 
     startTime = time.time()
 
@@ -160,21 +149,28 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     if (thisNs == appConfig["sourceNs"]):
                         bulkOpList.append(pymongo.InsertOne(change['fullDocument']))
                         # if replaying older changes, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
-                        if shardKeyFields:
-                            # the document may have a different shard key value by now, remove that copy, later changes restore it
-                            bulkOpListReplace.append(pymongo.DeleteOne(staleCopyFilter(change['fullDocument'])))
-                        bulkOpListReplace.append(pymongo.ReplaceOne(writeFilter(change['fullDocument']),change['fullDocument'],upsert=True))
+                        if shardField is None:
+                            bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        else:
+                            # sharded target: delete a copy with this _id and a different shard field value (left if the shard field changed), then replace by _id + shard field
+                            shardValue = get_field_value(change['fullDocument'],shardField)
+                            bulkOpListReplace.append(pymongo.DeleteOne({'_id':change['documentKey']['_id'],shardField:{'$ne':shardValue}}))
+                            bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']['_id'],shardField:shardValue},change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
 
                 elif (thisOp in ['update','replace']):
                     # update/replace
                     if (change['fullDocument'] is not None) and (thisNs == appConfig["sourceNs"]):
-                        if shardKeyFields:
-                            # the update may have changed the shard key, remove the copy that has the old value
-                            bulkOpList.append(pymongo.DeleteOne(staleCopyFilter(change['fullDocument'])))
-                            bulkOpListReplace.append(pymongo.DeleteOne(staleCopyFilter(change['fullDocument'])))
-                        bulkOpList.append(pymongo.ReplaceOne(writeFilter(change['fullDocument']),change['fullDocument'],upsert=True))
-                        bulkOpListReplace.append(pymongo.ReplaceOne(writeFilter(change['fullDocument']),change['fullDocument'],upsert=True))
+                        if shardField is None:
+                            bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                            bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        else:
+                            # sharded target: delete a copy with this _id and a different shard field value (left if the update changed the shard field), then replace by _id + shard field
+                            shardValue = get_field_value(change['fullDocument'],shardField)
+                            bulkOpList.append(pymongo.DeleteOne({'_id':change['documentKey']['_id'],shardField:{'$ne':shardValue}}))
+                            bulkOpList.append(pymongo.ReplaceOne({'_id':change['documentKey']['_id'],shardField:shardValue},change['fullDocument'],upsert=True))
+                            bulkOpListReplace.append(pymongo.DeleteOne({'_id':change['documentKey']['_id'],shardField:{'$ne':shardValue}}))
+                            bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']['_id'],shardField:shardValue},change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
 
                 elif (thisOp == 'delete'):
@@ -436,11 +432,10 @@ def main():
                         action='store_true',
                         help='Display the current change stream resume token')
 
-    parser.add_argument('--target-shard-key',
+    parser.add_argument('--shard-field',
                         required=False,
                         type=str,
-                        default='',
-                        help='Comma separated shard key fields of a sharded target collection, other than _id, for example "region,customerId"')
+                        help='Shard key field of the target collection when the target is sharded on a field other than _id')
 
     parser.add_argument('--create-cloudwatch-metrics',required=False,action='store_true',help='Create CloudWatch metrics')
     parser.add_argument('--cluster-name',required=False,type=str,help='Name of cluster for CloudWatch metrics')
@@ -472,7 +467,10 @@ def main():
     appConfig['verboseLogging'] = args.verbose
     appConfig['createCloudwatchMetrics'] = args.create_cloudwatch_metrics
     appConfig['clusterName'] = args.cluster_name
-    appConfig['targetShardKey'] = [k.strip() for k in args.target_shard_key.split(',') if (k.strip() != '') and (k.strip() != '_id')]
+    if (args.shard_field is None) or (args.shard_field.strip() in ['','_id']):
+        appConfig['shardField'] = None
+    else:
+        appConfig['shardField'] = args.shard_field.strip()
 
     if args.get_resume_token:
         get_resume_token(appConfig)
@@ -503,8 +501,7 @@ def main():
         logIt(-1,"starting with timestamp = {}".format(appConfig["startTs"].as_datetime()))
 
     mp.set_start_method('spawn')
-    manager = mp.Manager()
-    q = manager.Queue()
+    q = mp.Manager().Queue()
 
     t = threading.Thread(target=reporter,args=(appConfig,q))
     t.start()
@@ -517,26 +514,9 @@ def main():
     for process in processList:
         process.start()
         
-    # stop everything if a processor fails, otherwise the reporter keeps printing progress for changes nobody applies
-    while any(process.is_alive() for process in processList):
-        failedList = [process for process in processList if (process.exitcode is not None) and (process.exitcode != 0)]
-        if failedList:
-            logIt(-1,"ERROR: {} of {} processors exited with an error, stopping, restart from the last resume token printed".format(len(failedList),len(processList)))
-            for process in processList:
-                if process.is_alive():
-                    process.terminate()
-            # stop the queue manager too, os._exit skips its cleanup and the orphaned manager process keeps stdout open
-            manager.shutdown()
-            os._exit(1)
-        time.sleep(1)
-
     for process in processList:
         process.join()
-        if process.exitcode != 0:
-            logIt(-1,"ERROR: a processor exited with an error, restart from the last resume token printed")
-            manager.shutdown()
-            os._exit(1)
-
+        
     t.join()
 
 
