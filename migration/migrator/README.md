@@ -162,7 +162,7 @@ The start position must still be in the change stream. On MongoDB, that means it
 
 ### Stopping and resuming
 
-CDC runs until you press Ctrl+C, or for `--duration-seconds` seconds if you set it.
+CDC runs until you press Ctrl+C, or for `--duration-seconds` seconds if you set it. If a process fails, for example because the target rejects a write, CDC stops all processes and exits with code 1. Fix the cause, then start CDC again from the last resume token it printed.
 
 Each progress report shows a `resume token`. Every change up to that point has been written to the target. To continue later without missing any changes, start CDC again with `--start-position` set to the last resume token it printed. Some changes may be applied a second time, which is safe.
 
