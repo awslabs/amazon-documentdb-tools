@@ -17,6 +17,16 @@ def logIt(threadnum, message):
     print("[{}] thread {:>3d} | {}".format(logTimeStamp,threadnum,message))
 
 
+def get_field_value(doc, path):
+    # value of a (possibly dotted) field, None if missing (a missing shard key field is matched as null)
+    cur = doc
+    for part in path.split('.'):
+        if not isinstance(cur, dict) or part not in cur:
+            return None
+        cur = cur[part]
+    return cur
+
+
 def change_stream_processor(threadnum, appConfig, perfQ):
     warnings.filterwarnings("ignore","You appear to be connected to a DocumentDB cluster.")
 
@@ -34,6 +44,10 @@ def change_stream_processor(threadnum, appConfig, perfQ):
     destConnection = pymongo.MongoClient(host=appConfig["targetUri"],appname=myAppname)
     destDatabase = destConnection[appConfig["targetNs"].split('.',1)[0]]
     destCollection = destDatabase[appConfig["targetNs"].split('.',1)[1]]
+
+    shardField = appConfig["shardField"]
+    if (threadnum == 0) and (shardField is not None):
+        logIt(threadnum,'target shard field {}, added to write filters'.format(shardField))
 
     startTime = time.time()
 
@@ -135,14 +149,28 @@ def change_stream_processor(threadnum, appConfig, perfQ):
                     if (thisNs == appConfig["sourceNs"]):
                         bulkOpList.append(pymongo.InsertOne(change['fullDocument']))
                         # if replaying older changes, need to change inserts to be replaces (the inserts will fail due to _id uniqueness)
-                        bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        if shardField is None:
+                            bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        else:
+                            # sharded target: delete a copy with this _id and a different shard field value (left if the shard field changed), then replace by _id + shard field
+                            shardValue = get_field_value(change['fullDocument'],shardField)
+                            bulkOpListReplace.append(pymongo.DeleteOne({'_id':change['documentKey']['_id'],shardField:{'$ne':shardValue}}))
+                            bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']['_id'],shardField:shardValue},change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
 
                 elif (thisOp in ['update','replace']):
                     # update/replace
                     if (change['fullDocument'] is not None) and (thisNs == appConfig["sourceNs"]):
-                        bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
-                        bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        if shardField is None:
+                            bulkOpList.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                            bulkOpListReplace.append(pymongo.ReplaceOne(change['documentKey'],change['fullDocument'],upsert=True))
+                        else:
+                            # sharded target: delete a copy with this _id and a different shard field value (left if the update changed the shard field), then replace by _id + shard field
+                            shardValue = get_field_value(change['fullDocument'],shardField)
+                            bulkOpList.append(pymongo.DeleteOne({'_id':change['documentKey']['_id'],shardField:{'$ne':shardValue}}))
+                            bulkOpList.append(pymongo.ReplaceOne({'_id':change['documentKey']['_id'],shardField:shardValue},change['fullDocument'],upsert=True))
+                            bulkOpListReplace.append(pymongo.DeleteOne({'_id':change['documentKey']['_id'],shardField:{'$ne':shardValue}}))
+                            bulkOpListReplace.append(pymongo.ReplaceOne({'_id':change['documentKey']['_id'],shardField:shardValue},change['fullDocument'],upsert=True))
                         numCurrentBulkOps += 1
 
                 elif (thisOp == 'delete'):
@@ -404,6 +432,11 @@ def main():
                         action='store_true',
                         help='Display the current change stream resume token')
 
+    parser.add_argument('--shard-field',
+                        required=False,
+                        type=str,
+                        help='Shard key field of the target collection when the target is sharded on a field other than _id')
+
     parser.add_argument('--create-cloudwatch-metrics',required=False,action='store_true',help='Create CloudWatch metrics')
     parser.add_argument('--cluster-name',required=False,type=str,help='Name of cluster for CloudWatch metrics')
 
@@ -434,6 +467,10 @@ def main():
     appConfig['verboseLogging'] = args.verbose
     appConfig['createCloudwatchMetrics'] = args.create_cloudwatch_metrics
     appConfig['clusterName'] = args.cluster_name
+    if (args.shard_field is None) or (args.shard_field.strip() in ['','_id']):
+        appConfig['shardField'] = None
+    else:
+        appConfig['shardField'] = args.shard_field.strip()
 
     if args.get_resume_token:
         get_resume_token(appConfig)
